@@ -1,84 +1,217 @@
-/*
-Copyright 2025.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package controller
 
 import (
 	"context"
+	"fmt"
+	"time"
+
+	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-var _ = Describe("RavenDBCluster Controller", func() {
-	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+type TestFixture struct {
+	Ctx         context.Context
+	Namespace   string
+	K8sClient   client.Client
+	BaseCluster *ravendbv1alpha1.RavenDBCluster
+}
 
-		ctx := context.Background()
+func NewTestFixture(k8sClient client.Client) *TestFixture {
+	ctx := context.Background()
 
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+	ns := fmt.Sprintf("test-ns-%d", time.Now().UnixNano())
+	err := k8sClient.Create(ctx, &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ns,
+		},
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	base := &ravendbv1alpha1.RavenDBCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-cluster",
+			Namespace: ns,
+		},
+		Spec: ravendbv1alpha1.RavenDBClusterSpec{
+			Image:            "ravendb/ravendb:latest",
+			ImagePullPolicy:  "IfNotPresent",
+			Mode:             "",
+			License:          "license",
+			Domain:           "thegoldenplatypus.development.run",
+			ServerUrl:        "",
+			ServerUrlTcp:     "",
+			StorageSize:      "5Gi",
+			IngressClassName: "nginx",
+			Nodes: []ravendbv1alpha1.RavenDBNode{
+				{
+					Name:               "a",
+					PublicServerUrl:    "",
+					PublicServerUrlTcp: "",
+				},
+				{
+					Name:               "b",
+					PublicServerUrl:    "",
+					PublicServerUrlTcp: "",
+				},
+				{
+					Name:               "c",
+					PublicServerUrl:    "",
+					PublicServerUrlTcp: "",
+				},
+			},
+		},
+	}
+
+	return &TestFixture{
+		Ctx:         ctx,
+		Namespace:   ns,
+		K8sClient:   k8sClient,
+		BaseCluster: base,
+	}
+}
+
+func (f *TestFixture) Cleanup() {
+	nsObj := &corev1.Namespace{}
+	err := f.K8sClient.Get(f.Ctx, client.ObjectKey{Name: f.Namespace}, nsObj)
+	if err == nil {
+		_ = f.K8sClient.Delete(f.Ctx, nsObj)
+	}
+}
+
+func (f *TestFixture) VerifyResources(instance *ravendbv1alpha1.RavenDBCluster) {
+	for _, node := range instance.Spec.Nodes {
+		By(fmt.Sprintf("Waiting for StatefulSet %s", node.Name))
+		Eventually(func() bool {
+			sts := &appsv1.StatefulSet{}
+			err := f.K8sClient.Get(f.Ctx, types.NamespacedName{
+				Name: fmt.Sprintf("ravendb-%s", node.Name), Namespace: f.Namespace}, sts)
+			return err == nil
+		}, 10*time.Second, 500*time.Millisecond).Should(BeTrue())
+
+		By(fmt.Sprintf("Verifying Service for %s", node.Name))
+		svc := &corev1.Service{}
+		Expect(f.K8sClient.Get(f.Ctx, types.NamespacedName{
+			Name: fmt.Sprintf("ravendb-%s", node.Name), Namespace: f.Namespace}, svc)).To(Succeed())
+
+		By(fmt.Sprintf("Verifying Ingress for %s", node.Name))
+		ing := &networkingv1.Ingress{}
+		Expect(f.K8sClient.Get(f.Ctx, types.NamespacedName{
+			Name: fmt.Sprintf("ravendb-%s", node.Name), Namespace: f.Namespace}, ing)).To(Succeed())
+	}
+}
+
+func (f *TestFixture) VerifyClusterStatus(instance *ravendbv1alpha1.RavenDBCluster, expectedNodeCount int) {
+	Eventually(func() (*ravendbv1alpha1.RavenDBCluster, error) {
+		updated := &ravendbv1alpha1.RavenDBCluster{}
+		err := f.K8sClient.Get(f.Ctx, types.NamespacedName{
+			Name: instance.Name, Namespace: f.Namespace}, updated)
+		if err != nil {
+			return nil, err
 		}
-		ravendbcluster := &ravendbv1alpha1.RavenDBCluster{}
-
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind RavenDBCluster")
-			err := k8sClient.Get(ctx, typeNamespacedName, ravendbcluster)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &ravendbv1alpha1.RavenDBCluster{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					// TODO(user): Specify other spec details if needed.
+		return updated, nil
+	}, 10*time.Second, 100*time.Millisecond).Should(
+		SatisfyAll(
+			WithTransform(func(c *ravendbv1alpha1.RavenDBCluster) string { return c.Status.Phase }, Equal("Deploying")),
+			WithTransform(func(c *ravendbv1alpha1.RavenDBCluster) int { return len(c.Status.Nodes) }, Equal(expectedNodeCount)),
+			WithTransform(func(c *ravendbv1alpha1.RavenDBCluster) bool {
+				for _, node := range c.Status.Nodes {
+					if node.Status != "Created" {
+						return false
+					}
 				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				return true
+			}, BeTrue()),
+		))
+}
+
+var _ = Describe("RavenDBCluster controller (insecure mode)", func() {
+	var fixture *TestFixture
+
+	BeforeEach(func() {
+		fixture = NewTestFixture(k8sClient)
+	})
+
+	AfterEach(func() {
+		fixture.Cleanup()
+	})
+
+	It("should reconcile and create resources successfully", func() {
+
+		instance := fixture.BaseCluster.DeepCopy()
+		instance.Spec.Mode = "None"
+		instance.Spec.ServerUrl = "http://0.0.0.0:8080"
+		instance.Spec.ServerUrlTcp = "tcp://0.0.0.0:38888"
+		for i, node := range instance.Spec.Nodes {
+			node.PublicServerUrl = fmt.Sprintf("http://%s.thegoldenplatypus.development.run:8080", node.Name)
+			node.PublicServerUrlTcp = fmt.Sprintf("tcp://%s-tcp.thegoldenplatypus.development.run:38888", node.Name)
+			node.CertsSecretRef = fmt.Sprintf("ravendb-certs-%s", node.Name)
+			instance.Spec.Nodes[i] = node
+		}
+
+		By("Creating RavenDBCluster CR")
+		Expect(fixture.K8sClient.Create(fixture.Ctx, instance)).To(Succeed())
+
+		By("Verifying resources and status")
+		fixture.VerifyResources(instance)
+		fixture.VerifyClusterStatus(instance, 3)
+	})
+})
+
+var _ = Describe("RavenDBCluster controller (secure mode)", func() {
+	var fixture *TestFixture
+
+	BeforeEach(func() {
+		fixture = NewTestFixture(k8sClient)
+	})
+
+	AfterEach(func() {
+		fixture.Cleanup()
+	})
+
+	It("should reconcile and create resources for secure cluster", func() {
+		By("Creating required cert secrets")
+		for _, node := range []string{"a", "b", "c"} {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      fmt.Sprintf("ravendb-certs-%s", node),
+					Namespace: fixture.Namespace,
+				},
+				Type: corev1.SecretTypeOpaque,
+				Data: map[string][]byte{
+					"server.pfx": []byte(fmt.Sprintf("fake-pfx-for-%s", node)),
+				},
 			}
-		})
+			Expect(fixture.K8sClient.Create(fixture.Ctx, secret)).To(Succeed())
+		}
 
-		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &ravendbv1alpha1.RavenDBCluster{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
+		instance := fixture.BaseCluster.DeepCopy()
+		instance.Spec.Mode = "LetsEncrypt"
+		instance.Spec.Email = "omer.ratsaby@ravendb.net"
+		instance.Spec.ServerUrl = "https://0.0.0.0:443"
+		instance.Spec.ServerUrlTcp = "tcp://0.0.0.0:38888"
+		for i, node := range instance.Spec.Nodes {
+			node.PublicServerUrl = fmt.Sprintf("https://%s.thegoldenplatypus.development.run:443", node.Name)
+			node.PublicServerUrlTcp = fmt.Sprintf("tcp://%s-tcp.thegoldenplatypus.development.run:443", node.Name)
+			node.CertsSecretRef = fmt.Sprintf("ravendb-certs-%s", node.Name)
+			instance.Spec.Nodes[i] = node
+		}
 
-			By("Cleanup the specific resource instance RavenDBCluster")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &RavenDBClusterReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
+		By("Creating RavenDBCluster CR")
+		Expect(fixture.K8sClient.Create(fixture.Ctx, instance)).To(Succeed())
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
-		})
+		By("Verifying resources and status")
+		fixture.VerifyResources(instance)
+		fixture.VerifyClusterStatus(instance, 3)
 	})
 })
