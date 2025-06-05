@@ -40,8 +40,9 @@ single-node environment like Minikube:
 minikube start
 ```
 
-
 ### 3. Prepare for Operator Deployment
+
+* NOTE: skip step 3 if you want to setup insecure cluster, and notice the note comment in step 7.
 
 Assuming you already obtained a setup package, unzip it and have it on your controller machine.
 Create namespace and secrets (adjust the paths as needed):
@@ -99,6 +100,8 @@ ravendb-operator-system   ravendb-operator-controller-manager-7f66f94b8f-hjwmc  
 ```
 
 ### 7. Modify and Deploy CR
+
+* NOTE: want to setup insecure cluster use the commented definition in: https://github.com/TheGoldenPlatypus/ravendb-operator/blob/main/config/samples/ravendb_v1alpha1_ravendbcluster.yaml.
 
 Edit by: `nano config/samples/ravendb_v1alpha1_ravendbcluster.yaml`
 
@@ -198,6 +201,121 @@ sudo curl --cert ./misc/multinode_https/setup_package/A/cluster.server.certifica
 {"A":"https://a.thegoldenplatypus.development.run:443","B":"https://b.thegoldenplatypus.development.run","C":"https://c.thegoldenplatypus.development.run"}
 
 ```
+
+
+## Tests
+ 
+Integration tests + args validation tests were added to the repo. as we grow over time we will need to implement e2e tests which are the ultimate tests.
+
+integration tests:
+
+```
+$ go test -v ./internal/controller/...
+=== RUN   TestControllers
+Running Suite: controller Suite - /mnt/c/Users/omer.ratsaby/Desktop/RavenDB-24283/ravendb-operator/internal/controller
+======================================================================================================================
+Random Seed: 1749122903
+
+Will run 2 of 2 specs
+
+Ran 2 of 2 Specs in 7.681 seconds
+SUCCESS! -- 2 Passed | 0 Failed | 0 Pending | 0 Skipped
+--- PASS: TestControllers (7.68s)
+PASS
+ok      ravendb-operator/internal/controller    7.709s
+
+```
+
+args validation tests:
+```
+$ go test -v ./api/v1alpha1/...
+=== RUN   TestEmailValidation
+=== RUN   TestEmailValidation/valid_email
+=== RUN   TestEmailValidation/empty_email
+=== RUN   TestEmailValidation/invalid_email_format
+    validation_test.go:112: RavenDBCluster.ravendb.ravendb.io "test-invalid-email-format" is invalid: spec.email: Invalid value: "bademail": spec.email in body should match '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+--- PASS: TestEmailValidation (2.02s)
+    --- PASS: TestEmailValidation/valid_email (2.01s)
+    --- PASS: TestEmailValidation/empty_email (0.00s)
+    --- PASS: TestEmailValidation/invalid_email_format (0.00s)
+=== RUN   TestImageValidation
+=== RUN   TestImageValidation/valid_image
+=== RUN   TestImageValidation/missing_image
+    validation_test.go:112: RavenDBCluster.ravendb.ravendb.io "test-missing-image" is invalid: spec.image: Invalid value: "": spec.image in body should be at least 1 chars long
+--- PASS: TestImageValidation (0.00s)
+    --- PASS: TestImageValidation/valid_image (0.00s)
+    --- PASS: TestImageValidation/missing_image (0.00s)
+=== RUN   TestImagePullPolicyValidation
+=== RUN   TestImagePullPolicyValidation/valid_pull_policy_Always
+=== RUN   TestImagePullPolicyValidation/valid_pull_policy_IfNotPresent
+=== RUN   TestImagePullPolicyValidation/invalid_pull_policy
+    validation_test.go:112: RavenDBCluster.ravendb.ravendb.io "test-invalid-pull-policy" is invalid: spec.imagePullPolicy: Unsupported value: "InvalidPolicy": supported values: "Always", "IfNotPresent", "Never"
+--- PASS: TestImagePullPolicyValidation (0.01s)
+    --- PASS: TestImagePullPolicyValidation/valid_pull_policy_Always (0.00s)
+    --- PASS: TestImagePullPolicyValidation/valid_pull_policy_IfNotPresent (0.00s)
+    --- PASS: TestImagePullPolicyValidation/invalid_pull_policy (0.00s)
+=== RUN   TestModeValidation
+=== RUN   TestModeValidation/valid_mode_None
+=== RUN   TestModeValidation/valid_mode_LetsEncrypt
+=== RUN   TestModeValidation/invalid_mode
+    validation_test.go:112: RavenDBCluster.ravendb.ravendb.io "test-invalid-mode" is invalid: spec.mode: Unsupported value: "InvalidMode": supported values: "None", "LetsEncrypt"
+--- PASS: TestModeValidation (0.01s)
+    --- PASS: TestModeValidation/valid_mode_None (0.00s)
+    --- PASS: TestModeValidation/valid_mode_LetsEncrypt (0.01s)
+    --- PASS: TestModeValidation/invalid_mode (0.00s)
+=== RUN   TestLicenseValidation
+=== RUN   TestLicenseValidation/valid_license
+=== RUN   TestLicenseValidation/missing_license
+    validation_test.go:112: RavenDBCluster.ravendb.ravendb.io "test-missing-license" is invalid: spec.license: Invalid value: "": spec.license in body should be at least 1 chars long
+--- PASS: TestLicenseValidation (0.00s)
+    --- PASS: TestLicenseValidation/valid_license (0.00s)
+    --- PASS: TestLicenseValidation/missing_license (0.00s)
+=== RUN   TestDomainValidation
+=== RUN   TestDomainValidation/valid_domain
+=== RUN   TestDomainValidation/missing_domain
+    validation_test.go:112: RavenDBCluster.ravendb.ravendb.io "test-missing-domain" is invalid: spec.domain: Invalid value: "": spec.domain in body should be at least 1 chars long
+--- PASS: TestDomainValidation (0.01s)
+    --- PASS: TestDomainValidation/valid_domain (0.00s)
+    --- PASS: TestDomainValidation/missing_domain (0.00s)
+=== RUN   TestServerUrlValidation
+=== RUN   TestServerUrlValidation/valid_server_url
+=== RUN   TestServerUrlValidation/missing_server_url
+    validation_test.go:112: RavenDBCluster.ravendb.ravendb.io "test-missing-server-url" is invalid: spec.serverUrl: Invalid value: "": spec.serverUrl in body should be at least 1 chars long
+--- PASS: TestServerUrlValidation (0.01s)
+    --- PASS: TestServerUrlValidation/valid_server_url (0.00s)
+    --- PASS: TestServerUrlValidation/missing_server_url (0.00s)
+=== RUN   TestServerUrlTcpValidation
+=== RUN   TestServerUrlTcpValidation/valid_server_url_tcp
+=== RUN   TestServerUrlTcpValidation/missing_server_url_tcp
+    validation_test.go:112: RavenDBCluster.ravendb.ravendb.io "test-missing-server-url-tcp" is invalid: spec.serverUrlTcp: Invalid value: "": spec.serverUrlTcp in body should be at least 1 chars long
+--- PASS: TestServerUrlTcpValidation (0.00s)
+    --- PASS: TestServerUrlTcpValidation/valid_server_url_tcp (0.00s)
+    --- PASS: TestServerUrlTcpValidation/missing_server_url_tcp (0.00s)
+=== RUN   TestStorageSizeValidation
+=== RUN   TestStorageSizeValidation/valid_storage_size
+=== RUN   TestStorageSizeValidation/missing_storage_size
+    validation_test.go:112: RavenDBCluster.ravendb.ravendb.io "test-missing-storage-size" is invalid: spec.storageSize: Invalid value: "": spec.storageSize in body should be at least 1 chars long
+--- PASS: TestStorageSizeValidation (0.01s)
+    --- PASS: TestStorageSizeValidation/valid_storage_size (0.00s)
+    --- PASS: TestStorageSizeValidation/missing_storage_size (0.00s)
+=== RUN   TestNodesValidation
+=== RUN   TestNodesValidation/valid_nodes
+=== RUN   TestNodesValidation/missing_nodes
+    validation_test.go:108: skipping...
+--- PASS: TestNodesValidation (0.01s)
+    --- PASS: TestNodesValidation/valid_nodes (0.00s)
+    --- SKIP: TestNodesValidation/missing_nodes (0.00s)
+=== RUN   TestIngressClassNameValidation
+=== RUN   TestIngressClassNameValidation/valid_ingress_class_name
+=== RUN   TestIngressClassNameValidation/missing_ingress_class_name
+    validation_test.go:112: RavenDBCluster.ravendb.ravendb.io "test-missing-ingress-class-name" is invalid: spec.ingressClassName: Invalid value: "": spec.ingressClassName in body should be at least 1 chars long
+--- PASS: TestIngressClassNameValidation (0.01s)
+    --- PASS: TestIngressClassNameValidation/valid_ingress_class_name (0.00s)
+    --- PASS: TestIngressClassNameValidation/missing_ingress_class_name (0.00s)
+PASS
+ok      ravendb-operator/api/v1alpha1   (cached)
+```
+
 
 <!--
 
