@@ -39,6 +39,7 @@ spec:
           spec:
             properties:
               domain:
+                minLength: 1
                 type: string
               email:
                 pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
@@ -48,6 +49,7 @@ spec:
                   type: string
                 type: object
               image:
+                minLength: 1
                 type: string
               imagePullPolicy:
                 enum:
@@ -56,8 +58,10 @@ spec:
                 - Never
                 type: string
               ingressClassName:
+                minLength: 1
                 type: string
               license:
+                minLength: 1
                 type: string
               mode:
                 enum:
@@ -70,10 +74,13 @@ spec:
                     certsSecretRef:
                       type: string
                     name:
+                      minLength: 1
                       type: string
                     publicServerUrl:
+                      minLength: 1
                       type: string
                     publicServerUrlTcp:
+                      minLength: 1
                       type: string
                   required:
                   - name
@@ -83,15 +90,19 @@ spec:
                 minItems: 1
                 type: array
               serverUrl:
+                minLength: 1
                 type: string
               serverUrlTcp:
+                minLength: 1
                 type: string
               storageSize:
+                minLength: 1
                 type: string
             required:
             - domain
             - image
             - imagePullPolicy
+            - ingressClassName
             - license
             - mode
             - serverUrl

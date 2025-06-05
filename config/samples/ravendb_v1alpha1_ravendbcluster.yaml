@@ -44,13 +44,13 @@ spec:
 #   nodes:
 #     - name: a
 #       publicServerUrl: http://a.thegoldenplatypus.development.run:8080
-#       publicServerUrlTcp: tcp://a-tcp.thegoldenplatypus.development.run:8080
+#       publicServerUrlTcp: tcp://a-tcp.thegoldenplatypus.development.run:38888
 #     - name: b
 #       publicServerUrl: http://b.thegoldenplatypus.development.run:8080
-#       publicServerUrlTcp: tcp://b-tcp.thegoldenplatypus.development.run:8080
+#       publicServerUrlTcp: tcp://b-tcp.thegoldenplatypus.development.run:38888
 #     - name: c
 #       publicServerUrl: http://c.thegoldenplatypus.development.run:8080
-#       publicServerUrlTcp: tcp://c-tcp.thegoldenplatypus.development.run:8080
+#       publicServerUrlTcp: tcp://c-tcp.thegoldenplatypus.development.run:38888
 
 #   image: ravendb/ravendb:latest
 #   imagePullPolicy: IfNotPresent

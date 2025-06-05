@@ -22,6 +22,7 @@ import (
 
 type RavenDBClusterSpec struct {
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	Image string `json:"image"`
 
 	// +kubebuilder:validation:Required
@@ -36,18 +37,23 @@ type RavenDBClusterSpec struct {
 	Email string `json:"email,omitempty"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	License string `json:"license"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	Domain string `json:"domain"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	ServerUrl string `json:"serverUrl"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	ServerUrlTcp string `json:"serverUrlTcp"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	StorageSize string `json:"storageSize"`
 
 	// +kubebuilder:validation:Optional
@@ -58,17 +64,21 @@ type RavenDBClusterSpec struct {
 	Nodes []RavenDBNode `json:"nodes,omitempty"`
 
 	// +kubebuilder:validation:Required
-	IngressClassName string `json:"ingressClassName,omitempty"`
+	// +kubebuilder:validation:MinLength=1
+	IngressClassName string `json:"ingressClassName"`
 }
 
 type RavenDBNode struct {
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	PublicServerUrl string `json:"publicServerUrl"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	PublicServerUrlTcp string `json:"publicServerUrlTcp"`
 
 	// +kubebuilder:validation:Optional
