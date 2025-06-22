@@ -25,7 +25,7 @@ type RavenDBClusterSpec struct {
 	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
 	ImagePullPolicy string `json:"imagePullPolicy"`
 
-	// +kubebuilder:validation:Enum=LetsEncrypt;
+	// +kubebuilder:validation:Enum=LetsEncrypt;None
 	Mode ClusterMode `json:"mode"`
 
 	// +kubebuilder:validation:Optional
@@ -33,8 +33,10 @@ type RavenDBClusterSpec struct {
 	Email string `json:"email,omitempty"`
 
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:MinLength=1
-	License string `json:"license"`
+	LicenseSecretRef string `json:"licenseSecretRef"`
+
+	// +kubebuilder:validation:Optional
+	ClusterCertSecretRef string `json:"certsSecretRef,omitempty"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -62,4 +64,7 @@ type RavenDBClusterSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	IngressClassName string `json:"ingressClassName"`
+
+	// +kubebuilder:validation:Optional
+	Env map[string]string `json:"env,omitempty"`
 }

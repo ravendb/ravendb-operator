@@ -68,16 +68,16 @@ func (r *RavenDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	var statuses []ravendbv1alpha1.RavenDBNodeStatus
 	for _, node := range instance.Spec.Nodes {
 		if err := d.ExecutePerNode(ctx, &instance, node, r.Client, r.Scheme); err != nil {
-			l.Error(err, "failed to reconcile node", "node", node.Name)
+			l.Error(err, "failed to reconcile node", "node", node.Tag)
 			statuses = append(statuses, ravendbv1alpha1.RavenDBNodeStatus{
-				Name:   node.Name,
+				Tag:    node.Tag,
 				Status: "Failed",
 			})
 			continue
 		}
 
 		statuses = append(statuses, ravendbv1alpha1.RavenDBNodeStatus{
-			Name:   node.Name,
+			Tag:    node.Tag,
 			Status: "Created",
 		})
 	}

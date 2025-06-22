@@ -55,17 +55,17 @@ package controller
 // 			IngressClassName: "nginx",
 // 			Nodes: []ravendbv1alpha1.RavenDBNode{
 // 				{
-// 					Name:               "a",
+// 					Tag:               "a",
 // 					PublicServerUrl:    "",
 // 					PublicServerUrlTcp: "",
 // 				},
 // 				{
-// 					Name:               "b",
+// 					Tag:               "b",
 // 					PublicServerUrl:    "",
 // 					PublicServerUrlTcp: "",
 // 				},
 // 				{
-// 					Name:               "c",
+// 					Tag:               "c",
 // 					PublicServerUrl:    "",
 // 					PublicServerUrlTcp: "",
 // 				},
@@ -91,23 +91,23 @@ package controller
 
 // func (f *TestFixture) VerifyResources(instance *ravendbv1alpha1.RavenDBCluster) {
 // 	for _, node := range instance.Spec.Nodes {
-// 		By(fmt.Sprintf("Waiting for StatefulSet %s", node.Name))
+// 		By(fmt.Sprintf("Waiting for StatefulSet %s", node.Tag))
 // 		Eventually(func() bool {
 // 			sts := &appsv1.StatefulSet{}
 // 			err := f.K8sClient.Get(f.Ctx, types.NamespacedName{
-// 				Name: fmt.Sprintf("ravendb-%s", node.Name), Namespace: f.Namespace}, sts)
+// 				Name: fmt.Sprintf("ravendb-%s", node.Tag), Namespace: f.Namespace}, sts)
 // 			return err == nil
 // 		}, 10*time.Second, 500*time.Millisecond).Should(BeTrue())
 
-// 		By(fmt.Sprintf("Verifying Service for %s", node.Name))
+// 		By(fmt.Sprintf("Verifying Service for %s", node.Tag))
 // 		svc := &corev1.Service{}
 // 		Expect(f.K8sClient.Get(f.Ctx, types.NamespacedName{
-// 			Name: fmt.Sprintf("ravendb-%s", node.Name), Namespace: f.Namespace}, svc)).To(Succeed())
+// 			Name: fmt.Sprintf("ravendb-%s", node.Tag), Namespace: f.Namespace}, svc)).To(Succeed())
 
-// 		By(fmt.Sprintf("Verifying Ingress for %s", node.Name))
+// 		By(fmt.Sprintf("Verifying Ingress for %s", node.Tag))
 // 		ing := &networkingv1.Ingress{}
 // 		Expect(f.K8sClient.Get(f.Ctx, types.NamespacedName{
-// 			Name: fmt.Sprintf("ravendb-%s", node.Name), Namespace: f.Namespace}, ing)).To(Succeed())
+// 			Name: fmt.Sprintf("ravendb-%s", node.Tag), Namespace: f.Namespace}, ing)).To(Succeed())
 // 	}
 // }
 
@@ -153,9 +153,9 @@ package controller
 // 		instance.Spec.ServerUrl = "http://0.0.0.0:8080"
 // 		instance.Spec.ServerUrlTcp = "tcp://0.0.0.0:38888"
 // 		for i, node := range instance.Spec.Nodes {
-// 			node.PublicServerUrl = fmt.Sprintf("http://%s.thegoldenplatypus.development.run:8080", node.Name)
-// 			node.PublicServerUrlTcp = fmt.Sprintf("tcp://%s-tcp.thegoldenplatypus.development.run:38888", node.Name)
-// 			node.CertsSecretRef = fmt.Sprintf("ravendb-certs-%s", node.Name)
+// 			node.PublicServerUrl = fmt.Sprintf("http://%s.thegoldenplatypus.development.run:8080", node.Tag)
+// 			node.PublicServerUrlTcp = fmt.Sprintf("tcp://%s-tcp.thegoldenplatypus.development.run:38888", node.Tag)
+// 			node.CertsSecretRef = fmt.Sprintf("ravendb-certs-%s", node.Tag)
 // 			instance.Spec.Nodes[i] = node
 // 		}
 
@@ -201,9 +201,9 @@ package controller
 // 		instance.Spec.ServerUrl = "https://0.0.0.0:443"
 // 		instance.Spec.ServerUrlTcp = "tcp://0.0.0.0:38888"
 // 		for i, node := range instance.Spec.Nodes {
-// 			node.PublicServerUrl = fmt.Sprintf("https://%s.thegoldenplatypus.development.run:443", node.Name)
-// 			node.PublicServerUrlTcp = fmt.Sprintf("tcp://%s-tcp.thegoldenplatypus.development.run:443", node.Name)
-// 			node.CertsSecretRef = fmt.Sprintf("ravendb-certs-%s", node.Name)
+// 			node.PublicServerUrl = fmt.Sprintf("https://%s.thegoldenplatypus.development.run:443", node.Tag)
+// 			node.PublicServerUrlTcp = fmt.Sprintf("tcp://%s-tcp.thegoldenplatypus.development.run:443", node.Tag)
+// 			node.CertsSecretRef = fmt.Sprintf("ravendb-certs-%s", node.Tag)
 // 			instance.Spec.Nodes[i] = node
 // 		}
 

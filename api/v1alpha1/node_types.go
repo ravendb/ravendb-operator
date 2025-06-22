@@ -19,7 +19,8 @@ package v1alpha1
 type RavenDBNode struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
-	Name string `json:"name"`
+	// +kubebuilder:validation:MaxLength=1
+	Tag string `json:"tag"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -34,6 +35,6 @@ type RavenDBNode struct {
 }
 
 type RavenDBNodeStatus struct {
-	Name   string `json:"name"`
+	Tag    string `json:"tag"`
 	Status string `json:"status"`
 }

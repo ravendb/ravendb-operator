@@ -37,12 +37,18 @@ spec:
             type: object
           spec:
             properties:
+              certsSecretRef:
+                type: string
               domain:
                 minLength: 1
                 type: string
               email:
                 pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
                 type: string
+              env:
+                additionalProperties:
+                  type: string
+                type: object
               environment:
                 additionalProperties:
                   type: string
@@ -59,20 +65,17 @@ spec:
               ingressClassName:
                 minLength: 1
                 type: string
-              license:
-                minLength: 1
+              licenseSecretRef:
                 type: string
               mode:
                 enum:
                 - LetsEncrypt
+                - None
                 type: string
               nodes:
                 items:
                   properties:
                     certsSecretRef:
-                      type: string
-                    name:
-                      minLength: 1
                       type: string
                     publicServerUrl:
                       minLength: 1
@@ -80,10 +83,14 @@ spec:
                     publicServerUrlTcp:
                       minLength: 1
                       type: string
+                    tag:
+                      maxLength: 1
+                      minLength: 1
+                      type: string
                   required:
-                  - name
                   - publicServerUrl
                   - publicServerUrlTcp
+                  - tag
                   type: object
                 minItems: 1
                 type: array
@@ -101,7 +108,7 @@ spec:
             - image
             - imagePullPolicy
             - ingressClassName
-            - license
+            - licenseSecretRef
             - mode
             - serverUrl
             - serverUrlTcp
@@ -114,13 +121,13 @@ spec:
               nodes:
                 items:
                   properties:
-                    name:
-                      type: string
                     status:
                       type: string
+                    tag:
+                      type: string
                   required:
-                  - name
                   - status
+                  - tag
                   type: object
                 type: array
               phase:

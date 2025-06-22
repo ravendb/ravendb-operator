@@ -17,21 +17,24 @@ limitations under the License.
 package common
 
 import (
+	"fmt"
 	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 )
 
 func BuildCommonEnvVars(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) []corev1.EnvVar {
+
+	ravendbNodeTcpEndpoint := fmt.Sprintf("%s%s%s%s:%d", ProtocolTcp, Prefix, node.Tag, ClusterFQDNSuffix, InternalTcpPort)
 	return []corev1.EnvVar{
 		{Name: "RAVEN_Setup_Mode", Value: string(cluster.Spec.Mode)},
-		{Name: "RAVEN_License", Value: cluster.Spec.License},
+		{Name: "RAVEN_License_Path", Value: LicensePath},
 		{Name: "RAVEN_License_Eula_Accepted", Value: "true"},
 		{Name: "RAVEN_PublicServerUrl", Value: node.PublicServerUrl},
 		{Name: "RAVEN_PublicTcpUrl", Value: node.PublicServerUrlTcp},
 		{Name: "RAVEN_ServerUrl", Value: cluster.Spec.ServerUrl},
 		{Name: "RAVEN_ServerUrl_Tcp", Value: cluster.Spec.ServerUrlTcp},
-		// TODO: Add support internal tcp communication
+		{Name: "RAVEN_PublicServerUrl_Tcp_Cluster", Value: ravendbNodeTcpEndpoint},
 	}
 }
 
@@ -39,6 +42,24 @@ func BuildSecureEnvVars(instance *ravendbv1alpha1.RavenDBCluster) []corev1.EnvVa
 	return []corev1.EnvVar{
 		{Name: "RAVEN_Security_Certificate_Path", Value: CertPath},
 		{Name: "RAVEN_Security_Certificate_Exec_TimeoutInSec", Value: CertExecTimeout},
+	}
+}
+
+func BuildSecureLetsEncryptEnvVars(instance *ravendbv1alpha1.RavenDBCluster) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: "RAVEN_Security_Certificate_Path", Value: CertPath},
+		{Name: "RAVEN_Security_Certificate_Exec_TimeoutInSec", Value: CertExecTimeout},
 		{Name: "RAVEN_Security_Certificate_LetsEncrypt_Email", Value: instance.Spec.Email},
 	}
+}
+
+func BuildAdditionalEnvVars(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.EnvVar {
+	var envVars []corev1.EnvVar
+	for k, v := range cluster.Spec.Env {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  k,
+			Value: v,
+		})
+	}
+	return envVars
 }

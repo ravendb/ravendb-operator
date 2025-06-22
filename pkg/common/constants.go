@@ -18,19 +18,22 @@ package common
 
 // paths
 const (
-	CertPath      = "/ravendb/certs/server.pfx"
-	DataMountPath = "/var/lib/ravendb/data"
-	CertMountPath = "/ravendb/certs"
+	CertPath         = "/ravendb/certs/server.pfx"
+	LicensePath      = "/ravendb/license/license.json"
+	DataMountPath    = "/var/lib/ravendb/data"
+	CertMountPath    = "/ravendb/certs"
+	LicenseMountPath = "/ravendb/license"
 )
 
 // identifiers
 const (
-	App            = "ravendb"
-	Manager        = "ravendb-operator"
-	Prefix         = "ravendb-"
-	HttpsPortName  = "https"
-	TcpPortName    = "tcp"
-	CertVolumeName = "ravendb-certs"
+	App               = "ravendb"
+	Manager           = "ravendb-operator"
+	Prefix            = "ravendb-"
+	HttpsPortName     = "https"
+	TcpPortName       = "tcp"
+	CertVolumeName    = "ravendb-certs"
+	LicenseVolumeName = "ravendb-license"
 )
 
 // labels
@@ -39,6 +42,7 @@ const (
 	LabelInstance  = "app.kubernetes.io/instance"
 	LabelManagedBy = "app.kubernetes.io/managed-by"
 	LabelNodeTag   = "nodeTag"
+	LabelApp       = "app"
 )
 
 // annotations
@@ -55,6 +59,8 @@ const (
 
 // other
 const (
-	NumOfReplicas   = 1
-	CertExecTimeout = "60"
+	NumOfReplicas     = 1
+	CertExecTimeout   = "60"
+	ClusterFQDNSuffix = ".ravendb.svc.cluster.local"
+	ProtocolTcp       = "tcp://"
 )
