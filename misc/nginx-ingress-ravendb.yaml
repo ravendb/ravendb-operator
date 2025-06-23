@@ -1,3 +1,4 @@
+# TODO: to be fetched from another origin
 #GENERATED FOR K8S 1.20
 apiVersion: v1
 kind: Namespace

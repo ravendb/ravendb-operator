@@ -51,7 +51,7 @@ const (
 	NginxSSLPassthroughAnnotation   = "nginx.ingress.kubernetes.io/ssl-passthrough"
 )
 
-// intenral ports
+// internal ports
 const (
 	InternalHttpsPort = 443
 	InternalTcpPort   = 38888
