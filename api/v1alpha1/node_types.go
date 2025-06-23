@@ -19,7 +19,7 @@ package v1alpha1
 type RavenDBNode struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=1
+	// +kubebuilder:validation:MaxLength=4
 	Tag string `json:"tag"`
 
 	// +kubebuilder:validation:Required
