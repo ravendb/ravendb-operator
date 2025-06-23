@@ -41,7 +41,7 @@ func (b *ServiceBuilder) Build(ctx context.Context, cluster *ravendbv1alpha1.Rav
 
 func BuildService(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) (*corev1.Service, error) {
 
-	svcName := fmt.Sprintf("%s%s", common.Prefix, node.Name)
+	svcName := fmt.Sprintf("%s%s", common.Prefix, node.Tag)
 
 	labels := buildServiceLabels(cluster, node)
 	ports := buildServicePorts()
@@ -67,13 +67,13 @@ func buildServiceLabels(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1a
 		common.LabelAppName:   common.App,
 		common.LabelManagedBy: common.Manager,
 		common.LabelInstance:  cluster.Name,
-		common.LabelNodeTag:   node.Name,
+		common.LabelNodeTag:   node.Tag,
 	}
 }
 
 func buildServiceSelector(node ravendbv1alpha1.RavenDBNode) map[string]string {
 	return map[string]string{
-		common.LabelNodeTag: node.Name,
+		common.LabelNodeTag: node.Tag,
 	}
 }
 

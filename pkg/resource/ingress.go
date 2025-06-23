@@ -82,8 +82,8 @@ func buildIngressRules(cluster *ravendbv1alpha1.RavenDBCluster) []networkingv1.I
 
 	for _, node := range cluster.Spec.Nodes {
 		rules = append(rules,
-			buildHTTPSRule(node.Name, cluster.Spec.Domain),
-			buildTCPRule(node.Name, cluster.Spec.Domain),
+			buildHTTPSRule(node.Tag, cluster.Spec.Domain),
+			buildTCPRule(node.Tag, cluster.Spec.Domain),
 		)
 	}
 

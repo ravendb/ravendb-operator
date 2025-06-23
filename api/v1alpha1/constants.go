@@ -20,6 +20,7 @@ type ClusterMode string
 
 const (
 	ModeLetsEncrypt ClusterMode = "LetsEncrypt"
+	ModeNone        ClusterMode = "None"
 )
 
 type ClusterPhase string

@@ -23,6 +23,8 @@ import (
 	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
 	"ravendb-operator/pkg/common"
 
+	"k8s.io/utils/pointer"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
@@ -41,17 +43,20 @@ func (b *StatefulSetBuilder) Build(ctx context.Context, cluster *ravendbv1alpha1
 }
 
 func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) (*appsv1.StatefulSet, error) {
-	stsName := fmt.Sprintf("%s%s", common.Prefix, node.Name)
+	stsName := fmt.Sprintf("%s%s", common.Prefix, node.Tag)
 
 	replicas := int32(common.NumOfReplicas)
 	labels := buildStatefulsetLabels(cluster, node)
-	selector := &metav1.LabelSelector{MatchLabels: labels}
+	selector := &metav1.LabelSelector{MatchLabels: buildStatefulsetSelector(node)}
 	annotations := buildStatefulsetAnnotations()
-	envVars := buildEnvVars(cluster, node)
 	ports := buildPorts()
-	volumes := buildVolumes(node)
+	volumes := buildVolumes(cluster, node)
 	volumeMounts := buildVolumeMounts()
 	volumeClaims := buildVolumeClaims(cluster)
+	envVars, err := buildEnvVars(cluster, node)
+	if err != nil {
+		return nil, err
+	}
 
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -61,7 +66,7 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 			Annotations: annotations,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			ServiceName: cluster.Name,
+			ServiceName: common.App,
 			Replicas:    &replicas,
 			Selector:    selector,
 			Template: corev1.PodTemplateSpec{
@@ -76,6 +81,8 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 							Env:          envVars,
 							Ports:        ports,
 							VolumeMounts: volumeMounts,
+							// TODO: to be removed
+							SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(0)},
 						},
 					},
 					Volumes: volumes,
@@ -88,12 +95,16 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 	return sts, nil
 }
 
+func buildStatefulsetSelector(node ravendbv1alpha1.RavenDBNode) map[string]string {
+	return map[string]string{
+		common.LabelNodeTag: node.Tag}
+}
 func buildStatefulsetLabels(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) map[string]string {
 	return map[string]string{
 		common.LabelAppName:   common.App,
 		common.LabelManagedBy: common.Manager,
 		common.LabelInstance:  cluster.Name,
-		common.LabelNodeTag:   node.Name,
+		common.LabelNodeTag:   node.Tag,
 	}
 }
 
@@ -103,30 +114,46 @@ func buildStatefulsetAnnotations() map[string]string {
 	}
 }
 
-func buildEnvVars(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) []corev1.EnvVar {
+func buildEnvVars(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) ([]corev1.EnvVar, error) {
 	env := common.BuildCommonEnvVars(cluster, node)
-	env = append(env, common.BuildSecureEnvVars(cluster)...)
-	return env
+
+	switch cluster.Spec.Mode {
+	case ravendbv1alpha1.ModeLetsEncrypt:
+		env = append(env, common.BuildSecureLetsEncryptEnvVars(cluster)...)
+	case ravendbv1alpha1.ModeNone:
+		env = append(env, common.BuildSecureEnvVars(cluster)...)
+	default:
+		return nil, fmt.Errorf("unsupported cluster mode: %s", cluster.Spec.Mode)
+	}
+
+	env = append(env, common.BuildAdditionalEnvVars(cluster)...)
+
+	return env, nil
 }
 
 func buildPorts() []corev1.ContainerPort {
-	//TODO take this port as an argument from specs and validates https port eqauls tcp port
+	//TODO take this port as an argument from specs and validates (also across nodes)via webhooks !!!
 	return []corev1.ContainerPort{
 		{Name: common.HttpsPortName, ContainerPort: 443},
-		{Name: common.TcpPortName, ContainerPort: 443},
+		{Name: common.TcpPortName, ContainerPort: 38888},
 	}
 }
 
-func buildVolumes(node ravendbv1alpha1.RavenDBNode) []corev1.Volume {
+func buildVolumes(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) []corev1.Volume {
+
+	////////////////////////////////////////////////////////////////////////////
+	// to be removed - validation and fallback should be done in webhooks
+	certSecretName := node.CertsSecretRef
+	if certSecretName == "" {
+		certSecretName = cluster.Spec.ClusterCertSecretRef
+	}
+	if certSecretName == "" {
+		panic("no cert secret defined")
+	}
+	///////////////////////////////////////////////////////////////////////////
 	return []corev1.Volume{
-		{
-			Name: common.CertVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: node.CertsSecretRef,
-				},
-			},
-		},
+		{Name: common.CertVolumeName, VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: node.CertsSecretRef}}},
+		{Name: common.LicenseVolumeName, VolumeSource: corev1.VolumeSource{Secret: &corev1.SecretVolumeSource{SecretName: cluster.Spec.LicenseSecretRef}}},
 	}
 }
 
@@ -134,6 +161,7 @@ func buildVolumeMounts() []corev1.VolumeMount {
 	return []corev1.VolumeMount{
 		{Name: common.App, MountPath: common.DataMountPath},
 		{Name: common.CertVolumeName, MountPath: common.CertMountPath},
+		{Name: common.LicenseVolumeName, MountPath: common.LicenseMountPath},
 	}
 }
 
