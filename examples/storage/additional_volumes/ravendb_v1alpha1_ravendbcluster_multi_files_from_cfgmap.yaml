@@ -35,6 +35,24 @@ spec:
 
   storage:
     data:
-      size: 10Gi
-      storageClassName: local-path
+      size: 10Gi                   
+      storageClassName: local-path 
+    additionalVolumes:
+      - name: scripts
+        mountPath: /tmp/scripts
+        volumeSource:
+          configMap:
+            name: myscripts
 
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: myscripts
+# data:
+#   test_dns_resolution.sh: |
+#     #!/bin/bash
+#     echo "testing dns resolution..."
+#   run.sh: |
+#     #!/bin/bash
+#     echo "running custom script..."

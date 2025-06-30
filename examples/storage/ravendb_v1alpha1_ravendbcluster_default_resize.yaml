@@ -35,6 +35,9 @@ spec:
 
   storage:
     data:
-      size: 10Gi
-      storageClassName: local-path
+      size: 10Gi                           # might act as not just init but also as resize 
+      storageClassName: local-path         # gp2, gp3, standard, fast, etc. (up to the storage class user defined)
+                                           # if ommited: k8s will take default -> todo: webhook to validate k8s took default and not stcuk in PENDING    
+
+
 

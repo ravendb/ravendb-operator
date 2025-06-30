@@ -33,8 +33,19 @@ spec:
     ingressControllerContext:
       ingressClassName: nginx
 
+  env:
+    RAVEN_LogPath: "/ravendb/logs"
+
   storage:
     data:
-      size: 10Gi
+      size: 10Gi                     
       storageClassName: local-path
-
+    logs:
+      ravendb:
+        size: 1Gi
+        storageClassName: local-path
+        path: /ravendb/logs/ravendb         # optional , custom path, must correspond to RAVEN_LogPath
+      audit:
+        size: 1Gi
+        storageClassName: local-path
+        path: /ravendb/logs/audit         # optional , custom path, must correspond to RAVEN_LogPath

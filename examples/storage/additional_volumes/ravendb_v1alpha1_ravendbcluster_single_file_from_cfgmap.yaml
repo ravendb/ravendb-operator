@@ -35,6 +35,22 @@ spec:
 
   storage:
     data:
-      size: 10Gi
-      storageClassName: local-path
+      size: 10Gi                     
+      storageClassName: local-path 
+    additionalVolumes:
+      - name: csv-import
+        mountPath: /tmp/orders.csv
+        subPath: orders.csv
+        volumeSource:
+          configMap:
+            name: orders-doc
 
+# ---
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: orders-doc
+# data:
+#   orders.csv: |
+#     @id,Customer,Amount,Status
+#     1001,Contoso,49.99,Completed

@@ -20,6 +20,8 @@ spec:
       publicServerUrl: https://c.thegoldenplatypus.development.run:443
       publicServerUrlTcp: tcp://c-tcp.thegoldenplatypus.development.run:443
       certsSecretRef: ravendb-certs-c
+  env:
+    RAVEN_Features_Availability: "Experimental"
 
   image: ravendb/ravendb:latest
   imagePullPolicy: IfNotPresent
@@ -27,8 +29,13 @@ spec:
   email: omer.ratsaby@ravendb.net
   licenseSecretRef: ravendb-license
   domain: thegoldenplatypus.development.run
-  storageSize: 5Gi
 
-
-  env:
-    RAVEN_Features_Availability: "Experimental"
+  storage:
+    data:
+      size: 10Gi                  
+      storageClassName: local-path 
+    
+  externalAccessConfiguration:
+    type: ingress-controller
+    ingressControllerContext:
+      ingressClassName: nginx

@@ -25,9 +25,13 @@ spec:
   certsSecretRef: ravendb-cert
   licenseSecretRef: ravendb-license
   domain: thegoldenplatypus-ss.development.run
-  storageSize: 5Gi
 
   externalAccessConfiguration:
     type: ingress-controller
     ingressControllerContext:
       ingressClassName: nginx
+
+  storage:
+      data:
+        size: 10Gi
+        storageClassName: local-path

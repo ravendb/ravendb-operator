@@ -1,3 +1,4 @@
+## Let's encrypt sample
 apiVersion: ravendb.ravendb.io/v1alpha1
 kind: RavenDBCluster
 metadata:
@@ -32,6 +33,9 @@ spec:
     type: ingress-controller
     ingressControllerContext:
       ingressClassName: nginx
+      additionalAnnotations:
+        nginx.ingress.kubernetes.io/limit-connections: "10"
+        nginx.ingress.kubernetes.io/limit-rps: "5"
 
   storage:
     data:

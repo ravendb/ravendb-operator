@@ -28,8 +28,12 @@ spec:
   email: omer.ratsaby@ravendb.net
   licenseSecretRef: ravendb-license
   domain: thegoldenplatypuscustom.development.run
-  storageSize: 5Gi
 
+  storage:
+    data:
+      size: 10Gi                  
+      storageClassName: local-path 
+    
   externalAccessConfiguration:
     type: ingress-controller
     ingressControllerContext:

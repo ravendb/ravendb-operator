@@ -1,3 +1,4 @@
+## Let's encrypt sample
 apiVersion: ravendb.ravendb.io/v1alpha1
 kind: RavenDBCluster
 metadata:
@@ -21,6 +22,16 @@ spec:
       publicServerUrlTcp: tcp://c-tcp.thegoldenplatypus.development.run:443
       certsSecretRef: ravendb-certs-c
 
+  storage:
+   data:
+     size: 10Gi                        
+     storageClassName: local-path      
+                                       
+  externalAccessConfiguration:
+    type: ingress-controller
+    ingressControllerContext:
+      ingressClassName: nginx
+
   image: ravendb/ravendb:latest
   imagePullPolicy: IfNotPresent
   mode: LetsEncrypt
@@ -28,13 +39,4 @@ spec:
   licenseSecretRef: ravendb-license
   domain: thegoldenplatypus.development.run
 
-  externalAccessConfiguration:
-    type: ingress-controller
-    ingressControllerContext:
-      ingressClassName: nginx
-
-  storage:
-    data:
-      size: 10Gi
-      storageClassName: local-path
-
+ 
