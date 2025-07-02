@@ -53,6 +53,8 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 	volumeMounts := buildVolumeMounts(cluster)
 
 	envVars, _ := buildEnvVars(cluster, node)
+
+	// todo: check and fallback in webhooks
 	ipp := corev1.PullPolicy(cluster.Spec.ImagePullPolicy)
 
 	containers := buildContainers(cluster.Spec.Image, envVars, ports, volumeMounts, ipp, cluster)
@@ -230,15 +232,15 @@ func BuildPVCs(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.PersistentVolum
 	var pvcs []corev1.PersistentVolumeClaim
 
 	data := cluster.Spec.StorageSpec.Data
-	pvcs = append(pvcs, buildPersistentVolumeClaim(common.DataVolumeName, data.Size, data.StorageClassName))
+	pvcs = append(pvcs, buildPersistentVolumeClaim(common.DataVolumeName, data.Size, data.StorageClassName, data.AccessModes, data.VolumeAttributesClassName))
 
 	// TODO: validation and fallback should be done in webhooks
 	if logs := cluster.Spec.StorageSpec.Logs; logs != nil {
 		if logs.RavenDB != nil && logs.RavenDB.Size != "" {
-			pvcs = append(pvcs, buildPersistentVolumeClaim(common.LogsVolumeName, logs.RavenDB.Size, logs.RavenDB.StorageClassName))
+			pvcs = append(pvcs, buildPersistentVolumeClaim(common.LogsVolumeName, logs.RavenDB.Size, logs.RavenDB.StorageClassName, logs.RavenDB.AccessModes, logs.RavenDB.VolumeAttributesClassName))
 		}
 		if logs.Audit != nil && logs.Audit.Size != "" {
-			pvcs = append(pvcs, buildPersistentVolumeClaim(common.AuditVolumeName, logs.Audit.Size, logs.Audit.StorageClassName))
+			pvcs = append(pvcs, buildPersistentVolumeClaim(common.AuditVolumeName, logs.Audit.Size, logs.Audit.StorageClassName, logs.Audit.AccessModes, logs.Audit.VolumeAttributesClassName))
 		}
 	}
 

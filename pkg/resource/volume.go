@@ -17,6 +17,7 @@ limitations under the License.
 package resource
 
 import (
+	"fmt"
 	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,16 +31,19 @@ func NewVolumeBuilder() *VolumeBuilder {
 	return &VolumeBuilder{}
 }
 
-func buildPersistentVolumeClaim(name string, size string, className *string) corev1.PersistentVolumeClaim {
+func buildPersistentVolumeClaim(name string, size string, className *string, accessModes []string, vaClass *string) corev1.PersistentVolumeClaim {
+
+	modes, err := ConvertAccessModes(accessModes)
+	if err != nil {
+		panic(fmt.Errorf("invalid accessModes for volume %s: %w", name, err))
+	}
 
 	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadWriteOnce,
-			},
+			AccessModes: modes,
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{
 					corev1.ResourceStorage: k8sresource.MustParse(size),
@@ -47,9 +51,19 @@ func buildPersistentVolumeClaim(name string, size string, className *string) cor
 			},
 		},
 	}
+
 	// TODO: check and fallback in webhooks
 	if className != nil {
 		pvc.Spec.StorageClassName = className
+	}
+
+	// TODO: check and fallback in webhooks
+	// todo: actualy test it
+	if vaClass != nil {
+		//pvc.Spec.VolumeAttributesClassName = vaClass
+		// this is an alpha feature, should be enable with feature gate
+		fmt.Printf("will use VolumeAttributesClassName: %s\n", *vaClass)
+
 	}
 
 	return pvc
@@ -100,6 +114,9 @@ func buildAdditionalVolumes(additionalVols []ravendbv1alpha1.AdditionalVolume) [
 		case av.VolumeSource.Secret != nil:
 			vol.VolumeSource.Secret = av.VolumeSource.Secret
 
+		case av.VolumeSource.PersistentVolumeClaim != nil:
+			vol.VolumeSource.PersistentVolumeClaim = av.VolumeSource.PersistentVolumeClaim
+
 		default:
 			// TODO: ignore invalid additional volumes -> webhook
 			continue
@@ -109,4 +126,24 @@ func buildAdditionalVolumes(additionalVols []ravendbv1alpha1.AdditionalVolume) [
 	}
 
 	return volumes
+}
+
+func ConvertAccessModes(input []string) ([]corev1.PersistentVolumeAccessMode, error) {
+	// 	// TODO: check and fallback in webhooks
+	if len(input) == 0 {
+		return []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, nil
+	}
+
+	var result []corev1.PersistentVolumeAccessMode
+	for _, mode := range input {
+		switch corev1.PersistentVolumeAccessMode(mode) {
+		case corev1.ReadWriteOnce, corev1.ReadWriteMany:
+			result = append(result, corev1.PersistentVolumeAccessMode(mode))
+		default:
+			// TODO: Move validation to webhook and disallow fallback
+			return nil, fmt.Errorf("invalid accessMode: %q", mode)
+		}
+	}
+
+	return result, nil
 }

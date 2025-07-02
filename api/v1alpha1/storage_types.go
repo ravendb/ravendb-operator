@@ -16,7 +16,9 @@ limitations under the License.
 
 package v1alpha1
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+)
 
 type StorageSpec struct {
 
@@ -37,6 +39,15 @@ type VolumeSpec struct {
 
 	// +kubebuilder:validation:Optional
 	StorageClassName *string `json:"storageClassName,omitempty"`
+
+	// todo: reject ReadWriteMany for poupular storage via dict
+	// we should log a warning for unknown StorageClass names + RWX combo but still allow it. --> webhook
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Items(enum=ReadWriteOnce,ReadWriteMany)
+	AccessModes []string `json:"accessModes,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	VolumeAttributesClassName *string `json:"volumeAttributesClassName,omitempty"`
 }
 
 type LogsSpec struct {
@@ -48,12 +59,7 @@ type LogsSpec struct {
 }
 
 type LogSettings struct {
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^\d+(Ei|Pi|Ti|Gi|Mi|Ki)$`
-	Size string `json:"size"`
-
-	// +kubebuilder:validation:Optional
-	StorageClassName *string `json:"storageClassName,omitempty"`
+	VolumeSpec `json:",inline"`
 
 	// +kubebuilder:validation:Optional
 	Path *string `json:"path,omitempty"`
@@ -81,4 +87,7 @@ type VolumeSource struct {
 
 	// +kubebuilder:validation:Optional
 	Secret *corev1.SecretVolumeSource `json:"secret,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	PersistentVolumeClaim *corev1.PersistentVolumeClaimVolumeSource `json:"persistentVolumeClaim,omitempty"`
 }

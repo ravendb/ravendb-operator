@@ -1,0 +1,58 @@
+apiVersion: ravendb.ravendb.io/v1alpha1
+kind: RavenDBCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ravendbcluster-sample
+  namespace: ravendb
+spec:
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.thegoldenplatypus.development.run:443
+      publicServerUrlTcp: tcp://a-tcp.thegoldenplatypus.development.run:443
+      certsSecretRef: ravendb-certs-a
+    - tag: b
+      publicServerUrl: https://b.thegoldenplatypus.development.run:443
+      publicServerUrlTcp: tcp://b-tcp.thegoldenplatypus.development.run:443
+      certsSecretRef: ravendb-certs-b
+    - tag: c
+      publicServerUrl: https://c.thegoldenplatypus.development.run:443
+      publicServerUrlTcp: tcp://c-tcp.thegoldenplatypus.development.run:443
+      certsSecretRef: ravendb-certs-c
+
+  image: ravendb/ravendb:latest
+  imagePullPolicy: IfNotPresent
+  mode: LetsEncrypt
+  email: omer.ratsaby@ravendb.net
+  licenseSecretRef: ravendb-license
+  domain: thegoldenplatypus.development.run
+
+  externalAccessConfiguration:
+    type: ingress-controller
+    ingressControllerContext:
+      ingressClassName: nginx
+
+  storage:
+    data:
+      size: 10Gi                     
+      storageClassName: local-path 
+    additionalVolumes:
+      - name: restore-volume
+        mountPath: /tmp/restore
+        volumeSource:
+          persistentVolumeClaim:
+             claimName: restore-backup-pvc
+# ---
+# apiVersion: v1
+# kind: PersistentVolumeClaim
+# metadata:
+#   name: restore-backup-pvc
+#   namespace: ravendb
+# spec:
+#   accessModes:
+#     - ReadWriteOnce
+#   resources:
+#     requests:
+#       storage: 1Gi
+#   storageClassName: local-path

@@ -210,6 +210,26 @@ spec:
                                   type: boolean
                               type: object
                               x-kubernetes-map-type: atomic
+                            persistentVolumeClaim:
+                              description: |-
+                                PersistentVolumeClaimVolumeSource references the user's PVC in the same namespace.
+                                This volume finds the bound PV and mounts that volume for the pod. A
+                                PersistentVolumeClaimVolumeSource is, essentially, a wrapper around another
+                                type of volume that is owned by someone else (the system).
+                              properties:
+                                claimName:
+                                  description: |-
+                                    claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                                    More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                                  type: string
+                                readOnly:
+                                  description: |-
+                                    readOnly Will force the ReadOnly setting in VolumeMounts.
+                                    Default false.
+                                  type: boolean
+                              required:
+                              - claimName
+                              type: object
                             secret:
                               description: |-
                                 Adapts a Secret into a volume.
@@ -288,10 +308,19 @@ spec:
                     type: array
                   data:
                     properties:
+                      accessModes:
+                        description: |-
+                          todo: reject ReadWriteMany for poupular storage via dict
+                          we should log a warning for unknown StorageClass names + RWX combo but still allow it. --> webhook
+                        items:
+                          type: string
+                        type: array
                       size:
                         pattern: ^\d+(Ei|Pi|Ti|Gi|Mi|Ki)$
                         type: string
                       storageClassName:
+                        type: string
+                      volumeAttributesClassName:
                         type: string
                     required:
                     - size
@@ -300,24 +329,42 @@ spec:
                     properties:
                       audit:
                         properties:
+                          accessModes:
+                            description: |-
+                              todo: reject ReadWriteMany for poupular storage via dict
+                              we should log a warning for unknown StorageClass names + RWX combo but still allow it. --> webhook
+                            items:
+                              type: string
+                            type: array
                           path:
                             type: string
                           size:
                             pattern: ^\d+(Ei|Pi|Ti|Gi|Mi|Ki)$
                             type: string
                           storageClassName:
+                            type: string
+                          volumeAttributesClassName:
                             type: string
                         required:
                         - size
                         type: object
                       ravendb:
                         properties:
+                          accessModes:
+                            description: |-
+                              todo: reject ReadWriteMany for poupular storage via dict
+                              we should log a warning for unknown StorageClass names + RWX combo but still allow it. --> webhook
+                            items:
+                              type: string
+                            type: array
                           path:
                             type: string
                           size:
                             pattern: ^\d+(Ei|Pi|Ti|Gi|Mi|Ki)$
                             type: string
                           storageClassName:
+                            type: string
+                          volumeAttributesClassName:
                             type: string
                         required:
                         - size
