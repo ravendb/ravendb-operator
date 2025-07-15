@@ -5,11 +5,12 @@ metadata:
     app.kubernetes.io/name: ravendb-operator
     app.kubernetes.io/managed-by: kustomize
   name: leader-election-rolebinding
+  namespace: ravendb-operator-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: controller-manager
-  namespace: system
+  name: ravendb-operator-sa
+  namespace: ravendb-operator-system
