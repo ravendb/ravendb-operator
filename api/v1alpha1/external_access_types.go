@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 type ExternalAccessConfiguration struct {
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=aws;ingress-controller
 	Type ExternalAccessType `json:"type"`
 

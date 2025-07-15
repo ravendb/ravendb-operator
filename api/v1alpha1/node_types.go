@@ -31,7 +31,7 @@ type RavenDBNode struct {
 	PublicServerUrlTcp string `json:"publicServerUrlTcp"`
 
 	// +kubebuilder:validation:Optional
-	CertsSecretRef string `json:"certsSecretRef,omitempty"`
+	CertSecretRef *string `json:"certSecretRef,omitempty"`
 }
 
 type RavenDBNodeStatus struct {

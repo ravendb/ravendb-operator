@@ -29,7 +29,7 @@ type StorageSpec struct {
 	Logs *LogsSpec `json:"logs,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	AdditionalVolumes []AdditionalVolume `json:"additionalVolumes,omitempty"`
+	AdditionalVolumes *[]AdditionalVolume `json:"additionalVolumes,omitempty"`
 }
 
 type VolumeSpec struct {
@@ -41,10 +41,8 @@ type VolumeSpec struct {
 	StorageClassName *string `json:"storageClassName,omitempty"`
 
 	// todo: reject ReadWriteMany for poupular storage via dict
-	// we should log a warning for unknown StorageClass names + RWX combo but still allow it. --> webhook
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:validation:Items(enum=ReadWriteOnce,ReadWriteMany)
-	AccessModes []string `json:"accessModes,omitempty"`
+	AccessModes *[]string `json:"accessModes,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	VolumeAttributesClassName *string `json:"volumeAttributesClassName,omitempty"`
@@ -66,7 +64,6 @@ type LogSettings struct {
 }
 
 type AdditionalVolume struct {
-	// TODO: verify uniqness of name across all volumes via webhook
 	// +kubebuilder:validation:Required
 	Name string `json:"name"`
 
@@ -74,10 +71,9 @@ type AdditionalVolume struct {
 	MountPath string `json:"mountPath"`
 
 	// +kubebuilder:validation:Optional
-	SubPath string `json:"subPath,omitempty"`
+	SubPath *string `json:"subPath,omitempty"`
 
 	// +kubebuilder:validation:Required
-	// TODO:  Only one field must be set -> webhook.
 	VolumeSource VolumeSource `json:"volumeSource"`
 }
 

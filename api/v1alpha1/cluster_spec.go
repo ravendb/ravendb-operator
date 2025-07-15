@@ -22,28 +22,27 @@ type RavenDBClusterSpec struct {
 	Image string `json:"image"`
 
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=Always;IfNotPresent;Never
+	// +kubebuilder:validation:Enum=Always;IfNotPresent
 	ImagePullPolicy string `json:"imagePullPolicy"`
 
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=LetsEncrypt;None
 	Mode ClusterMode `json:"mode"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Pattern=`^[^@\s]+@[^@\s]+\.[^@\s]+$`
-	Email string `json:"email,omitempty"`
+	Email *string `json:"email,omitempty"`
 
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
 	LicenseSecretRef string `json:"licenseSecretRef"`
 
 	// +kubebuilder:validation:Optional
-	ClusterCertSecretRef string `json:"certsSecretRef,omitempty"`
+	ClusterCertSecretRef *string `json:"certSecretRef,omitempty"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	Domain string `json:"domain"`
-
-	// +kubebuilder:validation:Optional
-	Environment map[string]string `json:"environment,omitempty"` // env vars
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
@@ -56,5 +55,5 @@ type RavenDBClusterSpec struct {
 	ExternalAccessConfiguration *ExternalAccessConfiguration `json:"externalAccessConfiguration,omitempty"`
 
 	// +kubebuilder:validation:Required
-	StorageSpec *StorageSpec `json:"storage"`
+	StorageSpec StorageSpec `json:"storage"`
 }
