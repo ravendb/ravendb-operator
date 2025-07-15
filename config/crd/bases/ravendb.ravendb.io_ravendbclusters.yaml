@@ -37,7 +37,7 @@ spec:
             type: object
           spec:
             properties:
-              certsSecretRef:
+              certSecretRef:
                 type: string
               domain:
                 minLength: 1
@@ -46,10 +46,6 @@ spec:
                 pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
                 type: string
               env:
-                additionalProperties:
-                  type: string
-                type: object
-              environment:
                 additionalProperties:
                   type: string
                 type: object
@@ -76,8 +72,6 @@ spec:
                     - aws
                     - ingress-controller
                     type: string
-                required:
-                - type
                 type: object
               image:
                 minLength: 1
@@ -86,7 +80,6 @@ spec:
                 enum:
                 - Always
                 - IfNotPresent
-                - Never
                 type: string
               licenseSecretRef:
                 type: string
