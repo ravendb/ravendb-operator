@@ -31,9 +31,19 @@ func NewVolumeBuilder() *VolumeBuilder {
 	return &VolumeBuilder{}
 }
 
-func buildPersistentVolumeClaim(name string, size string, className *string, accessModes []string, vaClass *string) corev1.PersistentVolumeClaim {
+func buildPersistentVolumeClaim(
+	name string,
+	size string,
+	className *string,
+	accessModes *[]string,
+	vaClass *string,
+) corev1.PersistentVolumeClaim {
 
-	modes, err := ConvertAccessModes(accessModes)
+	if accessModes == nil {
+		accessModes = &[]string{"ReadWriteOnce"}
+	}
+
+	modes, err := ConvertAccessModes(*accessModes)
 	if err != nil {
 		panic(fmt.Errorf("invalid accessModes for volume %s: %w", name, err))
 	}
@@ -52,18 +62,12 @@ func buildPersistentVolumeClaim(name string, size string, className *string, acc
 		},
 	}
 
-	// TODO: check and fallback in webhooks
 	if className != nil {
 		pvc.Spec.StorageClassName = className
 	}
 
-	// TODO: check and fallback in webhooks
-	// todo: actualy test it
 	if vaClass != nil {
-		//pvc.Spec.VolumeAttributesClassName = vaClass
-		// this is an alpha feature, should be enable with feature gate
-		fmt.Printf("will use VolumeAttributesClassName: %s\n", *vaClass)
-
+		pvc.Spec.VolumeAttributesClassName = vaClass
 	}
 
 	return pvc
@@ -106,20 +110,10 @@ func buildAdditionalVolumes(additionalVols []ravendbv1alpha1.AdditionalVolume) [
 			Name: av.Name,
 		}
 
-		// TODO: check should be removed when webhook is implemented
-		switch {
-		case av.VolumeSource.ConfigMap != nil:
-			vol.VolumeSource.ConfigMap = av.VolumeSource.ConfigMap
-
-		case av.VolumeSource.Secret != nil:
-			vol.VolumeSource.Secret = av.VolumeSource.Secret
-
-		case av.VolumeSource.PersistentVolumeClaim != nil:
-			vol.VolumeSource.PersistentVolumeClaim = av.VolumeSource.PersistentVolumeClaim
-
-		default:
-			// TODO: ignore invalid additional volumes -> webhook
-			continue
+		vol.VolumeSource = corev1.VolumeSource{
+			ConfigMap:             av.VolumeSource.ConfigMap,
+			Secret:                av.VolumeSource.Secret,
+			PersistentVolumeClaim: av.VolumeSource.PersistentVolumeClaim,
 		}
 
 		volumes = append(volumes, vol)
@@ -129,21 +123,9 @@ func buildAdditionalVolumes(additionalVols []ravendbv1alpha1.AdditionalVolume) [
 }
 
 func ConvertAccessModes(input []string) ([]corev1.PersistentVolumeAccessMode, error) {
-	// 	// TODO: check and fallback in webhooks
-	if len(input) == 0 {
-		return []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, nil
+	result := make([]corev1.PersistentVolumeAccessMode, len(input))
+	for i, mode := range input {
+		result[i] = corev1.PersistentVolumeAccessMode(mode)
 	}
-
-	var result []corev1.PersistentVolumeAccessMode
-	for _, mode := range input {
-		switch corev1.PersistentVolumeAccessMode(mode) {
-		case corev1.ReadWriteOnce, corev1.ReadWriteMany:
-			result = append(result, corev1.PersistentVolumeAccessMode(mode))
-		default:
-			// TODO: Move validation to webhook and disallow fallback
-			return nil, fmt.Errorf("invalid accessMode: %q", mode)
-		}
-	}
-
 	return result, nil
 }

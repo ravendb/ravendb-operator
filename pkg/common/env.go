@@ -49,17 +49,14 @@ func BuildSecureLetsEncryptEnvVars(instance *ravendbv1alpha1.RavenDBCluster) []c
 	return []corev1.EnvVar{
 		{Name: "RAVEN_Security_Certificate_Path", Value: CertPath},
 		{Name: "RAVEN_Security_Certificate_Exec_TimeoutInSec", Value: CertExecTimeout},
-		{Name: "RAVEN_Security_Certificate_LetsEncrypt_Email", Value: instance.Spec.Email},
+		{Name: "RAVEN_Security_Certificate_LetsEncrypt_Email", Value: *instance.Spec.Email},
 	}
 }
 
 func BuildAdditionalEnvVars(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.EnvVar {
 	var envVars []corev1.EnvVar
 	for k, v := range cluster.Spec.Env {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  k,
-			Value: v,
-		})
+		envVars = append(envVars, corev1.EnvVar{Name: k, Value: v})
 	}
 	return envVars
 }

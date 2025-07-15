@@ -54,7 +54,6 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 
 	envVars, _ := buildEnvVars(cluster, node)
 
-	// todo: check and fallback in webhooks
 	ipp := corev1.PullPolicy(cluster.Spec.ImagePullPolicy)
 
 	containers := buildContainers(cluster.Spec.Image, envVars, ports, volumeMounts, ipp, cluster)
@@ -126,9 +125,6 @@ func buildEnvVars(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.
 		env = append(env, common.BuildSecureLetsEncryptEnvVars(cluster)...)
 	case ravendbv1alpha1.ModeNone:
 		env = append(env, common.BuildSecureEnvVars(cluster)...)
-	default:
-		//TODO: remove this when webhook is implemented
-		return nil, fmt.Errorf("unsupported cluster mode: %s", cluster.Spec.Mode)
 	}
 
 	env = append(env, common.BuildAdditionalEnvVars(cluster)...)
@@ -137,7 +133,6 @@ func buildEnvVars(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.
 }
 
 func buildPorts() []corev1.ContainerPort {
-	//TODO take this port as an argument from specs and validates (also across nodes)via webhooks !!!
 	return []corev1.ContainerPort{
 		{Name: common.HttpsPortName, ContainerPort: 443},
 		{Name: common.TcpPortName, ContainerPort: 38888},
@@ -146,40 +141,26 @@ func buildPorts() []corev1.ContainerPort {
 
 func buildVolumes(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) []corev1.Volume {
 
-	////////////////////////////////////////////////////////////////////////////
-	// to be removed - validation and fallback should be done in webhooks
-	certSecretName := node.CertsSecretRef
-	if certSecretName == "" {
-		certSecretName = cluster.Spec.ClusterCertSecretRef
-	}
-	if certSecretName == "" {
-		panic("no cert secret defined")
-	}
-	///////////////////////////////////////////////////////////////////////////
-
 	volumes := []corev1.Volume{
 		buildPVCVolume(common.DataVolumeName),
-		buildSecretVolume(common.CertVolumeName, certSecretName),
+		buildSecretVolume(common.CertVolumeName, *node.CertSecretRef),
 		buildSecretVolume(common.LicenseVolumeName, cluster.Spec.LicenseSecretRef),
 	}
 
-	// TODO: validation and fallback should be done in webhooks
-	if logs := cluster.Spec.StorageSpec.Logs; logs != nil {
-		if logs.RavenDB != nil {
+	if cluster.Spec.StorageSpec.Logs != nil {
+		if cluster.Spec.StorageSpec.Logs.RavenDB != nil {
 			volumes = append(volumes, buildPVCVolume(common.LogsVolumeName))
 		}
-		if logs.Audit != nil {
+		if cluster.Spec.StorageSpec.Logs.Audit != nil {
 			volumes = append(volumes, buildPVCVolume(common.AuditVolumeName))
 		}
 	}
 
-	// TODO: validation and fallback should be done in webhooks
-	if len(cluster.Spec.StorageSpec.AdditionalVolumes) > 0 {
-		volumes = append(volumes, buildAdditionalVolumes(cluster.Spec.StorageSpec.AdditionalVolumes)...)
+	if cluster.Spec.StorageSpec.AdditionalVolumes != nil {
+		volumes = append(volumes, buildAdditionalVolumes(*cluster.Spec.StorageSpec.AdditionalVolumes)...)
 	}
 
 	return volumes
-
 }
 
 func buildVolumeMounts(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.VolumeMount {
@@ -189,37 +170,32 @@ func buildVolumeMounts(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.VolumeM
 		buildVolumeMount(common.LicenseVolumeName, common.LicenseMountPath),
 	}
 
-	// TODO: validation and fallback should be done in webhooks
-	if logs := cluster.Spec.StorageSpec.Logs; logs != nil {
-		if logs.RavenDB != nil && logs.RavenDB.Size != "" {
-			logPath := common.LogsMountPath
-			if logs.RavenDB.Path != nil {
-				logPath = *logs.RavenDB.Path
-			}
-			vMounts = append(vMounts, buildVolumeMount(common.LogsVolumeName, logPath))
+	if cluster.Spec.StorageSpec.Logs != nil {
+		if cluster.Spec.StorageSpec.Logs.RavenDB != nil &&
+			cluster.Spec.StorageSpec.Logs.RavenDB.Path != nil {
+			vMounts = append(vMounts, buildVolumeMount(
+				common.LogsVolumeName,
+				*cluster.Spec.StorageSpec.Logs.RavenDB.Path,
+			))
 		}
-		if logs.Audit != nil && logs.Audit.Size != "" {
-			auditPath := common.AuditMountPath
-			if logs.Audit.Path != nil {
-				auditPath = *logs.Audit.Path
-			}
-			vMounts = append(vMounts, buildVolumeMount(common.AuditVolumeName, auditPath))
+
+		if cluster.Spec.StorageSpec.Logs.Audit != nil &&
+			cluster.Spec.StorageSpec.Logs.Audit.Path != nil {
+			vMounts = append(vMounts, buildVolumeMount(
+				common.AuditVolumeName,
+				*cluster.Spec.StorageSpec.Logs.Audit.Path,
+			))
 		}
 	}
-	//////////////////////////////////
-
-	for _, av := range cluster.Spec.StorageSpec.AdditionalVolumes {
-		if av.MountPath != "" {
+	if cluster.Spec.StorageSpec.AdditionalVolumes != nil {
+		for _, av := range *cluster.Spec.StorageSpec.AdditionalVolumes {
 			mount := corev1.VolumeMount{
 				Name:      av.Name,
 				MountPath: av.MountPath,
 			}
-
-			// todo: validation and fallback should be done in webhooks
-			if av.SubPath != "" {
-				mount.SubPath = av.SubPath
+			if av.SubPath != nil {
+				mount.SubPath = *av.SubPath
 			}
-
 			vMounts = append(vMounts, mount)
 		}
 	}
@@ -228,19 +204,37 @@ func buildVolumeMounts(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.VolumeM
 }
 
 func BuildPVCs(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.PersistentVolumeClaim {
-
 	var pvcs []corev1.PersistentVolumeClaim
 
 	data := cluster.Spec.StorageSpec.Data
-	pvcs = append(pvcs, buildPersistentVolumeClaim(common.DataVolumeName, data.Size, data.StorageClassName, data.AccessModes, data.VolumeAttributesClassName))
+	pvcs = append(pvcs, buildPersistentVolumeClaim(
+		common.DataVolumeName,
+		data.Size,
+		data.StorageClassName,
+		data.AccessModes,
+		data.VolumeAttributesClassName,
+	))
 
-	// TODO: validation and fallback should be done in webhooks
-	if logs := cluster.Spec.StorageSpec.Logs; logs != nil {
-		if logs.RavenDB != nil && logs.RavenDB.Size != "" {
-			pvcs = append(pvcs, buildPersistentVolumeClaim(common.LogsVolumeName, logs.RavenDB.Size, logs.RavenDB.StorageClassName, logs.RavenDB.AccessModes, logs.RavenDB.VolumeAttributesClassName))
+	logs := cluster.Spec.StorageSpec.Logs
+	if logs != nil {
+		if logs.RavenDB != nil {
+			pvcs = append(pvcs, buildPersistentVolumeClaim(
+				common.LogsVolumeName,
+				logs.RavenDB.Size,
+				logs.RavenDB.StorageClassName,
+				logs.RavenDB.AccessModes,
+				logs.RavenDB.VolumeAttributesClassName,
+			))
 		}
-		if logs.Audit != nil && logs.Audit.Size != "" {
-			pvcs = append(pvcs, buildPersistentVolumeClaim(common.AuditVolumeName, logs.Audit.Size, logs.Audit.StorageClassName, logs.Audit.AccessModes, logs.Audit.VolumeAttributesClassName))
+
+		if logs.Audit != nil {
+			pvcs = append(pvcs, buildPersistentVolumeClaim(
+				common.AuditVolumeName,
+				logs.Audit.Size,
+				logs.Audit.StorageClassName,
+				logs.Audit.AccessModes,
+				logs.Audit.VolumeAttributesClassName,
+			))
 		}
 	}
 
