@@ -72,6 +72,8 @@ spec:
                     - aws
                     - ingress-controller
                     type: string
+                required:
+                - type
                 type: object
               image:
                 minLength: 1
@@ -82,6 +84,7 @@ spec:
                 - IfNotPresent
                 type: string
               licenseSecretRef:
+                minLength: 1
                 type: string
               mode:
                 enum:
@@ -91,7 +94,7 @@ spec:
               nodes:
                 items:
                   properties:
-                    certsSecretRef:
+                    certSecretRef:
                       type: string
                     publicServerUrl:
                       minLength: 1
@@ -118,13 +121,10 @@ spec:
                         mountPath:
                           type: string
                         name:
-                          description: 'TODO: verify uniqness of name across all volumes
-                            via webhook'
                           type: string
                         subPath:
                           type: string
                         volumeSource:
-                          description: 'TODO:  Only one field must be set -> webhook.'
                           properties:
                             configMap:
                               description: |-
@@ -302,9 +302,8 @@ spec:
                   data:
                     properties:
                       accessModes:
-                        description: |-
-                          todo: reject ReadWriteMany for poupular storage via dict
-                          we should log a warning for unknown StorageClass names + RWX combo but still allow it. --> webhook
+                        description: 'todo: reject ReadWriteMany for poupular storage
+                          via dict'
                         items:
                           type: string
                         type: array
@@ -323,9 +322,8 @@ spec:
                       audit:
                         properties:
                           accessModes:
-                            description: |-
-                              todo: reject ReadWriteMany for poupular storage via dict
-                              we should log a warning for unknown StorageClass names + RWX combo but still allow it. --> webhook
+                            description: 'todo: reject ReadWriteMany for poupular
+                              storage via dict'
                             items:
                               type: string
                             type: array
@@ -344,9 +342,8 @@ spec:
                       ravendb:
                         properties:
                           accessModes:
-                            description: |-
-                              todo: reject ReadWriteMany for poupular storage via dict
-                              we should log a warning for unknown StorageClass names + RWX combo but still allow it. --> webhook
+                            description: 'todo: reject ReadWriteMany for poupular
+                              storage via dict'
                             items:
                               type: string
                             type: array
