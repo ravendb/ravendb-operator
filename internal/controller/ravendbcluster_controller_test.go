@@ -1,5 +1,6 @@
 package controller
 
+// todo: This for testing the full lifecycle and status behavior of the Kubernetes operator.
 // import (
 // 	"context"
 // 	"fmt"
