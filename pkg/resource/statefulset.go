@@ -170,23 +170,24 @@ func buildVolumeMounts(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.VolumeM
 		buildVolumeMount(common.LicenseVolumeName, common.LicenseMountPath),
 	}
 
-	if cluster.Spec.StorageSpec.Logs != nil {
-		if cluster.Spec.StorageSpec.Logs.RavenDB != nil &&
-			cluster.Spec.StorageSpec.Logs.RavenDB.Path != nil {
-			vMounts = append(vMounts, buildVolumeMount(
-				common.LogsVolumeName,
-				*cluster.Spec.StorageSpec.Logs.RavenDB.Path,
-			))
+	if logs := cluster.Spec.StorageSpec.Logs; logs != nil {
+		if logs.RavenDB != nil {
+			path := common.LogsMountPath
+			if logs.RavenDB.Path != nil {
+				path = *logs.RavenDB.Path
+			}
+			vMounts = append(vMounts, buildVolumeMount(common.LogsVolumeName, path))
 		}
 
-		if cluster.Spec.StorageSpec.Logs.Audit != nil &&
-			cluster.Spec.StorageSpec.Logs.Audit.Path != nil {
-			vMounts = append(vMounts, buildVolumeMount(
-				common.AuditVolumeName,
-				*cluster.Spec.StorageSpec.Logs.Audit.Path,
-			))
+		if logs.Audit != nil {
+			path := common.AuditMountPath
+			if logs.Audit.Path != nil {
+				path = *logs.Audit.Path
+			}
+			vMounts = append(vMounts, buildVolumeMount(common.AuditVolumeName, path))
 		}
 	}
+
 	if cluster.Spec.StorageSpec.AdditionalVolumes != nil {
 		for _, av := range *cluster.Spec.StorageSpec.AdditionalVolumes {
 			mount := corev1.VolumeMount{
