@@ -76,22 +76,17 @@ func buildIngressAnnotations(cluster *ravendbv1alpha1.RavenDBCluster) map[string
 	}
 
 	ic := cluster.Spec.ExternalAccessConfiguration.IngressControllerExternalAccess
-	////////////////////////////////////////////////////////////////////////////
-	// to be removed - validation and fallback should be done in webhooks
+
 	if ic == nil {
 		return annotations
 	}
-	////////////////////////////////////////////////////////////////////////////
 
 	switch ic.IngressClassName {
 
-	case "nginx":
+	case common.IngressControllerTypeNginx:
 		annotations[common.NginxSSLPassthroughAnnotation] = "true"
-	case "haproxy":
-		// placehodler , TODO
-	case "traefik":
-		// placehodler , TODO
-		// Note: traefik has it's own philosophy of wiring up their ingress controller https://doc.traefik.io/traefik/reference/routing-configuration/kubernetes/crd/tcp/ingressroutetcp/
+	case common.IngressControllerTypeHaproxy:
+		annotations[common.HaproxySSLPassthroughAnnotation] = "true"
 	}
 
 	for k, v := range ic.AdditionalAnnotations {

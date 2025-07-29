@@ -58,6 +58,8 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 
 	containers := buildContainers(cluster.Spec.Image, envVars, ports, volumeMounts, ipp, cluster)
 
+	affinity := buildAWSNodeAffinity(cluster, node.Tag)
+
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        stsName,
@@ -76,6 +78,7 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 				Spec: corev1.PodSpec{
 					Containers: containers,
 					Volumes:    volumes,
+					Affinity:   affinity,
 				},
 			},
 			VolumeClaimTemplates: volumeClaims,
@@ -240,4 +243,40 @@ func BuildPVCs(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.PersistentVolum
 	}
 
 	return pvcs
+}
+
+func buildAWSNodeAffinity(cluster *ravendbv1alpha1.RavenDBCluster, tag string) *corev1.Affinity {
+	if cluster.Spec.ExternalAccessConfiguration == nil ||
+		cluster.Spec.ExternalAccessConfiguration.Type != ravendbv1alpha1.ExternalAccessTypeAWS ||
+		cluster.Spec.ExternalAccessConfiguration.AWSExternalAccess == nil {
+		return nil
+	}
+
+	var matchExpressions []corev1.NodeSelectorRequirement
+	for _, mapping := range cluster.Spec.ExternalAccessConfiguration.AWSExternalAccess.NodeMappings {
+		if mapping.Tag == tag {
+			matchExpressions = append(matchExpressions, corev1.NodeSelectorRequirement{
+				Key:      common.TopologyZoneLabel,
+				Operator: corev1.NodeSelectorOpIn,
+				Values:   []string{mapping.AvailabilityZone},
+			})
+			break
+		}
+	}
+
+	if len(matchExpressions) == 0 {
+		return nil
+	}
+
+	return &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: matchExpressions,
+					},
+				},
+			},
+		},
+	}
 }

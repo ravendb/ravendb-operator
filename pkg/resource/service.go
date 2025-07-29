@@ -59,6 +59,11 @@ func BuildService(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.
 		},
 	}
 
+	access := cluster.Spec.ExternalAccessConfiguration
+	if access != nil {
+		modifyServiceForExternalAccess(svc, access, node.Tag)
+	}
+
 	return svc, nil
 }
 
@@ -89,4 +94,51 @@ func buildServicePorts() []corev1.ServicePort {
 			Protocol: corev1.ProtocolTCP,
 		},
 	}
+}
+func modifyServiceForExternalAccess(svc *corev1.Service, access *ravendbv1alpha1.ExternalAccessConfiguration, tag string) {
+
+	switch access.Type {
+
+	case ravendbv1alpha1.ExternalAccessTypeAWS:
+		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+		svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+		if svc.Annotations == nil {
+			svc.Annotations = map[string]string{}
+		}
+		for k, v := range buildAwsNlbAnnotations(access.AWSExternalAccess, tag) {
+			svc.Annotations[k] = v
+		}
+
+	case ravendbv1alpha1.ExternalAccessTypeAzure:
+		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
+		svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
+
+		if access.AzureExternalAccess != nil {
+			for _, mapping := range access.AzureExternalAccess.NodeMappings {
+				if mapping.Tag == tag {
+					svc.Spec.LoadBalancerIP = mapping.IP
+					break
+				}
+			}
+		}
+
+	case ravendbv1alpha1.ExternalAccessTypeIngressController:
+		// do nothing
+	}
+
+}
+
+func buildAwsNlbAnnotations(cfg *ravendbv1alpha1.AWSExternalAccessContext, tag string) map[string]string {
+	for _, m := range cfg.NodeMappings {
+		if m.Tag == tag {
+			return map[string]string{
+				common.AWSLoadBalancerTypeAnnotation:           "external",
+				common.AWSLoadBalancerNLBTargetTypeAnnotation:  "ip",
+				common.AWSLoadBalancerSchemeAnnotation:         "internet-facing",
+				common.AWSLoadBalancerEIPAllocationsAnnotation: m.EIPAllocationId,
+				common.AWSLoadBalancerSubnetsAnnotation:        m.SubnetId,
+			}
+		}
+	}
+	return map[string]string{}
 }
