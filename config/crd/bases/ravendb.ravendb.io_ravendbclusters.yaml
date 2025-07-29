@@ -52,6 +52,51 @@ spec:
               externalAccessConfiguration:
                 properties:
                   awsExternalAccessContext:
+                    properties:
+                      nodeMappings:
+                        items:
+                          properties:
+                            availabilityZone:
+                              type: string
+                            eipAllocationId:
+                              pattern: ^eipalloc-[a-z0-9]+$
+                              type: string
+                            subnetId:
+                              pattern: ^subnet-[a-z0-9]+$
+                              type: string
+                            tag:
+                              minLength: 1
+                              type: string
+                          required:
+                          - availabilityZone
+                          - eipAllocationId
+                          - subnetId
+                          - tag
+                          type: object
+                        minItems: 1
+                        type: array
+                    required:
+                    - nodeMappings
+                    type: object
+                  azureExternalAccessContext:
+                    properties:
+                      nodeMappings:
+                        items:
+                          properties:
+                            ip:
+                              pattern: ^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$
+                              type: string
+                            tag:
+                              minLength: 1
+                              type: string
+                          required:
+                          - ip
+                          - tag
+                          type: object
+                        minItems: 1
+                        type: array
+                    required:
+                    - nodeMappings
                     type: object
                   ingressControllerContext:
                     properties:
@@ -62,6 +107,8 @@ spec:
                       ingressClassName:
                         enum:
                         - nginx
+                        - traefik
+                        - haproxy
                         minLength: 1
                         type: string
                     required:
@@ -69,7 +116,8 @@ spec:
                     type: object
                   type:
                     enum:
-                    - aws
+                    - aws-nlb
+                    - azure-lb
                     - ingress-controller
                     type: string
                 required:
@@ -302,8 +350,6 @@ spec:
                   data:
                     properties:
                       accessModes:
-                        description: 'todo: reject ReadWriteMany for poupular storage
-                          via dict'
                         items:
                           type: string
                         type: array
@@ -322,8 +368,6 @@ spec:
                       audit:
                         properties:
                           accessModes:
-                            description: 'todo: reject ReadWriteMany for poupular
-                              storage via dict'
                             items:
                               type: string
                             type: array
@@ -342,8 +386,6 @@ spec:
                       ravendb:
                         properties:
                           accessModes:
-                            description: 'todo: reject ReadWriteMany for poupular
-                              storage via dict'
                             items:
                               type: string
                             type: array

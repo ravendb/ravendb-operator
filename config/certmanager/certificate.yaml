@@ -20,3 +20,5 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: webhook-server-cert
+  privateKey:
+    rotationPolicy: Always
