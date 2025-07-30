@@ -18,22 +18,60 @@ package v1alpha1
 
 type ExternalAccessConfiguration struct {
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Enum=aws;ingress-controller
+	// +kubebuilder:validation:Enum=aws-nlb;azure-lb;ingress-controller
 	Type ExternalAccessType `json:"type"`
 
 	// +kubebuilder:validation:Optional
 	AWSExternalAccess *AWSExternalAccessContext `json:"awsExternalAccessContext,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	AzureExternalAccess *AzureExternalAccessContext `json:"azureExternalAccessContext,omitempty"`
+
+	// +kubebuilder:validation:Optional
 	IngressControllerExternalAccess *IngressControllerContext `json:"ingressControllerContext,omitempty"`
 }
 
 type AWSExternalAccessContext struct {
-	// TODO: handle additional configuration
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	NodeMappings []AWSNodeMapping `json:"nodeMappings"`
+}
+
+type AWSNodeMapping struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Tag string `json:"tag"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^eipalloc-[a-z0-9]+$`
+	EIPAllocationId string `json:"eipAllocationId"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^subnet-[a-z0-9]+$`
+	SubnetId string `json:"subnetId"`
+
+	// +kubebuilder:validation:Required
+	AvailabilityZone string `json:"availabilityZone"`
+}
+
+type AzureExternalAccessContext struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	NodeMappings []AzureNodeMapping `json:"nodeMappings"`
+}
+
+type AzureNodeMapping struct {
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Tag string `json:"tag"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$`
+	IP string `json:"ip"`
 }
 
 type IngressControllerContext struct {
-	// +kubebuilder:validation:Enum=nginx
+	// +kubebuilder:validation:Enum=nginx;traefik;haproxy
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	IngressClassName string `json:"ingressClassName"`

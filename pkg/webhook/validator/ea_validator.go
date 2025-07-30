@@ -46,16 +46,32 @@ func (v *eaValidator) ValidateCreate(ctx context.Context, c ClusterAdapter) erro
 	typeVal := c.GetExternalAccessType()
 	ingressSet := c.IsIngressContextSet()
 	awsSet := c.IsAWSContextSet()
+	azureSet := c.IsAzureContextSet()
 	annotations := c.GetIngressAnnotations()
 
 	switch typeVal {
-	case "aws":
+	case "aws-nlb":
 		if !awsSet {
-			errs = append(errs, "spec.externalAccessConfiguration.awsExternalAccessContext is required when type is 'aws'")
+			errs = append(errs, "spec.externalAccessConfiguration.awsExternalAccessContext is required when type is 'aws-nlb'")
 		}
 		if ingressSet {
-			errs = append(errs, "spec.externalAccessConfiguration.ingressControllerContext must not be set when type is 'aws'")
+			errs = append(errs, "spec.externalAccessConfiguration.ingressControllerContext must not be set when type is 'aws-nlb'")
 		}
+		if azureSet {
+			errs = append(errs, "spec.externalAccessConfiguration.azureExternalAccessContext must not be set when type is 'aws-nlb'")
+		}
+
+	case "azure-lb":
+		if !azureSet {
+			errs = append(errs, "spec.externalAccessConfiguration.azureExternalAccessContext is required when type is 'azure-lb'")
+		}
+		if ingressSet {
+			errs = append(errs, "spec.externalAccessConfiguration.ingressControllerContext must not be set when type is 'azure-lb'")
+		}
+		if awsSet {
+			errs = append(errs, "spec.externalAccessConfiguration.awsExternalAccessContext must not be set when type is 'azure-lb'")
+		}
+
 	case "ingress-controller":
 		if !ingressSet {
 			errs = append(errs, "spec.externalAccessConfiguration.ingressControllerContext is required when type is 'ingress-controller'")
@@ -63,15 +79,12 @@ func (v *eaValidator) ValidateCreate(ctx context.Context, c ClusterAdapter) erro
 		if awsSet {
 			errs = append(errs, "spec.externalAccessConfiguration.awsExternalAccessContext must not be set when type is 'ingress-controller'")
 		}
-
-		sslPassthroughKey := "nginx.ingress.kubernetes.io/ssl-passthrough"
-		for k, v := range annotations {
-			if k == sslPassthroughKey && v == "false" {
-				errs = append(errs, fmt.Sprintf(
-					"spec.externalAccessConfiguration.ingressControllerContext.additionalAnnotations must not contain '%s: \"false\"'",
-					sslPassthroughKey))
-			}
+		if azureSet {
+			errs = append(errs, "spec.externalAccessConfiguration.azureExternalAccessContext must not be set when type is 'ingress-controller'")
 		}
+
+		errs = append(errs, validateIngressAnnotations(annotations)...)
+
 	default:
 		errs = append(errs, fmt.Sprintf("spec.externalAccessConfiguration.type has invalid value: '%s'", typeVal))
 	}
@@ -84,4 +97,22 @@ func (v *eaValidator) ValidateCreate(ctx context.Context, c ClusterAdapter) erro
 
 func (v *eaValidator) ValidateUpdate(ctx context.Context, _, newC ClusterAdapter) error {
 	return v.ValidateCreate(ctx, newC)
+}
+
+func validateIngressAnnotations(annotations map[string]string) []string {
+	var errs []string
+
+	nginxKey := "nginx.ingress.kubernetes.io/ssl-passthrough"
+	haproxyKey := "haproxy.org/ssl-passthrough"
+	for k, v := range annotations {
+		switch k {
+		case nginxKey, haproxyKey:
+			if v == "false" {
+				errs = append(errs, fmt.Sprintf(
+					"spec.externalAccessConfiguration.ingressControllerContext.additionalAnnotations must not contain '%s: \"false\"'",
+					k))
+			}
+		}
+	}
+	return errs
 }

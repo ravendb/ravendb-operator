@@ -1,0 +1,42 @@
+## Let's encrypt sample
+apiVersion: ravendb.ravendb.io/v1alpha1
+kind: RavenDBCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ravendbcluster-sample
+  namespace: ravendb
+spec:
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.thegoldenplatypus.development.run:443
+      publicServerUrlTcp: tcp://a-tcp.thegoldenplatypus.development.run:443
+      certSecretRef: ravendb-certs-a
+    - tag: b
+      publicServerUrl: https://b.thegoldenplatypus.development.run:443
+      publicServerUrlTcp: tcp://b-tcp.thegoldenplatypus.development.run:443
+      certSecretRef: ravendb-certs-b
+    - tag: c
+      publicServerUrl: https://c.thegoldenplatypus.development.run:443
+      publicServerUrlTcp: tcp://c-tcp.thegoldenplatypus.development.run:443
+      certSecretRef: ravendb-certs-c
+
+  storage:
+   data:
+     size: 10Gi                        
+     storageClassName: local-path      
+                                       
+  externalAccessConfiguration:
+    type: ingress-controller
+    ingressControllerContext:
+      ingressClassName: traefik
+
+  image: ravendb/ravendb:latest
+  imagePullPolicy: IfNotPresent
+  mode: LetsEncrypt
+  email: omer.ratsaby@ravendb.net
+  licenseSecretRef: ravendb-license
+  domain: thegoldenplatypus.development.run
+
+ 

@@ -1,17 +1,17 @@
 /*
-Copyright 2025.
+	Copyright 2025.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+	Licensed under the Apache License, Version 2.0 (the "License");
+	you may not use this file except in compliance with the License.
+	You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+		http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+	Unless required by applicable law or agreed to in writing, software
+	distributed under the License is distributed on an "AS IS" BASIS,
+	WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+	See the License for the specific language governing permissions and
+	limitations under the License.
 */
 
 package validator
@@ -57,6 +57,7 @@ func (v *nodeValidator) ValidateCreate(ctx context.Context, c ClusterAdapter) er
 	certRefs := c.GetNodeCertSecretRefs()
 	mode := c.GetMode()
 	domain := c.GetDomain()
+	extAccType := c.GetExternalAccessType()
 
 	for i := range tags {
 		var cert string
@@ -74,7 +75,7 @@ func (v *nodeValidator) ValidateCreate(ctx context.Context, c ClusterAdapter) er
 	errs = append(errs, ValidateNodesNotEmpty(tags)...)
 	errs = append(errs, ValidateUniqueTags(tags)...)
 	errs = append(errs, ValidateUniqueUrls(pubUrls, tcpUrls)...)
-	errs = append(errs, ValidatePortsConsistency(pubUrls, tcpUrls)...)
+	errs = append(errs, ValidatePortsConsistency(pubUrls, tcpUrls, extAccType)...)
 
 	for _, n := range input {
 		errs = append(errs, ValidateNodeUrl(n.Tag, n.PublicUrl, domain, "https", "publicServerUrl", n.Tag+".")...)
@@ -140,8 +141,12 @@ func ValidateUniqueUrls(publicUrls, tcpUrls []string) []string {
 	return errs
 }
 
-func ValidatePortsConsistency(publicUrls, tcpUrls []string) []string {
+func ValidatePortsConsistency(publicUrls, tcpUrls []string, extAccType string) []string {
 	var expectedPort string
+
+	if extAccType != "ingress-controller" {
+		return nil
+	}
 
 	for i := range publicUrls {
 		pubPort := extractPort(publicUrls[i])

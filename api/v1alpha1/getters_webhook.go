@@ -110,6 +110,11 @@ func (r *RavenDBCluster) IsAWSContextSet() bool {
 		r.Spec.ExternalAccessConfiguration.AWSExternalAccess != nil
 }
 
+func (r *RavenDBCluster) IsAzureContextSet() bool {
+	return r.Spec.ExternalAccessConfiguration != nil &&
+		r.Spec.ExternalAccessConfiguration.AzureExternalAccess != nil
+}
+
 func (r *RavenDBCluster) GetStorageDataStorageClassName() *string {
 	return r.Spec.StorageSpec.Data.StorageClassName
 }

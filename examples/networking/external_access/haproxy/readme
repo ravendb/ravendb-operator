@@ -1,0 +1,62 @@
+# HAProxy Ingress Controller Deployment
+
+This guide explains how to deploy the [HAProxy Kubernetes Ingress Controller](https://github.com/haproxytech/kubernetes-ingress) using Helm and a custom `values.yaml` file.
+
+---
+
+## Prerequisites
+
+- A running Kubernetes cluster
+- Helm installed
+---
+
+## Step 1: Add the HAProxy Helm Repository
+
+```bash
+helm repo add haproxytech https://haproxytech.github.io/helm-charts
+helm repo update
+```
+
+---
+
+## Step 2: Create `values.yaml`
+
+```yaml
+# values.yaml
+controller:
+  kind: DaemonSet
+
+  service:
+    type: LoadBalancer
+    ports:
+      http: 80
+      https: 443
+```
+
+This configuration deploys the HAProxy ingress controller as a `DaemonSet` and exposes it via a LoadBalancer on ports 80 (HTTP) and 443 (HTTPS).
+
+---
+
+## Step 3: Install the HAProxy Ingress Controller
+
+```bash
+helm install haproxy haproxytech/kubernetes-ingress \
+  --namespace haproxy-controller \
+  --create-namespace \
+  -f values.yaml \
+  --wait
+```
+
+This command deploys the ingress controller in the `haproxy-controller` namespace using the configuration defined in `values.yaml`.
+
+---
+
+## Step 4: Deploy the RavenDB Operator and Apply the CR
+
+Once HAProxy is installed and the LoadBalancer is ready, proceed to install the RavenDB Kubernetes Operator and apply your Custom Resource (CR) that uses HAProxy for external access.
+
+Example CR location:
+
+```bash
+examples/networking/external_access/haproxy/ravendb_v1alpha1_ravendbcluster_externalaccess_haproxy.yaml
+```

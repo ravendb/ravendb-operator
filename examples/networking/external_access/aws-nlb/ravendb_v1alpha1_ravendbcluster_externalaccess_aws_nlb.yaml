@@ -1,0 +1,54 @@
+## Let's encrypt sample
+apiVersion: ravendb.ravendb.io/v1alpha1
+kind: RavenDBCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ravendbcluster-sample
+  namespace: ravendb
+spec:
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.thegoldenplatypusawsnlb.development.run:443
+      publicServerUrlTcp: tcp://a-tcp.thegoldenplatypusawsnlb.development.run:38888
+      certSecretRef: ravendb-certs-a
+    - tag: b
+      publicServerUrl: https://b.thegoldenplatypusawsnlb.development.run:443
+      publicServerUrlTcp: tcp://b-tcp.thegoldenplatypusawsnlb.development.run:38888
+      certSecretRef: ravendb-certs-b
+    - tag: c
+      publicServerUrl: https://c.thegoldenplatypusawsnlb.development.run:443
+      publicServerUrlTcp: tcp://c-tcp.thegoldenplatypusawsnlb.development.run:38888
+      certSecretRef: ravendb-certs-c
+
+  storage:
+   data:
+     size: 10Gi                        
+     storageClassName: gp2     
+                                       
+  externalAccessConfiguration:
+    type: aws-nlb
+    awsExternalAccessContext:
+      nodeMappings:
+        - tag: a
+          eipAllocationId: eipalloc-xxxxxxxx
+          subnetId: subnet-xxxxxxx
+          availabilityZone: us-east-1a
+        - tag: b
+          eipAllocationId: eipalloc-xxxxxxxx
+          subnetId: subnet-xxxxxxx
+          availabilityZone: us-east-1b
+        - tag: c
+          eipAllocationId: eipalloc-xxxxxxxx
+          subnetId: subnet-xxxxxxx
+          availabilityZone: us-east-1c
+
+  image: ravendb/ravendb:latest
+  imagePullPolicy: IfNotPresent
+  mode: LetsEncrypt
+  email: omer.ratsaby@ravendb.net
+  licenseSecretRef: ravendb-license
+  domain: thegoldenplatypusawsnlb.development.run
+
+ 

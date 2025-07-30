@@ -187,8 +187,9 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+	@cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	@$(KUSTOMIZE) build config/default 2>&1 | grep -vE "Warning: 'vars'|Warning: 'patchesStrategicMerge'|well-defined vars" | $(KUBECTL) apply -f -
+
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
@@ -242,7 +243,6 @@ define go-install-tool
 @[ -f "$(1)-$(3)" ] || { \
 set -e; \
 package=$(2)@$(3) ;\
-echo "Downloading $${package}" ;\
 rm -f $(1) || true ;\
 GOBIN=$(LOCALBIN) go install $${package} ;\
 mv $(1) $(1)-$(3) ;\

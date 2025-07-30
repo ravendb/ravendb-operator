@@ -475,7 +475,7 @@ func TestNodeValidatorValidatePortsConsistency(t *testing.T) {
 		cluster.Spec.Nodes[0].PublicServerUrl = "https://a.example.com:443"
 		cluster.Spec.Nodes[0].PublicServerUrlTcp = "tcp://a-tcp.example.com:38888"
 
-		errs := validator.ValidatePortsConsistency(cluster.GetNodePublicUrls(), cluster.GetNodeTcpUrls())
+		errs := validator.ValidatePortsConsistency(cluster.GetNodePublicUrls(), cluster.GetNodeTcpUrls(), "ingress-controller")
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "spec.nodes: publicServerUrl and publicServerUrlTcp ports must match")
 	})
@@ -487,7 +487,7 @@ func TestNodeValidatorValidatePortsConsistency(t *testing.T) {
 		cluster.Spec.Nodes[1].PublicServerUrl = "https://b.example.com:1234"
 		cluster.Spec.Nodes[1].PublicServerUrlTcp = "tcp://b-tcp.example.com:1234"
 
-		errs := validator.ValidatePortsConsistency(cluster.GetNodePublicUrls(), cluster.GetNodeTcpUrls())
+		errs := validator.ValidatePortsConsistency(cluster.GetNodePublicUrls(), cluster.GetNodeTcpUrls(), "ingress-controller")
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "spec.nodes: ports must be consistent across all nodes")
 	})
@@ -499,7 +499,7 @@ func TestNodeValidatorValidatePortsConsistency(t *testing.T) {
 		cluster.Spec.Nodes[1].PublicServerUrl = "https://b.example.com:443"
 		cluster.Spec.Nodes[1].PublicServerUrlTcp = "tcp://b-tcp.example.com:443"
 
-		errs := validator.ValidatePortsConsistency(cluster.GetNodePublicUrls(), cluster.GetNodeTcpUrls())
+		errs := validator.ValidatePortsConsistency(cluster.GetNodePublicUrls(), cluster.GetNodeTcpUrls(), "ingress-controller")
 		require.Empty(t, errs)
 	})
 }
@@ -681,14 +681,39 @@ func TestEAValidator(t *testing.T) {
 	t.Run("accepts valid aws config", func(t *testing.T) {
 		cluster := baseCluster("valid-aws")
 		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
-			Type:              v1alpha1.ExternalAccessType("aws"),
-			AWSExternalAccess: &v1alpha1.AWSExternalAccessContext{},
+			Type: v1alpha1.ExternalAccessType("aws-nlb"),
+			AWSExternalAccess: &v1alpha1.AWSExternalAccessContext{
+				NodeMappings: []v1alpha1.AWSNodeMapping{
+					{
+						Tag:             "A",
+						EIPAllocationId: "eipalloc-0123456789abcdef0",
+						SubnetId:        "subnet-abcdef1234567890",
+					},
+				},
+			},
 		}
 		err := v.ValidateCreate(ctx, cluster)
 		require.NoError(t, err)
 	})
 
-	t.Run("accepts valid ingress-controller config", func(t *testing.T) {
+	t.Run("accepts valid azure config", func(t *testing.T) {
+		cluster := baseCluster("valid-azure")
+		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
+			Type: v1alpha1.ExternalAccessType("azure-lb"),
+			AzureExternalAccess: &v1alpha1.AzureExternalAccessContext{
+				NodeMappings: []v1alpha1.AzureNodeMapping{
+					{
+						Tag: "A",
+						IP:  "1.2.3.4",
+					},
+				},
+			},
+		}
+		err := v.ValidateCreate(ctx, cluster)
+		require.NoError(t, err)
+	})
+
+	t.Run("accepts valid ingress-controller config (nginx)", func(t *testing.T) {
 		cluster := baseCluster("valid-ingress")
 		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
 			Type: v1alpha1.ExternalAccessType("ingress-controller"),
@@ -700,8 +725,32 @@ func TestEAValidator(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("rejects ingress with ssl-passthrough=false", func(t *testing.T) {
-		cluster := baseCluster("ssl-false")
+	t.Run("accepts valid ingress-controller config (haproxy)", func(t *testing.T) {
+		cluster := baseCluster("valid-ingress-haproxy")
+		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
+			Type: v1alpha1.ExternalAccessType("ingress-controller"),
+			IngressControllerExternalAccess: &v1alpha1.IngressControllerContext{
+				IngressClassName: "haproxy",
+			},
+		}
+		err := v.ValidateCreate(ctx, cluster)
+		require.NoError(t, err)
+	})
+
+	t.Run("accepts valid ingress-controller config (traefik)", func(t *testing.T) {
+		cluster := baseCluster("valid-ingress-traefik")
+		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
+			Type: v1alpha1.ExternalAccessType("ingress-controller"),
+			IngressControllerExternalAccess: &v1alpha1.IngressControllerContext{
+				IngressClassName: "traefik",
+			},
+		}
+		err := v.ValidateCreate(ctx, cluster)
+		require.NoError(t, err)
+	})
+
+	t.Run("rejects ingress with ssl-passthrough=false (nginx)", func(t *testing.T) {
+		cluster := baseCluster("ssl-false-nginx")
 		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
 			Type: v1alpha1.ExternalAccessType("ingress-controller"),
 			IngressControllerExternalAccess: &v1alpha1.IngressControllerContext{
@@ -714,6 +763,22 @@ func TestEAValidator(t *testing.T) {
 		err := v.ValidateCreate(ctx, cluster)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), `must not contain 'nginx.ingress.kubernetes.io/ssl-passthrough: "false"'`)
+	})
+
+	t.Run("rejects ingress with ssl-passthrough=false (haproxy)", func(t *testing.T) {
+		cluster := baseCluster("ssl-false-haproxy")
+		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
+			Type: v1alpha1.ExternalAccessType("ingress-controller"),
+			IngressControllerExternalAccess: &v1alpha1.IngressControllerContext{
+				IngressClassName: "haproxy",
+				AdditionalAnnotations: map[string]string{
+					"haproxy.org/ssl-passthrough": "false",
+				},
+			},
+		}
+		err := v.ValidateCreate(ctx, cluster)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), `must not contain 'haproxy.org/ssl-passthrough: "false"'`)
 	})
 
 	t.Run("rejects missing context for ingress-controller", func(t *testing.T) {
@@ -729,11 +794,21 @@ func TestEAValidator(t *testing.T) {
 	t.Run("rejects missing context for aws", func(t *testing.T) {
 		cluster := baseCluster("missing-aws")
 		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
-			Type: v1alpha1.ExternalAccessType("aws"),
+			Type: v1alpha1.ExternalAccessType("aws-nlb"),
 		}
 		err := v.ValidateCreate(ctx, cluster)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "spec.externalAccessConfiguration.awsExternalAccessContext is required")
+	})
+
+	t.Run("rejects missing context for azure", func(t *testing.T) {
+		cluster := baseCluster("missing-azure")
+		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
+			Type: v1alpha1.ExternalAccessType("azure-lb"),
+		}
+		err := v.ValidateCreate(ctx, cluster)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.externalAccessConfiguration.azureExternalAccessContext is required")
 	})
 
 	t.Run("rejects conflicting contexts for ingress-controller", func(t *testing.T) {
@@ -753,7 +828,7 @@ func TestEAValidator(t *testing.T) {
 	t.Run("rejects conflicting contexts for aws", func(t *testing.T) {
 		cluster := baseCluster("conflict-aws")
 		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
-			Type:              v1alpha1.ExternalAccessType("aws"),
+			Type:              v1alpha1.ExternalAccessType("aws-nlb"),
 			AWSExternalAccess: &v1alpha1.AWSExternalAccessContext{},
 			IngressControllerExternalAccess: &v1alpha1.IngressControllerContext{
 				IngressClassName: "nginx",
@@ -761,7 +836,19 @@ func TestEAValidator(t *testing.T) {
 		}
 		err := v.ValidateCreate(ctx, cluster)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "must not be set when type is 'aws'")
+		require.Contains(t, err.Error(), "must not be set when type is 'aws-nlb'")
+	})
+
+	t.Run("rejects conflicting contexts for azure", func(t *testing.T) {
+		cluster := baseCluster("conflict-azure")
+		cluster.Spec.ExternalAccessConfiguration = &v1alpha1.ExternalAccessConfiguration{
+			Type:                v1alpha1.ExternalAccessType("azure-lb"),
+			AzureExternalAccess: &v1alpha1.AzureExternalAccessContext{},
+			AWSExternalAccess:   &v1alpha1.AWSExternalAccessContext{},
+		}
+		err := v.ValidateCreate(ctx, cluster)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "must not be set when type is 'azure-lb'")
 	})
 
 	t.Run("rejects unknown external access type", func(t *testing.T) {
@@ -779,13 +866,6 @@ func TestStorageValidatorValidateVolumeSpec(t *testing.T) {
 	ctx := context.Background()
 	client := fake.NewClientBuilder().Build()
 	v := validator.NewStorageValidator(client)
-
-	// todo
-	// t.Run("warns when storageClassName is nil", func(t *testing.T) {
-	// 	errs := v.ValidateVolumeSpec(ctx, "spec.storage.data", nil, nil, nil)
-	// 	require.Len(t, errs, 1)
-	// 	require.Contains(t, errs[0], "spec.storage.data.storageClassName is not set")
-	// })
 
 	t.Run("calls ValidateRWX when storageClassName is set", func(t *testing.T) {
 		sc := "standard"

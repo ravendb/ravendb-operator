@@ -1,0 +1,115 @@
+# AWS NLB Deployment Guide for RavenDB Operator
+
+This guide explains how to expose a RavenDB cluster using [AWS Network Load Balancers (NLBs)](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/introduction.html) in an EKS environment.
+
+---
+
+## Prerequisites
+
+- A running EKS cluster with at least x nodes
+- Your VPC spans at least x subnets in different AZs
+- IAM roles, OIDC provider, and a Kubernetes Service Account properly configured for the AWS Load Balancer Controller (LBC)
+
+--- 
+### **Example of 3 nodes deployment:**
+
+#### Step 1: Allocate Elastic IPs
+
+Allocate x **Elastic IPs** in advance. These will be pre-assigned to NLBs for node-level external access.
+
+| IP            | Allocation ID               |
+|---------------|-----------------------------|
+| 1.2.3.4       | eipalloc-xxxxxxxxxxxxxxxxx  |
+| 4.5.6.7       | eipalloc-yyyyyyyyyyyyyyyyy  |
+| 8.9.10.11     | eipalloc-zzzzzzzzzzzzzzzzz  |
+
+
+#### Step 2: Install the AWS Load Balancer Controller
+
+The AWS Load Balancer Controller is responsible for provisioning and managing NLBs based on Kubernetes Service definitions.
+Install it using helm:
+
+```bash
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  --namespace kube-system \
+  --set clusterName=<your-cluster-name> \
+  --set region=<aws-region> \
+  --set serviceAccount.create=false \
+  --set serviceAccount.name=<your-service-account> \
+  --set vpcId=<your-vpc-id> \
+  --version 1.13.0 # replace if needed
+```
+
+#### Step 3: Apply the RavenDB Custom Resource
+
+The operator will provision one AWS NLB per node. Each NLB is bound to:
+
+- A dedicated **Elastic IP (EIP)**
+- A specific **subnet** within a specific **Availability Zone (AZ)**
+
+This setup enables explicit zone-to-node routing and ensures stable, static external IPs for each node.
+
+Below is an example mapping of each RavenDB node to its NLB, subnet, AZ, and EIP:
+
+| Node Tag | NLB DNS        | Subnet ID        | Availability Zone | EIP Address  | EIP Allocation ID         |
+|----------|----------------|------------------|-------------------|--------------|---------------------------|
+| a        | a.example.run  | subnet-aaaaaaaaa | us-east-1a        | 1.2.3.4      | eipalloc-xxxxxxxxxxxxxxxxx |
+| b        | b.example.run  | subnet-bbbbbbbbb | us-east-1b        | 5.6.7.8      | eipalloc-yyyyyyyyyyyyyyyyy |
+| c        | c.example.run  | subnet-ccccccccc | us-east-1c        | 9.10.11.12   | eipalloc-zzzzzzzzzzzzzzzzz |
+
+```yaml
+apiVersion: ravendb.ravendb.io/v1alpha1
+kind: RavenDBCluster
+...
+spec:
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.example.run:443
+      publicServerUrlTcp: tcp://a-tcp.example.run:38888
+      ...
+    - tag: b
+      publicServerUrl: https://b.example.run:443
+      publicServerUrlTcp: tcp://b-tcp.example.run:38888
+      ...
+    - tag: c
+      publicServerUrl: https://c.example.run:443
+      publicServerUrlTcp: tcp://c-tcp.example.run:38888
+      ...
+
+  externalAccessConfiguration:
+    type: aws-nlb
+    awsExternalAccessContext:
+      nodeMappings:
+        - tag: a
+          eipAllocationId: eipalloc-xxxxxxxxxxxxxxxxx
+          subnetId: subnet-aaaaaaaaa
+          availabilityZone: us-east-1a
+        - tag: b
+          eipAllocationId: eipalloc-yyyyyyyyyyyyyyyyy
+          subnetId: subnet-bbbbbbbbb
+          availabilityZone: us-east-1b
+        - tag: c
+          eipAllocationId: eipalloc-zzzzzzzzzzzzzzzzz
+          subnetId: subnet-ccccccccc
+          availabilityZone: us-east-1c
+...
+```
+##### **Key Notes**
+
+- One **NLB per node** will be provisioned.
+- Each NLB is tied to:
+  - a specific **subnet** (must match the `availabilityZone`)
+  - a dedicated **EIP**
+- Subnets **must exist** in the VPC and be routable.
+
+
+Full example CR location:
+
+```bash
+examples/networking/external_access/aws-nlb/ravendb_v1alpha1_ravendbcluster_externalaccess_aws_nlb.yaml
+```
+
+Once applied, the NLBs will expose each node at its specified domain + IP address pair, ready for secure external access via HTTPS (443) and TCP (38888).

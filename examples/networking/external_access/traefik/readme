@@ -1,0 +1,191 @@
+# Traefik Ingress Controller Deployment
+
+This guide explains how to deploy the [Traefik Kubernetes Ingress Controller](https://doc.traefik.io/traefik/) using Helm and a custom `values.yaml` file to support HTTPS (443) and TCP (38888) passthrough for RavenDB using SNI.
+
+---
+
+## Prerequisites
+
+- A running Kubernetes cluster
+- Helm installed
+---
+
+## Step 1: Add the Traefik Helm Repository
+
+```bash
+helm repo add traefik https://traefik.github.io/charts
+helm repo update
+```
+
+---
+
+## Step 2: Create `values.yaml`
+
+```yaml
+# values.yaml
+entryPoints:
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        passthrough: true
+
+  tcp:
+    address: ":38888"
+    http:
+      tls:
+        passthrough: true
+
+providers:
+  kubernetesCRD: {}
+```
+
+This configuration enables two entry points:
+- `websecure` for HTTPS passthrough on port 443
+- `tcp` for TCP passthrough on port 38888  
+Both use TLS SNI routing and passthrough mode.
+
+---
+
+## Step 3: Install Traefik using Helm
+
+```bash
+helm install traefik traefik/traefik \
+  --namespace traefik \
+  --create-namespace \
+  -f values.yaml \
+  --wait
+```
+
+This deploys the Traefik ingress controller with your custom entry point configuration.
+
+---
+
+## Step 4: Install CRDs Required for TCP Routing
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v3.0/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
+```
+
+This ensures that the `IngressRouteTCP` kind is available in your cluster.
+
+---
+
+## Step 5: Create and Apply `IngressRouteTCP` Definitions
+
+```yaml
+# ingressRouteTCP.yaml
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: ravendb-a-https
+  namespace: ravendb
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: HostSNI(`a.example.run`)
+      services:
+        - name: ravendb-a
+          port: 443
+  tls:
+    passthrough: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: ravendb-a-tcp
+  namespace: ravendb
+spec:
+  entryPoints:
+    - tcp
+  routes:
+    - match: HostSNI(`a-tcp.example.run`)
+      services:
+        - name: ravendb-a-tcp
+          port: 38888
+  tls:
+    passthrough: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: ravendb-b-https
+  namespace: ravendb
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: HostSNI(`b.example.run`)
+      services:
+        - name: ravendb-b
+          port: 443
+  tls:
+    passthrough: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: ravendb-b-tcp
+  namespace: ravendb
+spec:
+  entryPoints:
+    - tcp
+  routes:
+    - match: HostSNI(`b-tcp.example.run`)
+      services:
+        - name: ravendb-b-tcp
+          port: 38888
+  tls:
+    passthrough: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: ravendb-c-https
+  namespace: ravendb
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: HostSNI(`c.example.run`)
+      services:
+        - name: ravendb-c
+          port: 443
+  tls:
+    passthrough: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: ravendb-c-tcp
+  namespace: ravendb
+spec:
+  entryPoints:
+    - tcp
+  routes:
+    - match: HostSNI(`c-tcp.example.run`)
+      services:
+        - name: ravendb-c-tcp
+          port: 38888
+  tls:
+    passthrough: true
+```
+
+Apply it with:
+
+```bash
+kubectl apply -f ingressRouteTCP.yaml
+```
+
+---
+
+## Step 6: Deploy the RavenDB Operator and Apply the CR
+
+Once Traefik is installed and the TCP Ingress routes are in place, proceed to install the RavenDB Operator and apply your RavenDBCluster Custom Resource (CR) configured for external access via Traefik.
+
+Example CR location:
+
+```bash
+examples/networking/external_access/traefik/ravendb_v1alpha1_ravendbcluster_externalaccess_traefik.yaml
+```

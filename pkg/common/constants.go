@@ -43,23 +43,37 @@ const (
 
 // labels
 const (
-	LabelAppName   = "app.kubernetes.io/name"
-	LabelInstance  = "app.kubernetes.io/instance"
-	LabelManagedBy = "app.kubernetes.io/managed-by"
-	LabelNodeTag   = "nodeTag"
-	LabelApp       = "app"
+	LabelAppName      = "app.kubernetes.io/name"
+	LabelInstance     = "app.kubernetes.io/instance"
+	LabelManagedBy    = "app.kubernetes.io/managed-by"
+	LabelNodeTag      = "nodeTag"
+	LabelApp          = "app"
+	TopologyZoneLabel = "topology.kubernetes.io/zone"
 )
 
 // annotations
 const (
-	IngressSSLPassthroughAnnotation = "ingress.kubernetes.io/ssl-passthrough"
-	NginxSSLPassthroughAnnotation   = "nginx.ingress.kubernetes.io/ssl-passthrough"
+	IngressSSLPassthroughAnnotation         = "ingress.kubernetes.io/ssl-passthrough"
+	NginxSSLPassthroughAnnotation           = "nginx.ingress.kubernetes.io/ssl-passthrough"
+	HaproxySSLPassthroughAnnotation         = "haproxy.org/ssl-passthrough"
+	AWSLoadBalancerTypeAnnotation           = "service.beta.kubernetes.io/aws-load-balancer-type"
+	AWSLoadBalancerSchemeAnnotation         = "service.beta.kubernetes.io/aws-load-balancer-scheme"
+	AWSLoadBalancerNLBTargetTypeAnnotation  = "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type"
+	AWSLoadBalancerEIPAllocationsAnnotation = "service.beta.kubernetes.io/aws-load-balancer-eip-allocations"
+	AWSLoadBalancerSubnetsAnnotation        = "service.beta.kubernetes.io/aws-load-balancer-subnets"
 )
 
 // internal ports
 const (
 	InternalHttpsPort = 443
 	InternalTcpPort   = 38888
+)
+
+// ingress controller types
+const (
+	IngressControllerTypeNginx   = "nginx"
+	IngressControllerTypeTraefik = "traefik"
+	IngressControllerTypeHaproxy = "haproxy"
 )
 
 const (

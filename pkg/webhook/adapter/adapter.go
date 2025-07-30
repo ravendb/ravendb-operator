@@ -35,6 +35,7 @@ type ClusterAdapter interface {
 	GetIngressAnnotations() map[string]string
 	IsIngressContextSet() bool
 	IsAWSContextSet() bool
+	IsAzureContextSet() bool
 	IsExternalAccessSet() bool
 	GetStorageDataStorageClassName() *string
 	GetStorageDataAccessModes() []string

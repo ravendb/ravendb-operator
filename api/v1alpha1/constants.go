@@ -34,6 +34,7 @@ const (
 type ExternalAccessType string
 
 const (
-	ExternalAccessTypeAWS               ExternalAccessType = "aws"
+	ExternalAccessTypeAWS               ExternalAccessType = "aws-nlb"
+	ExternalAccessTypeAzure             ExternalAccessType = "azure-lb"
 	ExternalAccessTypeIngressController ExternalAccessType = "ingress-controller"
 )

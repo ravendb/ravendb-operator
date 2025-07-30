@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	"ravendb-operator/pkg/common"
 	"ravendb-operator/pkg/resource"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,6 +54,22 @@ func (a *ingressActor) Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDB
 }
 
 func (a *ingressActor) ShouldAct(cluster *ravendbv1alpha1.RavenDBCluster) bool {
-	return cluster.Spec.ExternalAccessConfiguration != nil &&
-		cluster.Spec.ExternalAccessConfiguration.Type == ravendbv1alpha1.ExternalAccessTypeIngressController
+
+	externalAccess := cluster.Spec.ExternalAccessConfiguration
+
+	if externalAccess == nil {
+		return false
+	}
+
+	if externalAccess.Type != ravendbv1alpha1.ExternalAccessTypeIngressController {
+		return false
+	}
+
+	ingressConfig := externalAccess.IngressControllerExternalAccess
+
+	if ingressConfig != nil && ingressConfig.IngressClassName == common.IngressControllerTypeTraefik {
+		return false
+	}
+
+	return true
 }

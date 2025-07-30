@@ -1,0 +1,83 @@
+# Azure Load Balancer Deployment Guide for RavenDB Operator
+
+This guide explains how to expose a RavenDB cluster using [Azure Load Balancer](https://learn.microsoft.com/en-us/azure/load-balancer/load-balancer-overview) in an AKS environment.
+
+---
+
+## Prerequisites
+
+- A running AKS cluster with at least x nodes
+- A node pool deployed across multiple Azure Zones (optional, but recommended)
+- Pre-created Public IP addresses in the same resource group as your cluster
+
+--- 
+### **Example of 3 nodes deployment:**
+
+#### Step 1: Allocate Public IPs
+
+Allocate three **Public IPs** in advance. These will later be bound to Azure Load Balancers per RavenDB node.
+
+| IP              | Resource Name                |
+|-----------------|------------------------------|
+|1.2.3.4          | ravendb-a-aks-ip             |
+|4.5.6.7          | ravendb-b-aks-ip             |
+|8.9.10.11        | ravendb-c-aks-ip             |
+
+
+#### Step 2: Apply the RavenDB Custom Resource
+
+In Azure, all external traffic is routed through a **single, zone-redundant Standard Load Balancer** that is automatically managed by AKS. Instead of provisioning a separate load balancer per node, Azure uses **frontend IP configurations** to expose multiple public IPs through the same Load Balancer.
+
+Each public IP address you allocate ahead of time is attached as a **frontend configuration**. These frontends act as distinct entry points that distribute traffic to the correct RavenDB pod via the corresponding Kubernetes service.
+
+Because the Azure Standard Load Balancer is **zone-redundant**, it can route traffic to nodes in any availability zone without requiring manual subnet or zone assignments—ensuring high availability by default.
+
+Below is an example mapping of each RavenDB node to its public IP
+
+| Node Tag | Public Server URL  | IP Address   |
+|----------|--------------------|--------------|
+| a        | a.example.run      | 1.2.3.4      |
+| b        | b.example.run      | 5.6.7.8      |
+| c        | c.example.run      | 9.10.11.12   |
+
+
+```yaml
+apiVersion: ravendb.ravendb.io/v1alpha1
+kind: RavenDBCluster
+...
+spec:
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.example.run:443
+      publicServerUrlTcp: tcp://a-tcp.example.run:38888
+      ...
+    - tag: b
+      publicServerUrl: https://b.example.run:443
+      publicServerUrlTcp: tcp://b-tcp.example.run:38888
+      ...
+    - tag: c
+      publicServerUrl: https://c.example.run:443
+      publicServerUrlTcp: tcp://c-tcp.example.run:38888
+      ...
+
+  externalAccessConfiguration:
+    type: azure-lb
+    azureExternalAccessContext:
+      nodeMappings:
+        - tag: a
+          ip: 1.2.3.4 
+        - tag: b
+          ip: 4.5.6.7
+        - tag: c
+          ip: 8.9.10.11
+...
+```
+
+Full example CR location:
+
+```bash
+examples/networking/external_access/azure-lb/ravendb_v1alpha1_ravendbcluster_externalaccess_azure_lb.yaml
+```
+
+
+Once the Custom Resource is applied, each node becomes accessible at its corresponding hostname and IP address over ports **443 (HTTPS)** and **38888 (TCP)**.

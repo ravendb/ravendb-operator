@@ -70,7 +70,7 @@ func TestExternalAccessTypeValidation(t *testing.T) {
 		{
 			Name: "valid type - aws",
 			Modify: func(spec *RavenDBClusterSpec) {
-				spec.ExternalAccessConfiguration.Type = "aws"
+				spec.ExternalAccessConfiguration.Type = "aws-nlb"
 			},
 			ExpectError: false,
 		},
@@ -107,7 +107,130 @@ func TestExternalAccessTypeValidation(t *testing.T) {
 
 func TestAWSExternalAccessContext(t *testing.T) {
 
-	// TODO
+	testCases := []SpecValidationCase{
+		{
+			Name: "valid AWS nodeMappings",
+			Modify: func(spec *RavenDBClusterSpec) {
+				spec.ExternalAccessConfiguration.Type = "aws-nlb"
+				spec.ExternalAccessConfiguration.AWSExternalAccess = &AWSExternalAccessContext{
+					NodeMappings: []AWSNodeMapping{
+						{
+							Tag:             "A",
+							EIPAllocationId: "eipalloc-0123456789abcdef0",
+							SubnetId:        "subnet-abcdef1234567890",
+						},
+					},
+				}
+			},
+			ExpectError: false,
+		},
+		{
+			Name: "invalid EIP and Subnet format",
+			Modify: func(spec *RavenDBClusterSpec) {
+				spec.ExternalAccessConfiguration.Type = "aws-nlb"
+				spec.ExternalAccessConfiguration.AWSExternalAccess = &AWSExternalAccessContext{
+					NodeMappings: []AWSNodeMapping{
+						{
+							Tag:             "A",
+							EIPAllocationId: "wrong-format",
+							SubnetId:        "bad-subnet",
+						},
+					},
+				}
+			},
+			ExpectError: true,
+			ErrorParts: []string{
+				"spec.externalAccessConfiguration.awsExternalAccessContext.nodeMappings[0].eipAllocationId",
+				"spec.externalAccessConfiguration.awsExternalAccessContext.nodeMappings[0].subnetId",
+			},
+		},
+		{
+			Name: "missing tag field in mapping",
+			Modify: func(spec *RavenDBClusterSpec) {
+				spec.ExternalAccessConfiguration.Type = "aws-nlb"
+				spec.ExternalAccessConfiguration.AWSExternalAccess = &AWSExternalAccessContext{
+					NodeMappings: []AWSNodeMapping{
+						{
+							EIPAllocationId: "eipalloc-0123456789abcdef0",
+							SubnetId:        "subnet-abcdef1234567890",
+						},
+					},
+				}
+			},
+			ExpectError: true,
+			ErrorParts:  []string{"spec.externalAccessConfiguration.awsExternalAccessContext.nodeMappings[0].tag"},
+		},
+	}
+
+	runSpecValidationTest(t, baseClusterForExternalAccessTypesTest, testCases)
+}
+
+func TestAzureExternalAccessContext(t *testing.T) {
+	testCases := []SpecValidationCase{
+		{
+			Name: "valid Azure nodeMappings",
+			Modify: func(spec *RavenDBClusterSpec) {
+				spec.ExternalAccessConfiguration.Type = "azure-lb"
+				spec.ExternalAccessConfiguration.AzureExternalAccess = &AzureExternalAccessContext{
+					NodeMappings: []AzureNodeMapping{
+						{
+							Tag: "A",
+							IP:  "192.168.1.10",
+						},
+					},
+				}
+			},
+			ExpectError: false,
+		},
+		{
+			Name: "missing IP field in mapping",
+			Modify: func(spec *RavenDBClusterSpec) {
+				spec.ExternalAccessConfiguration.Type = "azure-lb"
+				spec.ExternalAccessConfiguration.AzureExternalAccess = &AzureExternalAccessContext{
+					NodeMappings: []AzureNodeMapping{
+						{
+							Tag: "A",
+						},
+					},
+				}
+			},
+			ExpectError: true,
+			ErrorParts:  []string{"spec.externalAccessConfiguration.azureExternalAccessContext.nodeMappings[0].ip"},
+		},
+		{
+			Name: "missing tag field in mapping",
+			Modify: func(spec *RavenDBClusterSpec) {
+				spec.ExternalAccessConfiguration.Type = "azure-lb"
+				spec.ExternalAccessConfiguration.AzureExternalAccess = &AzureExternalAccessContext{
+					NodeMappings: []AzureNodeMapping{
+						{
+							IP: "1.2.3.4",
+						},
+					},
+				}
+			},
+			ExpectError: true,
+			ErrorParts:  []string{"spec.externalAccessConfiguration.azureExternalAccessContext.nodeMappings[0].tag"},
+		},
+		{
+			Name: "invalid IP format",
+			Modify: func(spec *RavenDBClusterSpec) {
+				spec.ExternalAccessConfiguration.Type = "azure-lb"
+				spec.ExternalAccessConfiguration.AzureExternalAccess = &AzureExternalAccessContext{
+					NodeMappings: []AzureNodeMapping{
+						{
+							Tag: "A",
+							IP:  "999.999.999.999",
+						},
+					},
+				}
+			},
+			ExpectError: true,
+			ErrorParts:  []string{"spec.externalAccessConfiguration.azureExternalAccessContext.nodeMappings[0].ip"},
+		},
+	}
+
+	runSpecValidationTest(t, baseClusterForExternalAccessTypesTest, testCases)
 }
 
 func TestIngressControllerContextValidation(t *testing.T) {
@@ -132,7 +255,7 @@ func TestIngressControllerContextValidation(t *testing.T) {
 			Modify: func(spec *RavenDBClusterSpec) {
 				spec.ExternalAccessConfiguration.Type = "ingress-controller"
 				spec.ExternalAccessConfiguration.IngressControllerExternalAccess = &IngressControllerContext{
-					IngressClassName: "traefik",
+					IngressClassName: "thegoldenplatypusIC",
 				}
 			},
 			ExpectError: true,

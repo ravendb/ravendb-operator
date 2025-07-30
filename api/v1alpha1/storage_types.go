@@ -40,7 +40,6 @@ type VolumeSpec struct {
 	// +kubebuilder:validation:Optional
 	StorageClassName *string `json:"storageClassName,omitempty"`
 
-	// todo: reject ReadWriteMany for poupular storage via dict
 	// +kubebuilder:validation:Optional
 	AccessModes *[]string `json:"accessModes,omitempty"`
 
