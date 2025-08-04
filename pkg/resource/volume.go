@@ -19,6 +19,7 @@ package resource
 import (
 	"fmt"
 	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
 	k8sresource "k8s.io/apimachinery/pkg/api/resource"
@@ -128,4 +129,36 @@ func ConvertAccessModes(input []string) ([]corev1.PersistentVolumeAccessMode, er
 		result[i] = corev1.PersistentVolumeAccessMode(mode)
 	}
 	return result, nil
+}
+
+func buildConfigMapVolume(name string, cfgmName string, keyToPath map[string]string, mode int32) corev1.Volume {
+	var items []corev1.KeyToPath
+
+	keys := make([]string, 0, len(keyToPath))
+	for k := range keyToPath {
+		keys = append(keys, k)
+	}
+
+	// required !!! cfgms vols can be mounted in different order which trigger the reconciler to terminate and restart the containers for no real reason
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		items = append(items, corev1.KeyToPath{
+			Key:  k,
+			Path: keyToPath[k],
+		})
+	}
+
+	return corev1.Volume{
+		Name: name,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cfgmName,
+				},
+				Items:       items,
+				DefaultMode: &mode,
+			},
+		},
+	}
 }

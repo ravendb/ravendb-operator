@@ -17,7 +17,6 @@ limitations under the License.
 package resource
 
 import (
-	"fmt"
 	"ravendb-operator/pkg/common"
 
 	corev1 "k8s.io/api/core/v1"
@@ -39,21 +38,6 @@ func BuildRavenDBContainer(image string, env []corev1.EnvVar, ports []corev1.Con
 		VolumeMounts:    mounts,
 		ImagePullPolicy: ipp,
 		SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(0)}, // TODO: to be removed
-	}
-}
-
-func BuildCertInitContainer(image string) corev1.Container {
-	cmd := []string{"sh", "-c", fmt.Sprintf("cp %s/server.pfx %s && chmod 600 %s", common.CertSourcePath, common.CertPath, common.CertPath)}
-	vMounts := []corev1.VolumeMount{
-		{Name: common.CertSourceVolumeName, MountPath: common.CertSourcePath, ReadOnly: true},
-		{Name: common.CertVolumeName, MountPath: common.CertMountPath},
-	}
-	return corev1.Container{
-		Name:            common.CertCopyContainerName,
-		Image:           image,
-		Command:         cmd,
-		VolumeMounts:    vMounts,
-		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
 }
 

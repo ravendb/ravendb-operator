@@ -35,19 +35,22 @@ func BuildCommonEnvVars(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1a
 		{Name: "RAVEN_ServerUrl", Value: InternalHttpsUrl},
 		{Name: "RAVEN_ServerUrl_Tcp", Value: InternalTcpUrl},
 		{Name: "RAVEN_PublicServerUrl_Tcp_Cluster", Value: ravendbNodeTcpEndpoint},
+		{Name: "NODE_TAG", Value: node.Tag},
 	}
 }
 
 func BuildSecureEnvVars(instance *ravendbv1alpha1.RavenDBCluster) []corev1.EnvVar {
 	return []corev1.EnvVar{
-		{Name: "RAVEN_Security_Certificate_Path", Value: CertPath},
+		{Name: "RAVEN_Security_Certificate_Load_Exec", Value: GetCertScriptPath},
+		{Name: "RAVEN_Security_Certificate_Change_Exec", Value: UpdateCertScriptPath},
 		{Name: "RAVEN_Security_Certificate_Exec_TimeoutInSec", Value: CertExecTimeout},
 	}
 }
 
 func BuildSecureLetsEncryptEnvVars(instance *ravendbv1alpha1.RavenDBCluster) []corev1.EnvVar {
 	return []corev1.EnvVar{
-		{Name: "RAVEN_Security_Certificate_Path", Value: CertPath},
+		{Name: "RAVEN_Security_Certificate_Load_Exec", Value: GetCertScriptPath},
+		{Name: "RAVEN_Security_Certificate_Change_Exec", Value: UpdateCertScriptPath},
 		{Name: "RAVEN_Security_Certificate_Exec_TimeoutInSec", Value: CertExecTimeout},
 		{Name: "RAVEN_Security_Certificate_LetsEncrypt_Email", Value: *instance.Spec.Email},
 	}

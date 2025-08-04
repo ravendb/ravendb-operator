@@ -60,7 +60,8 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 
 	affinity := buildAWSNodeAffinity(cluster, node.Tag)
 
-	initContainers := buildInitContainers(cluster.Spec.Image)
+	// will use init containers in the upcoming bootstrapper issue
+	//	initContainers := buildInitContainers(cluster)
 
 	sts := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -78,10 +79,11 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					Containers:     containers,
-					Volumes:        volumes,
-					Affinity:       affinity,
-					InitContainers: initContainers,
+					Containers:         containers,
+					Volumes:            volumes,
+					Affinity:           affinity,
+					ServiceAccountName: common.RavenDbNodeServiceAccount,
+					//InitContainers:     initContainers, // will use init containers in the upcoming bootstrapper issue
 				},
 			},
 			VolumeClaimTemplates: volumeClaims,
@@ -95,21 +97,21 @@ func buildContainers(image string, env []corev1.EnvVar, ports []corev1.Container
 	rdbContainer := BuildRavenDBContainer(image, env, ports, mounts, ipp)
 
 	// TODO: might use sidecars later
-	//sideCarContainers := BuildSidecarContainers(cluster.Spec.Sidecars, nil)
-	//containers := append([]corev1.Container{rdbContainer}, sideCarContainers...)
-	//return containers
+	// sideCarContainers := BuildSidecarContainers(cluster.Spec.Sidecars, nil)
+	// containers := append([]corev1.Container{rdbContainer}, sideCarContainers...)
+	// return containers
 
 	return []corev1.Container{rdbContainer}
 
 }
 
-func buildInitContainers(image string) []corev1.Container {
-	var initContainers []corev1.Container
+// will use init containers in the upcoming bootstrapper issue
+// func buildInitContainers(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.Container {
+// 	var initContainers []corev1.Container
+// 	//	initContainers = append(initContainers, )
 
-	initContainers = append(initContainers, BuildCertInitContainer(image))
-
-	return initContainers
-}
+// 	return initContainers
+// }
 
 func buildStatefulsetSelector(node ravendbv1alpha1.RavenDBNode) map[string]string {
 	return map[string]string{
@@ -155,29 +157,34 @@ func buildPorts() []corev1.ContainerPort {
 
 func buildVolumes(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) []corev1.Volume {
 
-	volumes := []corev1.Volume{
-		buildPVCVolume(common.DataVolumeName),
+	var volumes []corev1.Volume
+	var certSecret *string
+
+	switch cluster.Spec.Mode {
+	case ravendbv1alpha1.ModeLetsEncrypt:
+		if node.CertSecretRef != nil {
+			certSecret = node.CertSecretRef
+		}
+	case ravendbv1alpha1.ModeNone:
+		if cluster.Spec.ClusterCertSecretRef != nil {
+			certSecret = cluster.Spec.ClusterCertSecretRef
+		}
 	}
 
+	volumes = append(volumes, buildPVCVolume(common.DataVolumeName))
+	volumes = append(volumes, buildSecretVolume(common.CertVolumeName, *certSecret))
 	volumes = append(volumes, buildSecretVolume(common.LicenseVolumeName, cluster.Spec.LicenseSecretRef))
 
-	var certSecret *string
-	if node.CertSecretRef != nil {
-		certSecret = node.CertSecretRef
-	} else if cluster.Spec.ClusterCertSecretRef != nil {
-		certSecret = cluster.Spec.ClusterCertSecretRef
-	}
-
-	volumes = append(volumes, corev1.Volume{
-		Name: common.CertVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
+	// certs scripts
+	volumes = append(volumes, buildConfigMapVolume(
+		common.CertHookVolumeName,
+		common.CertHookConfigMap,
+		map[string]string{
+			common.UpdateCertHookKey: common.UpdateCertHookKey,
+			common.GetCertHookKey:    common.GetCertHookKey,
 		},
-	})
-
-	if certSecret != nil {
-		volumes = append(volumes, buildSecretVolume(common.CertSourceVolumeName, *certSecret))
-	}
+		common.ConfigMapExecMode,
+	))
 
 	if cluster.Spec.StorageSpec.Logs != nil {
 		if cluster.Spec.StorageSpec.Logs.RavenDB != nil {
@@ -201,6 +208,16 @@ func buildVolumeMounts(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.VolumeM
 		buildVolumeMount(common.CertVolumeName, common.CertMountPath),
 		buildVolumeMount(common.LicenseVolumeName, common.LicenseMountPath),
 	}
+
+	getCertScriptMount := buildVolumeMount(common.CertHookVolumeName, common.GetCertScriptPath)
+	getCertScriptMount.SubPath = common.GetCertHookKey
+	getCertScriptMount.ReadOnly = true
+
+	updateCertScriptMount := buildVolumeMount(common.CertHookVolumeName, common.UpdateCertScriptPath)
+	updateCertScriptMount.SubPath = common.UpdateCertHookKey
+	updateCertScriptMount.ReadOnly = true
+
+	vMounts = append(vMounts, updateCertScriptMount, getCertScriptMount)
 
 	if logs := cluster.Spec.StorageSpec.Logs; logs != nil {
 		if logs.RavenDB != nil {

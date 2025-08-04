@@ -186,10 +186,19 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+deploy: deploy-cert-hook manifests kustomize install-node-rbac ## Deploy cert-hook and controller to the K8s cluster
 	@cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	@$(KUSTOMIZE) build config/default 2>&1 | grep -vE "Warning: 'vars'|Warning: 'patchesStrategicMerge'|well-defined vars" | $(KUBECTL) apply -f -
 
+.PHONY: deploy-cert-hook
+deploy-cert-hook: kustomize
+	$(KUSTOMIZE) build config/cert-hook | $(KUBECTL) apply -f -
+
+.PHONY: install-node-rbac
+install-node-rbac:
+	kubectl apply -f config/rbac/ravendb-node-sa.yaml -n ravendb
+	kubectl apply -f config/rbac/ravendb-node-role.yaml -n ravendb
+	kubectl apply -f config/rbac/ravendb-node-rolebinding.yaml -n ravendb
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.

@@ -18,30 +18,32 @@ package common
 
 // paths
 const (
-	CertPath         = "/ravendb/certs/server.pfx"
-	LicensePath      = "/ravendb/license/license.json"
-	DataMountPath    = "/var/lib/ravendb/data"
-	CertMountPath    = "/ravendb/certs"
-	LicenseMountPath = "/ravendb/license"
-	LogsMountPath    = "/var/log/ravendb/logs"
-	AuditMountPath   = "/var/log/ravendb/audit"
-	CertSourcePath   = "ravendb/cert-source"
+	CertPath             = "/ravendb/certs/server.pfx"
+	LicensePath          = "/ravendb/license/license.json"
+	DataMountPath        = "/var/lib/ravendb/data"
+	CertMountPath        = "/ravendb/certs"
+	LicenseMountPath     = "/ravendb/license"
+	LogsMountPath        = "/var/log/ravendb/logs"
+	AuditMountPath       = "/var/log/ravendb/audit"
+	CertSourcePath       = "ravendb/cert-source"
+	UpdateCertScriptPath = "/ravendb/scripts/update-cert.sh"
+	GetCertScriptPath    = "/ravendb/scripts/get-server-cert.sh"
 )
 
 // identifiers
 const (
-	App                   = "ravendb"
-	Manager               = "ravendb-operator"
-	Prefix                = "ravendb-"
-	HttpsPortName         = "https"
-	TcpPortName           = "tcp"
-	CertVolumeName        = "ravendb-cert"
-	LicenseVolumeName     = "ravendb-license"
-	DataVolumeName        = "ravendb-data"
-	LogsVolumeName        = "ravendb-logs"
-	AuditVolumeName       = "ravendb-audit"
-	CertSourceVolumeName  = "ravendb-cert-source"
-	CertCopyContainerName = "init-copy-cert"
+	App                       = "ravendb"
+	Manager                   = "ravendb-operator"
+	Prefix                    = "ravendb-"
+	HttpsPortName             = "https"
+	TcpPortName               = "tcp"
+	CertVolumeName            = "ravendb-cert"
+	LicenseVolumeName         = "ravendb-license"
+	DataVolumeName            = "ravendb-data"
+	LogsVolumeName            = "ravendb-logs"
+	AuditVolumeName           = "ravendb-audit"
+	CertHookVolumeName        = "ravendb-cert-hook"
+	RavenDbNodeServiceAccount = "ravendb-node"
 )
 
 // labels
@@ -87,7 +89,11 @@ const (
 // other
 const (
 	NumOfReplicas     = 1
+	ConfigMapExecMode = 0755
 	CertExecTimeout   = "60"
 	ClusterFQDNSuffix = ".ravendb.svc.cluster.local"
 	ProtocolTcp       = "tcp://"
+	UpdateCertHookKey = "update-cert.sh"
+	GetCertHookKey    = "get-server-cert.sh"
+	CertHookConfigMap = "ravendb-cert-hook"
 )

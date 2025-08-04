@@ -1,0 +1,9 @@
+namespace: ravendb
+
+configMapGenerator:
+  - name: ravendb-cert-hook
+    files:
+      - update-cert.sh
+      - get-server-cert.sh
+generatorOptions:
+  disableNameSuffixHash: true

@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ravendb-node-renewal
+  namespace: ravendb
+rules:
+  - apiGroups: ["ravendb.ravendb.io"]
+    resources: ["ravendbclusters"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "patch", "update"]

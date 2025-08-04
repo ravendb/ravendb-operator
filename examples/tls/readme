@@ -1,0 +1,229 @@
+# RavenDB TLS Deployment on Kubernetes
+
+This guide provides a comprehensive walkthrough for deploying a secured RavenDB cluster in a Kubernetes environment using TLS. You can choose between **Let's Encrypt** and **self-signed certificates** depending on your infrastructure constraints, trust model, and automation preferences.
+
+TLS is critical in RavenDB for:
+- Secure communication between cluster nodes (gossip and replication).
+- Securing client-to-server communication (HTTPS).
+- Enforcing certificate-based authentication and authorization.
+
+
+---
+
+## Deployment Modes
+
+RavenDB supports two distinct modes of TLS setup in Kubernetes:
+
+1. **Let's Encrypt Mode** - Automates certificate issuance and renewal using Let's Encrypt's ACME protocol.
+2. **Self-Signed Mode** - Gives you full control over certificate generation and trust roots, ideal for air-gapped or internal networks.
+
+Each mode has different prerequisites and implications. The choice depends on your operational model.
+
+ ---
+
+## Prerequisites
+
+### For Let's Encrypt Mode
+
+- **Setup Package**: You'll need a RavenDB **Setup Package** which includes per-node TLS certificates and configuration. This can be generated via the [RavenDB Setup Wizard](https://ravendb.net/docs/article-page/7.1/csharp/start/installation/setup-wizard).
+- **Valid Email**: Required for certificate registration and renewal notifications.
+- **Wildcard DNS Entries**: Each node must be reachable at its advertised URL (e.g., `a.example.run`, `b.example.run`, etc.), with DNS records pointing to the cluster's LoadBalancer IP.
+
+### For Self-Signed Mode
+
+- You must generate:
+  - A **wildcard TLS certificate** (with correct CN and SANs).
+  - A **CA certificate** used to sign the server and client certs.
+- Ensure clients and RavenDB nodes trust the self-signed CA.
+- Update CoreDNS or your DNS provider to resolve internal node hostnames to the LoadBalancer IP.
+
+See detailed instructions in the [Self-Signed Certificates](#self-signed-certificates-mode) section.
+
+---
+
+
+# Let's Encrypt Certificates Mode
+
+### 1. Upload Node Certificates
+
+For each node, create a Kubernetes `Secret` containing the relevant `server.pfx` file from the setup package:
+
+```bash
+kubectl create secret generic ravendb-certs-a --from-file=server.pfx=./setup_package/A/cluster.server.certificate.example.pfx -n ravendb
+kubectl create secret generic ravendb-certs-b --from-file=server.pfx=./setup_package/B/cluster.server.certificate.example.pfx -n ravendb
+kubectl create secret generic ravendb-certs-c --from-file=server.pfx=./setup_package/C/cluster.server.certificate.example.pfx -n ravendb
+```
+
+### 2. Apply the RavenDB Custom Resource (CR)
+
+```yaml
+spec:
+  mode: LetsEncrypt
+  email: user@ravendb.net
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.example.development.run:443
+      publicServerUrlTcp: tcp://a-tcp.example.development.run:443
+      certSecretRef: ravendb-certs-a
+    - tag: b
+      publicServerUrl: https://b.example.development.run:443
+      publicServerUrlTcp: tcp://b-tcp.example.development.run:443
+      certSecretRef: ravendb-certs-b
+    - tag: c
+      publicServerUrl: https://c.example.development.run:443
+      publicServerUrlTcp: tcp://c-tcp.example.development.run:443
+      certSecretRef: ravendb-certs-c
+```
+
+#### Certificate Renewal
+
+RavenDB automates Let's Encrypt renewal:
+
+- Certificates are valid for 90 days.
+- Renewal begins 30 days prior to expiration.
+- Renewal requests are issued on the nearest upcoming Saturday.
+
+✅ You don’t need to manually rotate certificates - RavenDB handles this seamlessly.
+More info: [Let's Encrypt Certificates in RavenDB](https://ravendb.net/docs/article-page/7.0/csharp/server/security/authentication/lets-encrypt-certificates).
+
+
+---
+
+
+# Self-Signed Certificates Mode
+
+Use this mode when you want full control over certificate issuance or when public DNS access is not feasible.
+
+### 1. Upload Node Certificates
+
+Place your server.pfx in a single shared Kubernetes secret
+
+```bash
+kubectl create secret generic ravendb-cert --from-file=server.pfx=./server.pfx -n ravendb
+```
+
+### 2. Apply the RavenDB Custom Resource (CR)
+
+```yaml
+spec:
+  mode: None
+  certSecretRef: ravendb-cert
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.example-selfsigned.development.run:443
+      publicServerUrlTcp: tcp://a-tcp.example-selfsigned.development.run:443
+    - tag: b
+      publicServerUrl: https://b.example-selfsigned.development.run:443
+      publicServerUrlTcp: tcp://b-tcp.example-selfsigned.development.run:443
+    - tag: c
+      publicServerUrl: https://c.example-selfsigned.development.run:443
+      publicServerUrlTcp: tcp://c-tcp.example-selfsigned.development.run:443
+```
+
+* The operator will propagate this certificate to all nodes automatically.
+
+
+### 3. Required Additional Files
+
+For client access and troubleshooting, also generate:
+
+* `ca.crt`: Root CA used to sign the server certificate.
+* `client.pfx`: Certificate for ClusterAdmin authentication.
+* `client.pem`: Extracted client certificate in PEM format.
+* `client.key`: Private key in PEM format.
+* `server.crt`: Server certificate for inspection/debugging.
+
+🔒 Ensure the server.pfx includes the correct wildcard CN and SANs to match all advertised URLs.
+
+
+### 4. DNS Configuration with CoreDNS (Optional but Recommended)
+
+If your environment lacks a DNS server capable of resolving internal cluster hostnames, update CoreDNS manually.
+
+4.1 Edit the CoreDNS ConfigMap
+
+```bash
+kubectl -n kube-system edit configmap coredns
+```
+Add a hosts block that maps your advertised domains to the load balancer(s) IP (e.g., 1.2.3.4):
+```
+    hosts {
+        1.2.3.4 a.example-selfsigned.development.run a-tcp.example-selfsigned.development.run
+        1.2.3.4 b.example-selfsigned.development.run b-tcp.example-selfsigned.development.run
+        1.2.3.4 c.example-selfsigned.development.run c-tcp.example-selfsigned.development.run
+        fallthrough
+    }
+```
+
+ 4.2 restart CoreDNS to apply changes:
+
+```bash
+kubectl -n kube-system rollout restart deployment coredns
+```
+
+
+### 5. Trusting the Self-Signed CA
+
+To avoid warnings or failed TLS connections:
+
+5.1 Distribute the CA to Cluster Nodes
+
+```bash
+kubectl cp ./ca.crt ravendb/ravendb-a-0:/usr/local/share/ca-certificates/selfsigned.crt -c ravendb
+kubectl cp ./ca.crt ravendb/ravendb-b-0:/usr/local/share/ca-certificates/selfsigned.crt -c ravendb
+kubectl cp ./ca.crt ravendb/ravendb-c-0:/usr/local/share/ca-certificates/selfsigned.crt -c ravendb
+
+kubectl exec -n ravendb ravendb-a-0 -c ravendb -- update-ca-certificates
+kubectl exec -n ravendb ravendb-b-0 -c ravendb -- update-ca-certificates
+kubectl exec -n ravendb ravendb-c-0 -c ravendb -- update-ca-certificates
+```
+
+5.2 Trust the CA Locally (Clients)
+
+On your development machine or CI/CD agents, import ca.crt into the OS trust store to allow secure RavenDB CLI or HTTP access.
+
+
+#### Replacing/Rotating the Self-Signed Certificate
+
+When renewing or rotating your self-signed certificate:
+Ensure the new server.pfx:
+
+1. Is signed by the same CA as your currnet server certificate
+2. Includes the same wildcard CN and SANs.
+3. Is in PFX format.
+
+Use RavenDB Admin API to replace the cluster certificate:
+
+```bash
+sudo curl -X POST "https://a.example-selfsigned.development.run/admin/certificates/replace-cluster-cert" \
+  --cert ./server.pem \
+  --key ..server.key \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Certificate": "'"$(cat ./new-server.pfx | base64 -w 0)"'",
+    "Name": "rotated-cluster-cert"
+  }'
+```
+*  Once the request is accepted, RavenDB will initiate a coordinated certificate replacement across all nodes in the cluster.
+
+---
+
+## Summary
+
+| Mode          | Automation  | CA Trust Root  | Renewal            |
+| ------------- | ----------  | -------------  | -----------------  |
+| Let's Encrypt | ✅ Full     | Let's Encrypt | ✅ Automatic       | 
+| Self-Signed   | ❌ Manual   | Custom CA     | ❌ Manual Rotation | 
+
+
+
+We strongly recommend using **Let's Encrypt with RavenDB’s built-in support**. RavenDB does the hard work for you when you let it. 
+This approach offloads all the cumbersome work of certificate management—generation, renewal, replacement, and propagation - directly to RavenDB. It’s secure, automated, and production-ready out of the box.
+
+Avoid using self-signed certificates **unless you have a clear operational need and understand the implications**. Self-signed setups require manual DNS handling, trust distribution, renewal processes, and careful certificate crafting (e.g., wildcard SANs, CA trust setup). Misconfigurations can easily lead to cluster communication failures or insecure deployments.
+
+You can find full examples of complete RavenDBCluster custom resources for both modes under the `examples` directory:
+- `examples/tls/letsencrypt/ravendb_v1alpha1_ravendbcluster_letsencrypt.yaml`
+- `examples/tls/selfsigned/ravendb_v1alpha1_ravendbcluster_selfsigned.yaml`
+
+Questions? For more information, visit the [RavenDB Security Documentation](https://ravendb.net/docs/article-page/7.0/csharp/server/security/overview).
