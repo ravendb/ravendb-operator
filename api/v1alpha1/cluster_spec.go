@@ -38,7 +38,7 @@ type RavenDBClusterSpec struct {
 	LicenseSecretRef string `json:"licenseSecretRef"`
 
 	// +kubebuilder:validation:Optional
-	ClusterCertSecretRef *string `json:"certSecretRef,omitempty"`
+	ClusterCertSecretRef *string `json:"clusterCertSecretRef,omitempty"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1

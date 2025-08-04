@@ -37,7 +37,7 @@ spec:
             type: object
           spec:
             properties:
-              certSecretRef:
+              clusterCertSecretRef:
                 type: string
               domain:
                 minLength: 1
