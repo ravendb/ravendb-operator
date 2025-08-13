@@ -57,6 +57,9 @@ type RavenDBClusterSpec struct {
 	// +kubebuilder:validation:Required
 	StorageSpec StorageSpec `json:"storage"`
 
+	// +kubebuilder:validation:Optional
+	AutomaticClusterSetupSpec *AutomaticClusterSetupSpec `json:"automaticClusterSetup,omitempty"`
+
 	// // +kubebuilder:validation:Optional
 	// Sidecars []Sidecar `json:"sidecars,omitempty"`
 }
