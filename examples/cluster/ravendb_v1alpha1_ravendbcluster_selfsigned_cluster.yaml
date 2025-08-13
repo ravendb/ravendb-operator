@@ -18,6 +18,12 @@ spec:
       publicServerUrl: https://c.thegoldenplatypusselfsigned.development.run:443
       publicServerUrlTcp: tcp://c-tcp.thegoldenplatypusselfsigned.development.run:443
 
+  automaticClusterSetup:      
+    leader: a                   
+    watchers: [c]
+    clientCertSecretRef: ravendb-client-cert
+    caCertSecretRef: ravendb-ca-cert
+
   image: ravendb/ravendb:latest
   imagePullPolicy: IfNotPresent
   mode: None
