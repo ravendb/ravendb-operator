@@ -18,32 +18,38 @@ package common
 
 // paths
 const (
-	CertPath             = "/ravendb/certs/server.pfx"
-	LicensePath          = "/ravendb/license/license.json"
-	DataMountPath        = "/var/lib/ravendb/data"
-	CertMountPath        = "/ravendb/certs"
-	LicenseMountPath     = "/ravendb/license"
-	LogsMountPath        = "/var/log/ravendb/logs"
-	AuditMountPath       = "/var/log/ravendb/audit"
-	CertSourcePath       = "ravendb/cert-source"
-	UpdateCertScriptPath = "/ravendb/scripts/update-cert.sh"
-	GetCertScriptPath    = "/ravendb/scripts/get-server-cert.sh"
+	LicensePath                         = "/ravendb/license/license.json"
+	DataMountPath                       = "/var/lib/ravendb/data"
+	CertMountPath                       = "/ravendb/certs"
+	ClientCertMountPath                 = "/ravendb/client-certs"
+	CACertMountPath                     = "/ravendb/ca-cert"
+	LicenseMountPath                    = "/ravendb/license"
+	LogsMountPath                       = "/var/log/ravendb/logs"
+	AuditMountPath                      = "/var/log/ravendb/audit"
+	CertSourcePath                      = "ravendb/cert-source"
+	UpdateCertScriptPath                = "/ravendb/scripts/update-cert.sh"
+	GetCertScriptPath                   = "/ravendb/scripts/get-server-cert.sh"
+	InitClusterScriptPath               = "/ravendb/scripts/init-cluster.sh"                ///
+	CheckNodesDiscoverabilityScriptPath = "/ravendb/scripts/check-nodes-discoverability.sh" ///
 )
 
 // identifiers
 const (
-	App                       = "ravendb"
-	Manager                   = "ravendb-operator"
-	Prefix                    = "ravendb-"
-	HttpsPortName             = "https"
-	TcpPortName               = "tcp"
-	CertVolumeName            = "ravendb-cert"
-	LicenseVolumeName         = "ravendb-license"
-	DataVolumeName            = "ravendb-data"
-	LogsVolumeName            = "ravendb-logs"
-	AuditVolumeName           = "ravendb-audit"
-	CertHookVolumeName        = "ravendb-cert-hook"
-	RavenDbNodeServiceAccount = "ravendb-node"
+	App                        = "ravendb"
+	Manager                    = "ravendb-operator"
+	Prefix                     = "ravendb-"
+	HttpsPortName              = "https"
+	TcpPortName                = "tcp"
+	CertVolumeName             = "ravendb-cert"
+	LicenseVolumeName          = "ravendb-license"
+	DataVolumeName             = "ravendb-data"
+	LogsVolumeName             = "ravendb-logs"
+	AuditVolumeName            = "ravendb-audit"
+	ClientCertVolumeName       = "ravendb-client-cert"
+	CACertVolumeName           = "ravendb-ca-cert"
+	CertHookVolumeName         = "ravendb-cert-hook"
+	BootstrapperHookVolumeName = "ravendb-bootstrapper-hook" ///
+	RavenDbNodeServiceAccount  = "ravendb-node"
 )
 
 // labels
@@ -88,12 +94,15 @@ const (
 
 // other
 const (
-	NumOfReplicas     = 1
-	ConfigMapExecMode = 0755
-	CertExecTimeout   = "60"
-	ClusterFQDNSuffix = ".ravendb.svc.cluster.local"
-	ProtocolTcp       = "tcp://"
-	UpdateCertHookKey = "update-cert.sh"
-	GetCertHookKey    = "get-server-cert.sh"
-	CertHookConfigMap = "ravendb-cert-hook"
+	NumOfReplicas                    = 1
+	ConfigMapExecMode                = 0755
+	CertExecTimeout                  = "60"
+	ClusterFQDNSuffix                = ".ravendb.svc.cluster.local"
+	ProtocolTcp                      = "tcp://"
+	UpdateCertHookKey                = "update-cert.sh"
+	GetCertHookKey                   = "get-server-cert.sh"
+	CertHookConfigMap                = "ravendb-cert-hook"
+	InitClusterHookKey               = "init-cluster.sh"                ///
+	CheckNodesDiscoverabilityHookKey = "check-nodes-discoverability.sh" ///
+	BootstrapperHookConfigMap        = "ravendb-bootstrapper-hook"      ///
 )
