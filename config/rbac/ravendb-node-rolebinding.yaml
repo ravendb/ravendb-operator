@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: ravendb-node-renewal-binding
+  name: ravendb-node-binding
   namespace: ravendb
 subjects:
   - kind: ServiceAccount
@@ -9,5 +9,5 @@ subjects:
     namespace: ravendb
 roleRef:
   kind: Role
-  name: ravendb-node-renewal
+  name: ravendb-node
   apiGroup: rbac.authorization.k8s.io
