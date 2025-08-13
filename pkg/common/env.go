@@ -19,6 +19,7 @@ package common
 import (
 	"fmt"
 	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -62,4 +63,15 @@ func BuildAdditionalEnvVars(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.En
 		envVars = append(envVars, corev1.EnvVar{Name: k, Value: v})
 	}
 	return envVars
+}
+
+func BuildClusterBootstrapperEnvVars(leaderURL string, watcherURLs []string, memberURLs []string, allURLs []string, allTags []string, tcpHosts []string) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: "LEADER_URL", Value: leaderURL},
+		{Name: "WATCHER_URLS", Value: strings.Join(watcherURLs, " ")},
+		{Name: "MEMBER_URLS", Value: strings.Join(memberURLs, " ")},
+		{Name: "URLS", Value: strings.Join(allURLs, " ")},
+		{Name: "TAGS", Value: strings.Join(allTags, " ")},
+		{Name: "TCP_HOSTS", Value: strings.Join(tcpHosts, " ")},
+	}
 }
