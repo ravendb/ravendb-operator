@@ -186,13 +186,17 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: deploy-cert-hook manifests kustomize install-node-rbac ## Deploy cert-hook and controller to the K8s cluster
+deploy: deploy-cert-hook deploy-bootstrapper-hook manifests kustomize install-node-rbac ## Deploy cert-hook and controller to the K8s cluster
 	@cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	@$(KUSTOMIZE) build config/default 2>&1 | grep -vE "Warning: 'vars'|Warning: 'patchesStrategicMerge'|well-defined vars" | $(KUBECTL) apply -f -
 
 .PHONY: deploy-cert-hook
 deploy-cert-hook: kustomize
 	$(KUSTOMIZE) build config/cert-hook | $(KUBECTL) apply -f -
+
+.PHONY: deploy-bootstrapper-hook
+deploy-bootstrapper-hook: kustomize
+	$(KUSTOMIZE) build config/bootstrapper-hook | $(KUBECTL) apply -f -
 
 .PHONY: install-node-rbac
 install-node-rbac:
