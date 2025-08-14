@@ -10,10 +10,12 @@ The **RavenDB Cluster Bootstrapper** runs inside the cluster as Kubernetes-nativ
 
 - **Automatic Node Discovery** - Detects and verifies all RavenDB pods are running.
 - **TLS Validation** - Confirms HTTPS endpoints are live and present valid certificates.
-- **Cluster Topology Setup** - Adds members and watchers based on predefined configuration.
-- **Dual Mode Support** - Works with both Let's Encrypt-issued and self-signed TLS certificates.
-- **Supports Multiple Certificate Types** - Can be configured to use either Let's Encrypt-issued or self-signed TLS certificates (one mode per cluster).
+- **Cluster Topology Setup** - The first node in the `.spec.nodes` list is assigned as the leader, and all other nodes are joined as members.
+- **Supports Both Certificate Modes** - Works with both Let's Encrypt-issued and self-signed TLS setups.
 - **Fail-Fast Logging** - Provides clear, timestamped logs for each bootstrap step.
+
+**important**
+After the bootstrapper has run successfully, changes to the cluster topology in the CR (e.g., adding/removing nodes) will not be applied automatically. Such changes will be blocked or ignored until future operator features handle topology updates.
 
 ---
 
@@ -34,7 +36,6 @@ The **RavenDB Cluster Bootstrapper** runs inside the cluster as Kubernetes-nativ
 5. **Cluster Joining** 
    The bootstrapper connects to the **leader node** and sends cluster management API calls to add members and watchers.
 
-
 6. **Validate Topology**  
    The final topology is retrieved and displayed, including:
    - Cluster leader
@@ -48,36 +49,6 @@ The **RavenDB Cluster Bootstrapper** runs inside the cluster as Kubernetes-nativ
 ## Cluster Setup Configuration - Let's Encrypt vs Self-Signed
 
 When defining a `RavenDBCluster` resource, you first decide **how the cluster will be secured**, and based on that, configure **how nodes will join the topology**.
-This involves selecting the TLS mode (**Let's Encrypt** or **Self-Signed**), specifying the cluster leader, and defining which nodes will act as watchers or members.  
-
-
-Let’s start with a **generic CR node setup** that defines the public URLs for each node in the cluster:
-
-```yaml
-spec:
-  nodes:
-    - tag: a
-      publicServerUrl: https://a.example.development.run:443
-      publicServerUrlTcp: tcp://a-tcp.example.development.run:443
-    - tag: b
-      publicServerUrl: https://b.example.development.run:443
-      publicServerUrlTcp: tcp://b-tcp.example.development.run:443
-    - tag: c
-      publicServerUrl: https://c.example.development.run:443
-      publicServerUrlTcp: tcp://c-tcp.example.development.run:443
-
-```
-
-From here, you choose the security mode and define how nodes join the topology.
-
-```yaml
-automaticClusterSetup:      
-    leader: a                   
-    watchers: [c]
-    clientCertSecretRef: ravendb-client-cert
-    caCertSecretRef: ravendb-ca-cert # only for self-signed mode
-
-```
 
 **Notes**
 
@@ -87,20 +58,13 @@ Both modes require a ClusterAdmin client certificate (clientCertSecretRef). The 
 - **CA Certificate Required for Self-Signed Mode only:**
 In self-signed deployments, caCertSecretRef must be provided so the bootstrapper can ensure all nodes trust the same CA that issued the server certificates.
 
-- **Leader Selection:**
-Exactly one node must be specified as the cluster leader under automaticClusterSetup.leader.
+- **Cluster roles:**
+The leader is always taken from the first node in the list , other nodes join as members.
 
-- **Watchers and Members:**
-Nodes listed under watchers are added to the cluster as watchers.
-Any node not explicitly listed as a leader or watcher will be added as a member automatically.
+- **immutability**
+Once the bootstrapper runs for a fresh cluster, topology changes in the CR will not be applied automatically. To change topology later, you must manage it manually in RavenDB.
 
 📚 For a detailed explanation of cluster roles, topology management, and node responsibilities in RavenDB, see the [official documentation](https://docs.ravendb.net/7.1/server/clustering/overview)
-
-
-You can find full examples of complete RavenDBCluster custom resources for both modes with automatic cluster setup under the `examples` directory:
-- `examples/cluster/ravendb_v1alpha1_ravendbcluster_letsencrypt_cluster.yaml`
-- `examples/cluster/ravendb_v1alpha1_ravendbcluster_selfsigned_cluster.yaml`
-
 
 ---
 
@@ -155,17 +119,12 @@ spec:
       publicServerUrl: https://c.example.development.run:443
       publicServerUrlTcp: tcp://c-tcp.example.development.run:443
       certSecretRef: ravendb-certs-c
-
-  automaticClusterSetup:
-    leader: a
-    watchers: [c]
-    clientCertSecretRef: ravendb-client-cert
-
   image: ravendb/ravendb:latest
   imagePullPolicy: IfNotPresent
   mode: LetsEncrypt
   email: you@example.com
   licenseSecretRef: ravendb-license
+  clientCertSecretRef: ravendb-client-cert
   domain: example.development.run
   storage:
     data:
@@ -195,44 +154,40 @@ You can peek at the bootstrapper logs to see him in action:
 $ kubectl get logs -n ravendb ravendb-cluster-init-88w6m
 
 >> Starting RavenDB cluster bootstrapper...
-[07:56:32] === Starting Discoverability Checks ===
-[07:56:32] Checking if kubectl is already installed...
-[07:56:32] Downloading and installing kubectl...
-[07:56:36] kubectl installed successfully.
-[07:56:36] Waiting for all RavenDB pods to be in 'Running' state...
-[07:56:36] Pod readiness check: attempt 1/30
-[07:56:36] Waiting for these pods to be ready:
-[07:56:36] ravendb-a-0 Pending
-		   ravendb-b-0 Pending
-		   ravendb-c-0 Pending
-[07:56:41] Pod readiness check: attempt 2/30
-[07:56:41] All RavenDB pods are running.
-[07:56:41] Checking HTTPS (Studio) reachability of RavenDB nodes...
-[07:56:41] [a] curl -k https://a.thegoldenplatypus.development.run:443
-[07:56:41] [a] Studio redirect detected - looks good
-[07:56:41] [c] curl -k https://c.thegoldenplatypus.development.run:443
-[07:56:41] [c] Studio redirect detected - looks good
-[07:56:41] [b] curl -k https://b.thegoldenplatypus.development.run:443
-[07:56:41] [b] Studio redirect detected - looks good
-[07:56:41] === Discoverability Checks Completed ===
-[07:56:41] === Starting Cluster Initialization ===
-[07:56:41] Converting /ravendb/certs/server.pfx to PEM and KEY...
-[07:56:41] Converting /ravendb/client-certs/client.pfx to PEM and KEY...
-[07:56:41] Registering Admin client certificate...
-[07:56:42] Admin certificate registered.
-[07:56:43] [C] added as Watcher
-[07:56:47] [B] added as Member
-[07:56:50] Cluster topology:
+[06:54:30] === Starting Discoverability Checks ===
+[06:54:30] Checking if kubectl is already installed...
+[06:54:30] Downloading and installing kubectl...
+[06:54:38] kubectl installed successfully.
+[06:54:38] Waiting for all RavenDB pods to be in 'Running' state...
+[06:54:38] Pod readiness check: attempt 1/30
+[06:54:38] All RavenDB pods are running.
+[06:54:38] Checking HTTPS (Studio) reachability of RavenDB nodes...
+[06:54:38] [a] curl -k https://a.thegoldenplatypus.development.run:443
+[06:54:38] [a] Studio redirect detected - looks good
+[06:54:38] [b] curl -k https://b.thegoldenplatypus.development.run:443
+[06:54:38] [b] Studio redirect detected - looks good
+[06:54:38] [c] curl -k https://c.thegoldenplatypus.development.run:443
+[06:54:38] [c] Studio redirect detected - looks good
+[06:54:38] === Discoverability Checks Completed ===
+[06:54:38] === Starting Cluster Initialization ===
+[06:54:38] Converting /ravendb/certs/server.pfx to PEM and KEY...
+[06:54:39] Converting /ravendb/client-certs/client.pfx to PEM and KEY...
+[06:54:39] Registering Admin client certificate...
+[06:54:39] Admin certificate registered.
+[06:54:40] [B] added as Member
+[06:54:44] [C] added as Member
+[06:54:47] Cluster topology:
 {
   "Leader": "A",
   "CurrentState": "Leader",
   "CurrentTerm": 1,
-  "TopologyId": "30a89961-3931-4fb1-85a1-6aa119235b98",
-  "Members": "A B",
-  "Watchers": "C"
+  "TopologyId": "c6e2da2e-d504-435a-bb65-6d7dab02abde",
+  "Members": "A B C"
 }
 
-[07:56:50] === Cluster Initialization Complete ===
+
+[06:54:47] === Cluster Initialization Complete ===
+
 ```
 
 Once the bootstrapper finishes, it’ll mark the job as Completed and disappear. The three RavenDB nodes keep running:
