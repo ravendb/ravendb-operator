@@ -47,6 +47,7 @@ func baseClusterForStorageTypesTest(name string) *RavenDBCluster {
 			Email:                &email,
 			LicenseSecretRef:     "license-secret",
 			ClusterCertSecretRef: &certSecretRef,
+			ClientCertSecretRef:  "client-cert",
 			Domain:               "example.com",
 			Nodes: []RavenDBNode{
 				{

@@ -21,6 +21,7 @@ func baseClusterForClusterSpecTest(name string) *RavenDBCluster {
 			Email:                &email,
 			LicenseSecretRef:     "license-secret",
 			ClusterCertSecretRef: &certSecretRef,
+			ClientCertSecretRef:  "client-cert",
 			Domain:               "example.com",
 			Nodes: []RavenDBNode{
 				{
@@ -259,6 +260,25 @@ func TestEnvValidation(t *testing.T) {
 				spec.Env = nil
 			},
 			ExpectError: false,
+		},
+	}
+	runSpecValidationTest(t, baseClusterForClusterSpecTest, testCases)
+}
+
+func TestClientCertSecretRefValidation(t *testing.T) {
+	testCases := []SpecValidationCase{
+		{
+			Name:        "valid client cert secret ref",
+			Modify:      func(spec *RavenDBClusterSpec) {},
+			ExpectError: false,
+		},
+		{
+			Name: "missing client cert secret ref",
+			Modify: func(spec *RavenDBClusterSpec) {
+				spec.ClientCertSecretRef = ""
+			},
+			ExpectError: true,
+			ErrorParts:  []string{"spec.clientCertSecretRef", "should be at least 1 chars long"},
 		},
 	}
 	runSpecValidationTest(t, baseClusterForClusterSpecTest, testCases)
