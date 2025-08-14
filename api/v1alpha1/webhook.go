@@ -38,7 +38,6 @@ func (r *RavenDBCluster) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	validator.Register(validator.NewNodeValidator(mgr.GetClient()))
 	validator.Register(validator.NewEaValidator(mgr.GetClient()))
 	validator.Register(validator.NewStorageValidator(mgr.GetClient()))
-	validator.Register(validator.NewBootstrapperValidator(mgr.GetClient()))
 
 	return ctrl.NewWebhookManagedBy(mgr).For(r).Complete()
 }

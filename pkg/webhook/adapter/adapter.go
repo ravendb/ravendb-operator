@@ -52,8 +52,6 @@ type ClusterAdapter interface {
 	GetAdditionalVolumeMountPaths() []*string
 	GetAdditionalVolumeSubPaths() []*string
 	GetAdditionalVolumeSources() []map[string]bool
-	IsBootstrapperSet() bool
-	GetBootsrapperLeader() string
-	GetBootsrapperWatchers() []string
+	GetClientCertSecretRef() string
 	GetCACertSecretRef() *string
 }

@@ -36,6 +36,7 @@ import (
 func baseCluster(name string) *v1alpha1.RavenDBCluster {
 	email := "me@example.com"
 	cert := "cert"
+	ca := "ca"
 	return &v1alpha1.RavenDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -49,6 +50,8 @@ func baseCluster(name string) *v1alpha1.RavenDBCluster {
 			LicenseSecretRef:     "license",
 			Domain:               "example.com",
 			ClusterCertSecretRef: &cert,
+			ClientCertSecretRef:  "client-cert",
+			CACertSecretRef:      &ca,
 			Nodes: []v1alpha1.RavenDBNode{
 				{
 					Tag:                "A",
@@ -73,12 +76,13 @@ func baseClusterLetsEncrypt(name string) *v1alpha1.RavenDBCluster {
 			Namespace: "ravenedb",
 		},
 		Spec: v1alpha1.RavenDBClusterSpec{
-			Image:            "ravendb/ravendb:latest",
-			ImagePullPolicy:  "Always",
-			Mode:             "LetsEncrypt",
-			Email:            &email,
-			LicenseSecretRef: "license",
-			Domain:           "example.com",
+			Image:               "ravendb/ravendb:latest",
+			ImagePullPolicy:     "Always",
+			Mode:                "LetsEncrypt",
+			Email:               &email,
+			LicenseSecretRef:    "license",
+			Domain:              "example.com",
+			ClientCertSecretRef: "client-cert",
 			Nodes: []v1alpha1.RavenDBNode{
 				{
 					Tag:                "A",
@@ -392,6 +396,63 @@ func TestGeneralValidatorValidateEnv(t *testing.T) {
 		}
 		errs := validator.ValidateEnv(cluster.GetEnv())
 		require.Empty(t, errs)
+	})
+}
+
+func TestGeneralValidatorImmutableAfterCreation(t *testing.T) {
+	ctx := context.Background()
+	v := validator.NewGeneralValidator(fake.NewClientBuilder().Build())
+
+	t.Run("no change allowed", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("nochange-new")
+		new := baseClusterLetsEncrypt("nochange-old")
+		err := v.ValidateUpdate(ctx, old, new)
+		require.NoError(t, err)
+	})
+
+	t.Run("mode change is rejected", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("immutable-mode")
+		new := baseClusterLetsEncrypt("immutable-mode")
+		new.Spec.Mode = v1alpha1.ClusterMode("None")
+		err := v.ValidateUpdate(ctx, old, new)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.mode is immutable after creation")
+	})
+
+	t.Run("domain change is rejected", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("immutable-domain")
+		new := baseClusterLetsEncrypt("immutable-domain")
+		new.Spec.Domain = "other.example.com"
+		err := v.ValidateUpdate(ctx, old, new)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.domain is immutable after creation")
+	})
+
+	t.Run("node tag change is rejected", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("immutable-tag")
+		new := baseClusterLetsEncrypt("immutable-tag")
+		new.Spec.Nodes[1].Tag = "Z"
+		err := v.ValidateUpdate(ctx, old, new)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.nodes[].tag is immutable after creation")
+	})
+
+	t.Run("publicServerUrl change is rejected", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("immutable-url")
+		new := baseClusterLetsEncrypt("immutable-url")
+		new.Spec.Nodes[0].PublicServerUrl = "https://a.other.com:443"
+		err := v.ValidateUpdate(ctx, old, new)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.nodes[].publicServerUrl is immutable after creation")
+	})
+
+	t.Run("publicServerUrlTcp change is rejected", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("immutable-tcp")
+		new := baseClusterLetsEncrypt("immutable-tcp")
+		new.Spec.Nodes[0].PublicServerUrlTcp = "tcp://a-tcp.example.com:12345"
+		err := v.ValidateUpdate(ctx, old, new)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.nodes[].publicServerUrlTcp is immutable after creation")
 	})
 }
 
@@ -983,122 +1044,6 @@ func TestValidateAdditionalVolumes(t *testing.T) {
 	})
 }
 
-func TestBootstrapperValidator(t *testing.T) {
-	ctx := context.Background()
-	client := fake.NewClientBuilder().Build()
-	v := validator.NewBootstrapperValidator(client)
-
-	t.Run("valid leader and watchers", func(t *testing.T) {
-		cluster := baseClusterLetsEncrypt("bootstrapper-ok")
-		cluster.Spec.Nodes = append(cluster.Spec.Nodes, v1alpha1.RavenDBNode{
-			Tag:                "C",
-			PublicServerUrl:    "https://c.example.com:443",
-			PublicServerUrlTcp: "tcp://c-tcp.example.com:443",
-		})
-
-		cluster.Spec.AutomaticClusterSetupSpec = &v1alpha1.AutomaticClusterSetupSpec{
-			Leader:   "A",
-			Watchers: &[]string{"B", "C"},
-		}
-
-		err := v.ValidateCreate(ctx, cluster)
-		require.NoError(t, err)
-	})
-
-	t.Run("leader not in nodes", func(t *testing.T) {
-		cluster := baseClusterLetsEncrypt("missing-leader-in-nodes-list")
-
-		cluster.Spec.AutomaticClusterSetupSpec = &v1alpha1.AutomaticClusterSetupSpec{
-			Leader:   "X",
-			Watchers: &[]string{"A"},
-		}
-
-		err := v.ValidateCreate(ctx, cluster)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), `leader tag "X" not found`)
-	})
-
-	t.Run("watcher not in nodes", func(t *testing.T) {
-		cluster := baseClusterLetsEncrypt("bad-watcher")
-
-		cluster.Spec.AutomaticClusterSetupSpec = &v1alpha1.AutomaticClusterSetupSpec{
-			Leader:   "A",
-			Watchers: &[]string{"B", "Z"},
-		}
-
-		err := v.ValidateCreate(ctx, cluster)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), `watcher tag "Z" not found`)
-	})
-
-	t.Run("leader also a watcher", func(t *testing.T) {
-		cluster := baseClusterLetsEncrypt("leader-watcher")
-
-		cluster.Spec.AutomaticClusterSetupSpec = &v1alpha1.AutomaticClusterSetupSpec{
-			Leader:   "A",
-			Watchers: &[]string{"A", "B"},
-		}
-
-		err := v.ValidateCreate(ctx, cluster)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), `watcher tag "A" cannot also be the leader`)
-	})
-
-	t.Run("duplicate watchers", func(t *testing.T) {
-		cluster := baseClusterLetsEncrypt("duplicate-watcher")
-
-		cluster.Spec.AutomaticClusterSetupSpec = &v1alpha1.AutomaticClusterSetupSpec{
-			Leader:   "A",
-			Watchers: &[]string{"B", "B"},
-		}
-
-		err := v.ValidateCreate(ctx, cluster)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), `duplicate watcher tag "B"`)
-	})
-
-	t.Run("too many watchers", func(t *testing.T) {
-		cluster := baseClusterLetsEncrypt("too-many-nodes")
-
-		cluster.Spec.AutomaticClusterSetupSpec = &v1alpha1.AutomaticClusterSetupSpec{
-			Leader:   "A",
-			Watchers: &[]string{"B", "C"},
-		}
-
-		err := v.ValidateCreate(ctx, cluster)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), `leader + watchers count exceeds`)
-	})
-	t.Run("LetsEncrypt mode with CACertSecretRef should fail", func(t *testing.T) {
-		cluster := baseClusterLetsEncrypt("le-mode-ca-set")
-		cluster.Spec.AutomaticClusterSetupSpec = &v1alpha1.AutomaticClusterSetupSpec{
-			Leader:          "A",
-			CACertSecretRef: ptr("some-secret"),
-		}
-		err := v.ValidateCreate(ctx, cluster)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "caCertSecretRef must not be set when mode is LetsEncrypt")
-	})
-
-	t.Run("None mode with bootstrapper but no CACertSecretRef should fail", func(t *testing.T) {
-		cluster := baseCluster("none-mode-no-ca")
-		cluster.Spec.AutomaticClusterSetupSpec = &v1alpha1.AutomaticClusterSetupSpec{
-			Leader: "A",
-		}
-		err := v.ValidateCreate(ctx, cluster)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "caCertSecretRef must be provided when mode is None and clusterBootstrapper is set")
-	})
-
-	t.Run("None mode with bootstrapper and CACertSecretRef should pass", func(t *testing.T) {
-		cluster := baseCluster("none-mode-with-ca")
-		cluster.Spec.AutomaticClusterSetupSpec = &v1alpha1.AutomaticClusterSetupSpec{
-			Leader:          "A",
-			CACertSecretRef: ptr("some-secret"),
-		}
-		err := v.ValidateCreate(ctx, cluster)
-		require.NoError(t, err)
-	})
-}
+// TODO: add client and ca certs tests.
 
 func ptr(s string) *string { return &s }

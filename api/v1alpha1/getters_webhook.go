@@ -244,27 +244,10 @@ func (r *RavenDBCluster) GetAdditionalVolumeSources() []map[string]bool {
 	return result
 }
 
-func (r *RavenDBCluster) IsBootstrapperSet() bool {
-	return r.Spec.AutomaticClusterSetupSpec != nil
-}
-
-func (r *RavenDBCluster) GetBootsrapperLeader() string {
-	if r.Spec.AutomaticClusterSetupSpec == nil {
-		return ""
-	}
-	return r.Spec.AutomaticClusterSetupSpec.Leader
-}
-
-func (r *RavenDBCluster) GetBootsrapperWatchers() []string {
-	if r.Spec.AutomaticClusterSetupSpec.Watchers == nil {
-		return []string{}
-	}
-	return *r.Spec.AutomaticClusterSetupSpec.Watchers
+func (r *RavenDBCluster) GetClientCertSecretRef() string {
+	return r.Spec.ClientCertSecretRef
 }
 
 func (r *RavenDBCluster) GetCACertSecretRef() *string {
-	if r.Spec.AutomaticClusterSetupSpec.CACertSecretRef == nil {
-		return nil
-	}
-	return r.Spec.AutomaticClusterSetupSpec.CACertSecretRef
+	return r.Spec.CACertSecretRef
 }
