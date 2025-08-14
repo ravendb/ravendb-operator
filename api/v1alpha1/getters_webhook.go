@@ -243,3 +243,11 @@ func (r *RavenDBCluster) GetAdditionalVolumeSources() []map[string]bool {
 	}
 	return result
 }
+
+func (r *RavenDBCluster) GetClientCertSecretRef() string {
+	return r.Spec.ClientCertSecretRef
+}
+
+func (r *RavenDBCluster) GetCACertSecretRef() *string {
+	return r.Spec.CACertSecretRef
+}

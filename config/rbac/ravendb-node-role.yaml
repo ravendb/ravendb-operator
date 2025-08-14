@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: ravendb-node-renewal
+  name: ravendb-node
   namespace: ravendb
 rules:
   - apiGroups: ["ravendb.ravendb.io"]
@@ -10,3 +10,6 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"ravendb-operator/pkg/webhook/adapter"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -47,12 +48,16 @@ func (v *generalValidator) ValidateCreate(ctx context.Context, c ClusterAdapter)
 	license := c.GetLicenseSecretRef()
 	clusterCert := c.GetClusterCertsSecretRef()
 	envVars := c.GetEnv()
+	clientCert := c.GetClientCertSecretRef()
+	caCert := c.GetCACertSecretRef()
 
 	errs = append(errs, ValidateEmail(mode, email)...)
 	errs = append(errs, ValidateLicenseSecret(v, ctx, license)...)
 	errs = append(errs, ValidateClusterCertSecret(v, ctx, mode, clusterCert)...)
 	errs = append(errs, ValidateDomain(domain)...)
 	errs = append(errs, ValidateEnv(envVars)...)
+	errs = append(errs, ValidateClientCertSecret(v, ctx, clientCert)...)
+	errs = append(errs, ValidateCACertSecret(v, ctx, mode, caCert)...)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "\n"))
@@ -62,8 +67,15 @@ func (v *generalValidator) ValidateCreate(ctx context.Context, c ClusterAdapter)
 
 }
 
-func (v *generalValidator) ValidateUpdate(ctx context.Context, _, newC ClusterAdapter) error {
-	return v.ValidateCreate(ctx, newC)
+func (v *generalValidator) ValidateUpdate(ctx context.Context, oldC, newC ClusterAdapter) error {
+	var errs []string
+
+	errs = append(errs, ValidateImmutableOnceCreated(ctx, oldC, newC)...)
+
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "\n"))
+	}
+	return nil
 }
 
 func ValidateEmail(mode, email string) []string {
@@ -176,4 +188,84 @@ func (v *generalValidator) getSecret(ctx context.Context, name string) (*corev1.
 		return nil, fmt.Errorf("secret '%s' not found", name)
 	}
 	return &secret, nil
+}
+
+func ValidateClientCertSecret(v *generalValidator, ctx context.Context, clientCert string) []string {
+	var errs []string
+
+	secret, err := v.getSecret(ctx, clientCert)
+	if err != nil {
+		errs = append(errs, fmt.Sprintf("spec.clientCertSecretRef: %v", err))
+		return errs
+	}
+
+	if len(secret.Data) != 1 {
+		errs = append(errs, fmt.Sprintf("spec.clientCertSecretRef: secret '%s' must contain exactly one '.pfx' file", clientCert))
+		return errs
+	}
+
+	for key := range secret.Data {
+		if !strings.HasSuffix(key, ".pfx") {
+			errs = append(errs, fmt.Sprintf("spec.clientCertSecretRef: secret '%s' must contain a file ending with '.pfx', got '%s' instead", clientCert, key))
+		}
+		break
+	}
+	return errs
+}
+
+func ValidateCACertSecret(v *generalValidator, ctx context.Context, mode string, caCert *string) []string {
+	var errs []string
+
+	if mode == "LetsEncrypt" {
+		if caCert != nil {
+			errs = append(errs, "spec.caCertSecretRef must not be set when mode is LetsEncrypt")
+		}
+		return errs
+	}
+
+	if mode == "None" && caCert == nil {
+		errs = append(errs, "spec.caCertSecretRef is required when mode is None")
+		return errs
+	}
+
+	secret, err := v.getSecret(ctx, *caCert)
+	if err != nil {
+		errs = append(errs, fmt.Sprintf("spec.caCertSecretRef: %v", err))
+		return errs
+	}
+
+	if len(secret.Data) != 1 {
+		errs = append(errs, fmt.Sprintf("spec.caCertSecretRef: secret '%s' must contain exactly one '.crt' file", *caCert))
+		return errs
+	}
+
+	for key := range secret.Data {
+		if !strings.HasSuffix(key, ".crt") {
+			errs = append(errs, fmt.Sprintf("spec.caCertSecretRef: secret '%s' must contain a file ending with '.crt', got '%s' instead", *caCert, key))
+		}
+		break
+	}
+	return errs
+}
+
+func ValidateImmutableOnceCreated(_ context.Context, oldC, newC adapter.ClusterAdapter) []string {
+	var errs []string
+
+	if oldC.GetMode() != newC.GetMode() {
+		errs = append(errs, "spec.mode is immutable after creation")
+	}
+	if oldC.GetDomain() != newC.GetDomain() {
+		errs = append(errs, "spec.domain is immutable after creation")
+	}
+	if strings.Join(oldC.GetNodeTags(), "|") != strings.Join(newC.GetNodeTags(), "|") {
+		errs = append(errs, "spec.nodes[].tag is immutable after creation")
+	}
+	if strings.Join(oldC.GetNodePublicUrls(), "|") != strings.Join(newC.GetNodePublicUrls(), "|") {
+		errs = append(errs, "spec.nodes[].publicServerUrl is immutable after creation")
+	}
+	if strings.Join(oldC.GetNodeTcpUrls(), "|") != strings.Join(newC.GetNodeTcpUrls(), "|") {
+		errs = append(errs, "spec.nodes[].publicServerUrlTcp is immutable after creation")
+	}
+
+	return errs
 }

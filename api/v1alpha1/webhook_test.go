@@ -36,6 +36,7 @@ import (
 func baseCluster(name string) *v1alpha1.RavenDBCluster {
 	email := "me@example.com"
 	cert := "cert"
+	ca := "ca"
 	return &v1alpha1.RavenDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -49,6 +50,8 @@ func baseCluster(name string) *v1alpha1.RavenDBCluster {
 			LicenseSecretRef:     "license",
 			Domain:               "example.com",
 			ClusterCertSecretRef: &cert,
+			ClientCertSecretRef:  "client-cert",
+			CACertSecretRef:      &ca,
 			Nodes: []v1alpha1.RavenDBNode{
 				{
 					Tag:                "A",
@@ -73,12 +76,13 @@ func baseClusterLetsEncrypt(name string) *v1alpha1.RavenDBCluster {
 			Namespace: "ravenedb",
 		},
 		Spec: v1alpha1.RavenDBClusterSpec{
-			Image:            "ravendb/ravendb:latest",
-			ImagePullPolicy:  "Always",
-			Mode:             "LetsEncrypt",
-			Email:            &email,
-			LicenseSecretRef: "license",
-			Domain:           "example.com",
+			Image:               "ravendb/ravendb:latest",
+			ImagePullPolicy:     "Always",
+			Mode:                "LetsEncrypt",
+			Email:               &email,
+			LicenseSecretRef:    "license",
+			Domain:              "example.com",
+			ClientCertSecretRef: "client-cert",
 			Nodes: []v1alpha1.RavenDBNode{
 				{
 					Tag:                "A",
@@ -392,6 +396,63 @@ func TestGeneralValidatorValidateEnv(t *testing.T) {
 		}
 		errs := validator.ValidateEnv(cluster.GetEnv())
 		require.Empty(t, errs)
+	})
+}
+
+func TestGeneralValidatorImmutableAfterCreation(t *testing.T) {
+	ctx := context.Background()
+	v := validator.NewGeneralValidator(fake.NewClientBuilder().Build())
+
+	t.Run("no change allowed", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("nochange-new")
+		new := baseClusterLetsEncrypt("nochange-old")
+		err := v.ValidateUpdate(ctx, old, new)
+		require.NoError(t, err)
+	})
+
+	t.Run("mode change is rejected", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("immutable-mode")
+		new := baseClusterLetsEncrypt("immutable-mode")
+		new.Spec.Mode = v1alpha1.ClusterMode("None")
+		err := v.ValidateUpdate(ctx, old, new)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.mode is immutable after creation")
+	})
+
+	t.Run("domain change is rejected", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("immutable-domain")
+		new := baseClusterLetsEncrypt("immutable-domain")
+		new.Spec.Domain = "other.example.com"
+		err := v.ValidateUpdate(ctx, old, new)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.domain is immutable after creation")
+	})
+
+	t.Run("node tag change is rejected", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("immutable-tag")
+		new := baseClusterLetsEncrypt("immutable-tag")
+		new.Spec.Nodes[1].Tag = "Z"
+		err := v.ValidateUpdate(ctx, old, new)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.nodes[].tag is immutable after creation")
+	})
+
+	t.Run("publicServerUrl change is rejected", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("immutable-url")
+		new := baseClusterLetsEncrypt("immutable-url")
+		new.Spec.Nodes[0].PublicServerUrl = "https://a.other.com:443"
+		err := v.ValidateUpdate(ctx, old, new)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.nodes[].publicServerUrl is immutable after creation")
+	})
+
+	t.Run("publicServerUrlTcp change is rejected", func(t *testing.T) {
+		old := baseClusterLetsEncrypt("immutable-tcp")
+		new := baseClusterLetsEncrypt("immutable-tcp")
+		new.Spec.Nodes[0].PublicServerUrlTcp = "tcp://a-tcp.example.com:12345"
+		err := v.ValidateUpdate(ctx, old, new)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "spec.nodes[].publicServerUrlTcp is immutable after creation")
 	})
 }
 
@@ -982,5 +1043,7 @@ func TestValidateAdditionalVolumes(t *testing.T) {
 		require.Empty(t, errs)
 	})
 }
+
+// TODO: add client and ca certs tests.
 
 func ptr(s string) *string { return &s }

@@ -20,14 +20,17 @@ import (
 	"context"
 	"fmt"
 
+	"ravendb-operator/pkg/common"
 	"ravendb-operator/pkg/director"
 
+	batchv1 "k8s.io/api/batch/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 
 	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
 )
@@ -47,6 +50,8 @@ type RavenDBClusterReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=statefulsets/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get;update;patch
 
 func (r *RavenDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.FromContext(ctx)
@@ -63,7 +68,15 @@ func (r *RavenDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	if err := d.ExecutePerCluster(ctx, &instance, r.Client, r.Scheme); err != nil {
 		l.Error(err, "failed to execute cluster-level actors")
+		_ = r.setBootstrappedIfSucceeded(ctx, &instance)
 		return ctrl.Result{}, err
+
+	}
+
+	// if the bootstrapper job completed, mark the CR as done.
+	if err := r.setBootstrappedIfSucceeded(ctx, &instance); err != nil {
+		l.Error(err, "failed to set Bootstrapped condition")
+		return ctrl.Result{Requeue: true}, nil
 	}
 
 	var statuses []ravendbv1alpha1.RavenDBNodeStatus
@@ -94,9 +107,38 @@ func (r *RavenDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{Requeue: true}, nil
 }
 
+// todo: to be moved in healt probe issue
+func (r *RavenDBClusterReconciler) setBootstrappedIfSucceeded(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster) error {
+
+	if cluster.IsBootstrapped() {
+		return nil
+	}
+
+	const jobName = common.RavenDbBootstrapperJob
+
+	var job batchv1.Job
+	if err := r.Get(ctx, types.NamespacedName{
+		Namespace: cluster.Namespace,
+		Name:      jobName,
+	}, &job); err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	if job.Status.Succeeded >= 1 {
+		cluster.SetBootstrapped(metav1.Now())
+		return r.Status().Update(ctx, cluster)
+	}
+
+	return nil
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *RavenDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&ravendbv1alpha1.RavenDBCluster{}).
+		Owns(&batchv1.Job{}).
 		Complete(r)
 }

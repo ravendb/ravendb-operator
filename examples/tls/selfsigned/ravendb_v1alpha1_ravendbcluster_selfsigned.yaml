@@ -21,7 +21,7 @@ spec:
   image: ravendb/ravendb:latest
   imagePullPolicy: IfNotPresent
   mode: None
-  certSecretRef: ravendb-cert
+  clusterCertSecretRef: ravendb-cert
   licenseSecretRef: ravendb-license
   domain: thegoldenplatypusselfsigned.development.run
 

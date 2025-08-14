@@ -31,12 +31,13 @@ func baseClusterForNodeTypesTest(name string) *RavenDBCluster {
 			Namespace: "default",
 		},
 		Spec: RavenDBClusterSpec{
-			Image:            "ravendb/ravendb:latest",
-			ImagePullPolicy:  "Always",
-			Mode:             "None",
-			Email:            &email,
-			LicenseSecretRef: "license-secret",
-			Domain:           "example.com",
+			Image:               "ravendb/ravendb:latest",
+			ImagePullPolicy:     "Always",
+			Mode:                "None",
+			Email:               &email,
+			LicenseSecretRef:    "license-secret",
+			Domain:              "example.com",
+			ClientCertSecretRef: "client-cert",
 			Nodes: []RavenDBNode{
 				{
 					Tag:                "A",

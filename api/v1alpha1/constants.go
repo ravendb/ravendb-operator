@@ -23,6 +23,14 @@ const (
 	ModeNone        ClusterMode = "None"
 )
 
+type ExternalAccessType string
+
+const (
+	ExternalAccessTypeAWS               ExternalAccessType = "aws-nlb"
+	ExternalAccessTypeAzure             ExternalAccessType = "azure-lb"
+	ExternalAccessTypeIngressController ExternalAccessType = "ingress-controller"
+)
+
 type ClusterPhase string
 
 const (
@@ -31,10 +39,8 @@ const (
 	PhaseError     ClusterPhase = "Error"
 )
 
-type ExternalAccessType string
-
 const (
-	ExternalAccessTypeAWS               ExternalAccessType = "aws-nlb"
-	ExternalAccessTypeAzure             ExternalAccessType = "azure-lb"
-	ExternalAccessTypeIngressController ExternalAccessType = "ingress-controller"
+	ConditionBootstrapped       = "Bootstrapped"
+	ReasonBootstrapCompleted    = "Completed"
+	ReasonBootstrapNotCompleted = "NotCompleted"
 )

@@ -38,6 +38,7 @@ func baseClusterForExternalAccessTypesTest(name string) *RavenDBCluster {
 			LicenseSecretRef:     "license-secret",
 			Domain:               "example.com",
 			ClusterCertSecretRef: &certSecretRef,
+			ClientCertSecretRef:  "client-cert",
 			Nodes: []RavenDBNode{
 				{
 					Tag:                "A",

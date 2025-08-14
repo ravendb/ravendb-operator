@@ -52,4 +52,6 @@ type ClusterAdapter interface {
 	GetAdditionalVolumeMountPaths() []*string
 	GetAdditionalVolumeSubPaths() []*string
 	GetAdditionalVolumeSources() []map[string]bool
+	GetClientCertSecretRef() string
+	GetCACertSecretRef() *string
 }

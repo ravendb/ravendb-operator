@@ -21,9 +21,11 @@ spec:
   image: ravendb/ravendb:latest
   imagePullPolicy: IfNotPresent
   mode: None
-  certSecretRef: ravendb-cert
+  clusterCertSecretRef: ravendb-cert
   licenseSecretRef: ravendb-license
   domain: thegoldenplatypusselfsigned.development.run
+  clientCertSecretRef: ravendb-client-cert
+  caCertSecretRef: ravendb-ca-cert
 
   externalAccessConfiguration:
     type: ingress-controller

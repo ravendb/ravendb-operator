@@ -1,0 +1,201 @@
+# RavenDB Cluster Bootstrapper
+
+The **RavenDB Cluster Bootstrapper** runs inside the cluster as Kubernetes-native standalone job. Its purpose is to take an already deployed set of RavenDB nodes and automatically form a functional cluster without manual intervention.
+
+ It is designed to run **after** the RavenDB Operator deploys the nodes, ensuring they are automatically discovered, verified, and joined into a functional cluster for both **Let's Encrypt** and **Self-Signed** certificate modes.
+
+---
+
+## Key Features
+
+- **Automatic Node Discovery** - Detects and verifies all RavenDB pods are running.
+- **TLS Validation** - Confirms HTTPS endpoints are live and present valid certificates.
+- **Cluster Topology Setup** - The first node in the `.spec.nodes` list is assigned as the leader, and all other nodes are joined as members.
+- **Supports Both Certificate Modes** - Works with both Let's Encrypt-issued and self-signed TLS setups.
+- **Fail-Fast Logging** - Provides clear, timestamped logs for each bootstrap step.
+
+**important**
+After the bootstrapper has run successfully, changes to the cluster topology in the CR (e.g., adding/removing nodes) will not be applied automatically. Such changes will be blocked or ignored until future operator features handle topology updates.
+
+---
+
+## How It Works
+
+1. **Bootstrapper Job Creation**  
+   The RavenDB operater create a short-lived `Job` that launches the bootstrapper container in the same namespace as the RavenDBCluster resource.
+
+2. **Wait for Pod Readiness**  
+   The bootstrapper waits until all RavenDB pods are in the `Running` state.
+
+3. **Check HTTPS (Studio) Reachability**  
+   Each node is tested for HTTPS connectivity.
+
+4. **Install Client Certificate on Leader Node**  
+   The bootstrapper uploads the provided client certificate to the leader node, ensuring it is registered and trusted for ClusterAdmin API authentication. This allows secure execution of cluster management operations such as adding nodes.
+
+5. **Cluster Joining** 
+   The bootstrapper connects to the **leader node** and sends cluster management API calls to add members and watchers.
+
+6. **Validate Topology**  
+   The final topology is retrieved and displayed, including:
+   - Cluster leader
+   - Members
+   - Watchers
+   - Topology ID
+
+---
+
+
+## Cluster Setup Configuration - Let's Encrypt vs Self-Signed
+
+When defining a `RavenDBCluster` resource, you first decide **how the cluster will be secured**, and based on that, configure **how nodes will join the topology**.
+
+**Notes**
+
+- **Client Certificate is Always Required:**
+Both modes require a ClusterAdmin client certificate (clientCertSecretRef). The bootstrapper uses this certificate to authenticate when calling the RavenDB Admin API.
+
+- **CA Certificate Required for Self-Signed Mode only:**
+In self-signed deployments, caCertSecretRef must be provided so the bootstrapper can ensure all nodes trust the same CA that issued the server certificates.
+
+- **Cluster roles:**
+The leader is always taken from the first node in the list , other nodes join as members.
+
+- **immutability**
+Once the bootstrapper runs for a fresh cluster, topology changes in the CR will not be applied automatically. To change topology later, you must manage it manually in RavenDB.
+
+📚 For a detailed explanation of cluster roles, topology management, and node responsibilities in RavenDB, see the [official documentation](https://docs.ravendb.net/7.1/server/clustering/overview)
+
+---
+
+## Example Walkthrough
+
+### Step 1 - Create the namespace and required secrets
+
+First, we’ll set up the namespace and drop in the prerequisites.  
+This includes the license, per-node server certificates from the RavenDB setup package, and the ClusterAdmin client certificate the bootstrapper will use.
+
+```bash
+kubectl create namespace ravendb
+
+kubectl create secret generic ravendb-license --from-file=license.json=./license.json -n ravendb
+
+kubectl create secret generic ravendb-certs-a --from-file=server.pfx=./setup_package/A/cluster.server.certificate.example.pfx -n ravendb
+
+kubectl create secret generic ravendb-certs-b --from-file=server.pfx=./setup_package/B/cluster.server.certificate.example.pfx -n ravendb
+
+kubectl create secret generic ravendb-certs-c --from-file=server.pfx=./setup_package/C/cluster.server.certificate.example.pfx -n ravendb
+
+kubectl create secret generic ravendb-client-cert --from-file=client.pfx=./setup_package/admin.client.certificate.example.pfx -n ravendb
+```
+
+### Step 2 - Apply the cluster CR
+
+Now we’ll apply a `RavenDBCluster` resource that tells the operator:
+- "a" is the leader
+- "c" is a watcher
+- "b" is a member (because it isn't specified as leader or watcher)
+
+```yaml
+apiVersion: ravendb.ravendb.io/v1alpha1
+kind: RavenDBCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ravendbcluster-sample
+  namespace: ravendb
+spec:
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.example.development.run:443
+      publicServerUrlTcp: tcp://a-tcp.example.development.run:443
+      certSecretRef: ravendb-certs-a
+    - tag: b
+      publicServerUrl: https://b.example.development.run:443
+      publicServerUrlTcp: tcp://b-tcp.example.development.run:443
+      certSecretRef: ravendb-certs-b
+    - tag: c
+      publicServerUrl: https://c.example.development.run:443
+      publicServerUrlTcp: tcp://c-tcp.example.development.run:443
+      certSecretRef: ravendb-certs-c
+  image: ravendb/ravendb:latest
+  imagePullPolicy: IfNotPresent
+  mode: LetsEncrypt
+  email: you@example.com
+  licenseSecretRef: ravendb-license
+  clientCertSecretRef: ravendb-client-cert
+  domain: example.development.run
+  storage:
+    data:
+      size: 10Gi
+      storageClassName: local-path
+```
+
+Apply it: `kubectl apply -f ./ravendbcluster.yaml`
+
+
+### Step 3 - Watch the pods and logs
+
+A few seconds later you’ll see all three RavenDB pods, plus a short-lived cluster-init pod:
+
+```bash
+$ kubectl get pods -n ravendb
+
+ravendb   ravendb-a-0                    1/1   Running    0   7s
+ravendb   ravendb-b-0                    1/1   Running    0   7s
+ravendb   ravendb-c-0                    1/1   Running    0   7s
+ravendb   ravendb-cluster-init-88w6m     1/1   Running    0   7s
+```
+That ravendb-cluster-init-* pod is the bootstrapper job - it’s going to wait for all pods, check their HTTPS reachability, upload the client cert to the leader, and then join the nodes.
+You can peek at the bootstrapper logs to see him in action:
+
+```
+$ kubectl get logs -n ravendb ravendb-cluster-init-88w6m
+
+>> Starting RavenDB cluster bootstrapper...
+[06:54:30] === Starting Discoverability Checks ===
+[06:54:30] Checking if kubectl is already installed...
+[06:54:30] Downloading and installing kubectl...
+[06:54:38] kubectl installed successfully.
+[06:54:38] Waiting for all RavenDB pods to be in 'Running' state...
+[06:54:38] Pod readiness check: attempt 1/30
+[06:54:38] All RavenDB pods are running.
+[06:54:38] Checking HTTPS (Studio) reachability of RavenDB nodes...
+[06:54:38] [a] curl -k https://a.example.development.run:443
+[06:54:38] [a] Studio redirect detected - looks good
+[06:54:38] [b] curl -k https://b.example.development.run:443
+[06:54:38] [b] Studio redirect detected - looks good
+[06:54:38] [c] curl -k https://c.example.development.run:443
+[06:54:38] [c] Studio redirect detected - looks good
+[06:54:38] === Discoverability Checks Completed ===
+[06:54:38] === Starting Cluster Initialization ===
+[06:54:38] Converting /ravendb/certs/server.pfx to PEM and KEY...
+[06:54:39] Converting /ravendb/client-certs/client.pfx to PEM and KEY...
+[06:54:39] Registering Admin client certificate...
+[06:54:39] Admin certificate registered.
+[06:54:40] [B] added as Member
+[06:54:44] [C] added as Member
+[06:54:47] Cluster topology:
+{
+  "Leader": "A",
+  "CurrentState": "Leader",
+  "CurrentTerm": 1,
+  "TopologyId": "c6e2da2e-d504-435a-bb65-6d7dab02abde",
+  "Members": "A B C"
+}
+
+
+[06:54:47] === Cluster Initialization Complete ===
+
+```
+
+Once the bootstrapper finishes, it’ll mark the job as Completed and disappear. The three RavenDB nodes keep running:
+
+```bash
+$ kubectl get pods -n ravendb
+ravendb   ravendb-a-0                    1/1   Running     0   29s
+ravendb   ravendb-b-0                    1/1   Running     0   29s
+ravendb   ravendb-c-0                    1/1   Running     0   29s
+ravendb   ravendb-cluster-init-88w6m     0/1   Completed   0   29s
+```

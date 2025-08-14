@@ -57,6 +57,13 @@ type RavenDBClusterSpec struct {
 	// +kubebuilder:validation:Required
 	StorageSpec StorageSpec `json:"storage"`
 
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	ClientCertSecretRef string `json:"clientCertSecretRef"`
+
+	// +kubebuilder:validation:Optional
+	CACertSecretRef *string `json:"caCertSecretRef,omitempty"`
+
 	// // +kubebuilder:validation:Optional
 	// Sidecars []Sidecar `json:"sidecars,omitempty"`
 }

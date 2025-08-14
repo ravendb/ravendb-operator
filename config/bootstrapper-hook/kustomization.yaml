@@ -1,0 +1,9 @@
+namespace: ravendb
+
+configMapGenerator:
+  - name: ravendb-bootstrapper-hook
+    files:
+      - check-nodes-discoverability.sh
+      - init-cluster.sh
+generatorOptions:
+  disableNameSuffixHash: true
