@@ -27,7 +27,8 @@ spec:
   email: omer.ratsaby@ravendb.net
   licenseSecretRef: ravendb-license
   domain: thegoldenplatypus.development.run
-
+  clientCertSecretRef: ravendb-client-cert
+  
   externalAccessConfiguration:
     type: ingress-controller
     ingressControllerContext:
