@@ -1,5 +1,7 @@
 # Build the manager binary
-FROM golang:1.22 AS builder
+FROM golang:latest AS builder
+ENV CGO_ENABLED=0 \
+    GOTOOLCHAIN=auto
 ARG TARGETOS
 ARG TARGETARCH
 
