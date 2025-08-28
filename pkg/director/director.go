@@ -34,7 +34,7 @@ type Director interface {
 		cluster *ravendbv1alpha1.RavenDBCluster,
 		c client.Client,
 		scheme *runtime.Scheme,
-	) error
+	) (bool, error)
 
 	ExecutePerNode(
 		ctx context.Context,
@@ -42,7 +42,7 @@ type Director interface {
 		node ravendbv1alpha1.RavenDBNode,
 		c client.Client,
 		scheme *runtime.Scheme,
-	) error
+	) (bool, error)
 }
 
 type DefaultDirector struct {
@@ -68,16 +68,21 @@ func (d *DefaultDirector) ExecutePerCluster(
 	cluster *ravendbv1alpha1.RavenDBCluster,
 	c client.Client,
 	scheme *runtime.Scheme,
-) error {
-	for _, actor := range d.perClusterActors {
-		if !actor.ShouldAct(cluster) {
+) (bool, error) {
+	anyChanged := false
+	for _, a := range d.perClusterActors {
+		if !a.ShouldAct(cluster) {
 			continue
 		}
-		if err := actor.Act(ctx, cluster, c, scheme); err != nil {
-			return fmt.Errorf("%s failed: %w", actor.Name(), err)
+		changed, err := a.Act(ctx, cluster, c, scheme)
+		if err != nil {
+			return false, fmt.Errorf("%s failed: %w", a.Name(), err)
+		}
+		if changed {
+			anyChanged = true
 		}
 	}
-	return nil
+	return anyChanged, nil
 }
 
 func (d *DefaultDirector) ExecutePerNode(
@@ -86,11 +91,16 @@ func (d *DefaultDirector) ExecutePerNode(
 	node ravendbv1alpha1.RavenDBNode,
 	c client.Client,
 	scheme *runtime.Scheme,
-) error {
-	for _, actor := range d.perNodeActors {
-		if err := actor.Act(ctx, cluster, node, c, scheme); err != nil {
-			return fmt.Errorf("%s failed: %w", actor.Name(), err)
+) (bool, error) {
+	anyChanged := false
+	for _, a := range d.perNodeActors {
+		changed, err := a.Act(ctx, cluster, node, c, scheme)
+		if err != nil {
+			return false, fmt.Errorf("%s failed: %w", a.Name(), err)
+		}
+		if changed {
+			anyChanged = true
 		}
 	}
-	return nil
+	return anyChanged, nil
 }

@@ -64,6 +64,10 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 	//	initContainers := buildInitContainers(cluster)
 
 	sts := &appsv1.StatefulSet{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps/v1",
+			Kind:       "StatefulSet",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        stsName,
 			Namespace:   cluster.Namespace,

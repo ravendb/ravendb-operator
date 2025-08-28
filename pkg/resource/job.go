@@ -40,7 +40,7 @@ func (b *JobBuilder) Build(ctx context.Context, cluster *ravendbv1alpha1.RavenDB
 
 func BuildJob(cluster *ravendbv1alpha1.RavenDBCluster) (*batchv1.Job, error) {
 	jobName := common.RavenDbBootstrapperJob
-	backoff := int32(0)
+	backoff := int32(3)
 
 	labels := buildJobLabels(cluster)
 	volumes := buildJobVolumes(cluster)
@@ -49,6 +49,10 @@ func BuildJob(cluster *ravendbv1alpha1.RavenDBCluster) (*batchv1.Job, error) {
 	containers := buildJobContainers(cluster.Spec.Image, volumeMounts, envVars)
 
 	job := &batchv1.Job{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "batch/v1",
+			Kind:       "Job",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName,
 			Namespace: cluster.Namespace,

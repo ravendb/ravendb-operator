@@ -48,6 +48,10 @@ func BuildService(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.
 	selector := buildServiceSelector(node)
 
 	svc := &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Service",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      svcName,
 			Namespace: cluster.Namespace,
