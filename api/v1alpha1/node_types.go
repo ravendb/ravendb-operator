@@ -34,7 +34,16 @@ type RavenDBNode struct {
 	CertSecretRef *string `json:"certSecretRef,omitempty"`
 }
 
+type RavenDBNodeStatusPhase string
+
+const (
+	NodeStatusCreated RavenDBNodeStatusPhase = "Created"
+	NodeStatusFailed  RavenDBNodeStatusPhase = "Failed"
+)
+
 type RavenDBNodeStatus struct {
-	Tag    string `json:"tag"`
-	Status string `json:"status"`
+	Tag string `json:"tag"`
+
+	// +kubebuilder:validation:Enum=Created;Failed
+	Status RavenDBNodeStatusPhase `json:"status"`
 }

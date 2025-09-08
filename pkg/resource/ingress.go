@@ -47,6 +47,10 @@ func BuildIngress(cluster *ravendbv1alpha1.RavenDBCluster) (*networkingv1.Ingres
 	rules := buildIngressRules(cluster)
 
 	ing := &networkingv1.Ingress{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "networking.k8s.io/v1",
+			Kind:       "Ingress",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        ingressName,
 			Namespace:   cluster.Namespace,

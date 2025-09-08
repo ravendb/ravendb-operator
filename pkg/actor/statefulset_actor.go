@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type StatefulSetActor struct {
@@ -35,25 +36,25 @@ func NewStatefulSetActor(builder resource.PerNodeBuilder) PerNodeActor {
 	return &StatefulSetActor{builder: builder}
 }
 
-func (a *StatefulSetActor) Name() string {
+func (actor *StatefulSetActor) Name() string {
 	return "StatefulSetActor"
 }
 
-func (a *StatefulSetActor) Act(
-	ctx context.Context,
-	cluster *ravendbv1alpha1.RavenDBCluster,
-	node ravendbv1alpha1.RavenDBNode,
-	c client.Client,
-	scheme *runtime.Scheme,
-) error {
-	sts, err := a.builder.Build(ctx, cluster, node)
+func (actor *StatefulSetActor) Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode, client client.Client, scheme *runtime.Scheme) (bool, error) {
+	sts, err := actor.builder.Build(ctx, cluster, node)
 	if err != nil {
-		return fmt.Errorf("failed to build StatefulSet: %w", err)
+		return false, fmt.Errorf("failed to build StatefulSet: %w", err)
 	}
 
-	if err := applyResource(ctx, c, scheme, sts); err != nil {
-		return fmt.Errorf("failed to apply StatefulSet: %w", err)
+	if err := controllerutil.SetControllerReference(cluster, sts, scheme); err != nil {
+		return false, fmt.Errorf("set owner ref on StatefulSet: %w", err)
 	}
 
-	return nil
+	changed, err := applyResourceSSA(ctx, client, sts, "ravendb-operator/statefulset")
+
+	if err != nil {
+		return false, fmt.Errorf("failed to apply StatefulSet: %w", err)
+	}
+
+	return changed, nil
 }

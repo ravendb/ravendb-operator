@@ -39,8 +39,9 @@ type RavenDBClusterList struct {
 
 type RavenDBClusterStatus struct {
 	// +kubebuilder:validation:Enum=Deploying;Running;Error
-	Phase      ClusterPhase        `json:"phase,omitempty"`
-	Message    string              `json:"message,omitempty"`
-	Nodes      []RavenDBNodeStatus `json:"nodes,omitempty"`
-	Conditions []metav1.Condition  `json:"conditions,omitempty"`
+	Phase              ClusterPhase        `json:"phase,omitempty"`
+	Message            string              `json:"message,omitempty"`
+	ObservedGeneration int64               `json:"observedGeneration,omitempty"`
+	Nodes              []RavenDBNodeStatus `json:"nodes,omitempty"`
+	Conditions         []metav1.Condition  `json:"conditions,omitempty"`
 }

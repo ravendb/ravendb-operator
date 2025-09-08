@@ -39,8 +39,32 @@ const (
 	PhaseError     ClusterPhase = "Error"
 )
 
+type ClusterConditionType string
+
 const (
-	ConditionBootstrapped       = "Bootstrapped"
-	ReasonBootstrapCompleted    = "Completed"
-	ReasonBootstrapNotCompleted = "NotCompleted"
+	ConditionReady               ClusterConditionType = "Ready"
+	ConditionProgressing         ClusterConditionType = "Progressing"
+	ConditionDegraded            ClusterConditionType = "Degraded"
+	ConditionCertificatesReady   ClusterConditionType = "CertificatesReady"
+	ConditionLicensesValid       ClusterConditionType = "LicensesValid"
+	ConditionStorageReady        ClusterConditionType = "StorageReady"
+	ConditionExternalAccessReady ClusterConditionType = "ExternalAccessReady"
+	ConditionNodesHealthy        ClusterConditionType = "NodesHealthy"
+	ConditionBootstrapCompleted  ClusterConditionType = "BootstrapCompleted"
+)
+
+type ClusterConditionReason string
+
+const (
+	ReasonCompleted             ClusterConditionReason = "Completed"
+	ReasonWaitingForPods        ClusterConditionReason = "WaitingForPods"
+	ReasonPodsNotReady          ClusterConditionReason = "PodsNotReady"
+	ReasonStatefulSetUpdating   ClusterConditionReason = "StatefulSetUpdating"
+	ReasonIngressPendingAddress ClusterConditionReason = "IngressPendingAddress"
+	ReasonLoadBalancerPending   ClusterConditionReason = "LoadBalancerPending"
+	ReasonCertSecretMissing     ClusterConditionReason = "CertSecretMissing"
+	ReasonLicenseSecretMissing  ClusterConditionReason = "LicenseSecretMissing"
+	ReasonBootstrapJobRunning   ClusterConditionReason = "BootstrapJobRunning"
+	ReasonBootstrapFailed       ClusterConditionReason = "BootstrapFailed"
+	ReasonPVCNotBound           ClusterConditionReason = "PVCNotBound"
 )

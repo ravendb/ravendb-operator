@@ -18,28 +18,108 @@ package controller
 
 import (
 	"context"
-	"fmt"
+	"reflect"
 
 	"ravendb-operator/pkg/common"
 	"ravendb-operator/pkg/director"
 
+	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	"ravendb-operator/pkg/health"
+
+	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
+
+/*
+The RavenDBCluster Reconciliation flow
+
+Top overview
+---
+The reconciler drives the desired cluster state by:
+1) loading the RavenDBCluster,
+2) delegating object creation/update to "actors" via a Director,
+3) collecting live cluster facts,
+4) evaluating health -> conditions -> phase,
+5) persisting Status with conflict-safe merges
+6) emitting Events for condition transitions.
+
+Our goal is keep the real cluster matching the RavenDBCluster spec. each reconcile is:
+"Look at the specs -> create/adjust K8s objects accordingly -> check what's running -> update status."
+
+
+Cast
+---
+- RavenDBCluster: the single source of truth for desired state.
+- Director: a coordinator. It tells actors what to create/update.
+- Actors: small workers that own one thing (StatefulSet, Service, Ingress, Job).
+- Health collector + evaluator: responsiable to ask "what's actually happening?" based on the answer -> compute conditions and phase.
+
+
+Step by step (detailed flow)
+---
+1) load + snapshot
+   - read the RavenDBCluster.
+   - If it doesn't exist: we are done (CR deleted !!).
+   - else: Keep a copy of the previous Status/Conditions so we can detect changes and emit events.
+
+2) build + apply desired objects (via director + actors)
+  - The director runs:
+       - per cluster actors (e.g ingress) when they should act.
+       - per node actors (e.g sts) once for each node in the spec.
+   - each actor asks its builder to produce the desired K8s object.
+   - we set an OwnerReference from every child object back to this RavenDBCluster.
+   (meaning: 1. if the CR is deleted, K8s automatically cleans up our owned children
+             2. when the collector look at the cluster later (status purposes), it can easily filter our objs)
+
+   we apply resources using SSA:
+   - SSA is a smart merge done by the K8s API https://kubernetes.io/docs/reference/using-api/server-side-apply/ .
+   - we only own the fields we set. other controllers/users can manage other fields.
+   - if there's a clash on a field we own, our controller wins (with ForceOwnership).
+   - this avoids the "last write wins" problem and reduces conflicts.
+
+3) observe reality
+   - the collector lists what's in the cluster that we own (StatefulSets, Jobs, Services,
+     Ingresses, Pods, PVCs) plus relevant Secrets.
+   - it translates raw K8s objects into simple "facts" (names, phases, ready flags, etc.).
+
+4) work out health and phase
+   - the evaluator looks at the facts and sets conditions like:
+     StorageReady, CertificatesReady, LicensesValid, NodesHealthy, ExternalAccessReady
+     (if configured), BootstrapCompleted, Progressing, Degraded.
+   - then we roll them up into a single Phase
+       Ready -> Running
+       else if Degraded -> Error
+       else if Progressing -> Deploying
+       else -> Deploying.
+
+5) persist status with conflict handling
+   compare original.Status vs instance.Status (DeepEqual).
+   - if Status changed, we patch only the Status subresource against our earlier snapshot.
+   - If the API says "conflict" (someone updated Status at the same time), we requeue and try again, instead of overwriting.
+
+6) emit events on changes
+   - if any condition's Status/Reason/Message changed, we log it and publish a K8s Event.
+
+*/
 
 // RavenDBClusterReconciler reconciles a RavenDBCluster object
 type RavenDBClusterReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Director director.Director
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch
@@ -52,9 +132,13 @@ type RavenDBClusterReconciler struct {
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
+// +kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch;update
 
 func (r *RavenDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	l := log.FromContext(ctx)
+	logger := log.FromContext(ctx)
 
 	var instance ravendbv1alpha1.RavenDBCluster
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
@@ -64,81 +148,122 @@ func (r *RavenDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	d := r.Director
+	original := instance.DeepCopy()
+	prevConditions := append([]metav1.Condition(nil), original.Status.Conditions...)
 
-	if err := d.ExecutePerCluster(ctx, &instance, r.Client, r.Scheme); err != nil {
-		l.Error(err, "failed to execute cluster-level actors")
-		_ = r.setBootstrappedIfSucceeded(ctx, &instance)
+	_, err := r.Director.ExecutePerCluster(ctx, &instance, r.Client, r.Scheme)
+	if err != nil {
+		logger.Error(err, "failed to execute cluster-level actors")
 		return ctrl.Result{}, err
-
 	}
 
-	// if the bootstrapper job completed, mark the CR as done.
-	if err := r.setBootstrappedIfSucceeded(ctx, &instance); err != nil {
-		l.Error(err, "failed to set Bootstrapped condition")
-		return ctrl.Result{Requeue: true}, nil
-	}
-
-	var statuses []ravendbv1alpha1.RavenDBNodeStatus
+	var nodeStatuses []ravendbv1alpha1.RavenDBNodeStatus
 	for _, node := range instance.Spec.Nodes {
-		if err := d.ExecutePerNode(ctx, &instance, node, r.Client, r.Scheme); err != nil {
-			l.Error(err, "failed to reconcile node", "node", node.Tag)
-			statuses = append(statuses, ravendbv1alpha1.RavenDBNodeStatus{
+		_, err := r.Director.ExecutePerNode(ctx, &instance, node, r.Client, r.Scheme)
+		if err != nil {
+			logger.Error(err, "failed to reconcile node", "node", node.Tag)
+			nodeStatuses = append(nodeStatuses, ravendbv1alpha1.RavenDBNodeStatus{
 				Tag:    node.Tag,
-				Status: "Failed",
+				Status: ravendbv1alpha1.NodeStatusFailed,
 			})
 			continue
 		}
 
-		statuses = append(statuses, ravendbv1alpha1.RavenDBNodeStatus{
+		nodeStatuses = append(nodeStatuses, ravendbv1alpha1.RavenDBNodeStatus{
 			Tag:    node.Tag,
-			Status: "Created",
+			Status: ravendbv1alpha1.NodeStatusCreated,
 		})
 	}
+	instance.Status.Nodes = nodeStatuses
 
-	instance.Status.Nodes = statuses
-	instance.Status.Phase = "Deploying"
-	instance.Status.Message = fmt.Sprintf("Ensured desired state for %d RavenDB nodes", len(statuses))
+	resFacts, err := health.NewResourceCollector().Collect(ctx, r.Client, &instance)
+	if err != nil {
+		logger.Error(err, "resource translation failed")
+	}
+	ev := health.NewEvaluator()
+	ev.Evaluate(ctx, &instance, resFacts, metav1.Now())
 
-	if err := r.Status().Update(ctx, &instance); err != nil {
-		return ctrl.Result{}, err
+	statusChanged := !reflect.DeepEqual(original.Status, instance.Status)
+	if statusChanged {
+		if err := r.Status().Patch(ctx, &instance, client.MergeFrom(original)); err != nil {
+			if kerrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
+		}
+		emitConditionTransitions(&instance, prevConditions, logger, r.Recorder)
 	}
 
-	return ctrl.Result{Requeue: true}, nil
+	return ctrl.Result{}, nil
 }
 
-// todo: to be moved in healt probe issue
-func (r *RavenDBClusterReconciler) setBootstrappedIfSucceeded(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster) error {
+func emitConditionTransitions(cluster *ravendbv1alpha1.RavenDBCluster, prevConditions []metav1.Condition, logger logr.Logger, rec record.EventRecorder) {
 
-	if cluster.IsBootstrapped() {
-		return nil
+	previousByType := make(map[string]metav1.Condition, len(prevConditions))
+	for i := 0; i < len(prevConditions); i++ {
+		c := prevConditions[i]
+		previousByType[c.Type] = c
 	}
 
-	const jobName = common.RavenDbBootstrapperJob
+	for i := 0; i < len(cluster.Status.Conditions); i++ {
 
-	var job batchv1.Job
-	if err := r.Get(ctx, types.NamespacedName{
-		Namespace: cluster.Namespace,
-		Name:      jobName,
-	}, &job); err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil
+		cur := cluster.Status.Conditions[i]
+		previous, hadPrevious := previousByType[cur.Type]
+
+		if !hadPrevious || previous.Status != cur.Status || previous.Reason != cur.Reason || previous.Message != cur.Message {
+			logger.Info("Condition transition", "condition", cur)
+			eventType := getEventSeverity(cur)
+
+			rec.Eventf(
+				cluster,
+				eventType,
+				cur.Reason,
+				"Condition %s changed to %s (reason=%s): %s",
+				cur.Type, cur.Status, cur.Reason, cur.Message,
+			)
 		}
-		return err
 	}
+}
 
-	if job.Status.Succeeded >= 1 {
-		cluster.SetBootstrapped(metav1.Now())
-		return r.Status().Update(ctx, cluster)
+func getEventSeverity(cur metav1.Condition) string {
+	switch ravendbv1alpha1.ClusterConditionType(cur.Type) {
+
+	case ravendbv1alpha1.ConditionReady:
+		if cur.Status == metav1.ConditionFalse {
+			return corev1.EventTypeWarning
+		}
+		return corev1.EventTypeNormal
+
+	case ravendbv1alpha1.ConditionDegraded:
+		if cur.Status == metav1.ConditionTrue {
+			return corev1.EventTypeWarning
+		}
+		return corev1.EventTypeNormal
+
+	case ravendbv1alpha1.ConditionProgressing:
+		return corev1.EventTypeNormal
+
+	default:
+		if cur.Status == metav1.ConditionFalse {
+			return corev1.EventTypeWarning
+		}
+		return corev1.EventTypeNormal
 	}
-
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *RavenDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.Recorder = mgr.GetEventRecorderFor(common.Manager)
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&ravendbv1alpha1.RavenDBCluster{}).
+		For(&ravendbv1alpha1.RavenDBCluster{},
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
+		).
 		Owns(&batchv1.Job{}).
+		Owns(&appsv1.StatefulSet{}).
+		Owns(&corev1.Service{}).
+		Owns(&networkingv1.Ingress{}).
+		Owns(&corev1.Pod{}).
+		Owns(&corev1.PersistentVolumeClaim{}).
+		Owns(&corev1.Secret{}).
 		Complete(r)
 }

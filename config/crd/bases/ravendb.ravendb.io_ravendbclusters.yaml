@@ -496,6 +496,9 @@ spec:
                 items:
                   properties:
                     status:
+                      enum:
+                      - Created
+                      - Failed
                       type: string
                     tag:
                       type: string
@@ -504,6 +507,9 @@ spec:
                   - tag
                   type: object
                 type: array
+              observedGeneration:
+                format: int64
+                type: integer
               phase:
                 enum:
                 - Deploying

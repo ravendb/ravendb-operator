@@ -31,11 +31,11 @@ type Actor interface {
 
 type PerNodeActor interface {
 	Actor
-	Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode, c client.Client, scheme *runtime.Scheme) error
+	Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode, c client.Client, scheme *runtime.Scheme) (bool, error)
 }
 
 type PerClusterActor interface {
 	Actor
 	ShouldAct(cluster *ravendbv1alpha1.RavenDBCluster) bool
-	Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, c client.Client, scheme *runtime.Scheme) error
+	Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, c client.Client, scheme *runtime.Scheme) (bool, error)
 }

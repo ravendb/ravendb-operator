@@ -20,36 +20,14 @@ import (
 	"context"
 	"fmt"
 
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func applyResource(ctx context.Context, c client.Client, scheme *runtime.Scheme, obj client.Object) error {
-	log := ctrl.LoggerFrom(ctx)
-	key := client.ObjectKeyFromObject(obj)
-	existing := obj.DeepCopyObject().(client.Object)
+func applyResourceSSA(ctx context.Context, c client.Client, desired client.Object, fieldOwner string) (bool, error) {
 
-	err := c.Get(ctx, key, existing)
-	if err != nil {
-		if !kerrors.IsNotFound(err) {
-			return fmt.Errorf("failed to get resource: %w", err)
-		}
-
-		if err := c.Create(ctx, obj); err != nil {
-			return fmt.Errorf("failed to create resource: %w", err)
-		}
-		log.Info("Created resource", "name", key.Name)
-		return nil
+	desired.SetResourceVersion("")
+	if err := c.Patch(ctx, desired, client.Apply, client.FieldOwner(fieldOwner), client.ForceOwnership); err != nil {
+		return false, fmt.Errorf("apply (SSA) %T %s/%s: %w", desired, desired.GetNamespace(), desired.GetName(), err)
 	}
-
-	obj.SetResourceVersion(existing.GetResourceVersion())
-	if err := c.Update(ctx, obj); err != nil {
-		return fmt.Errorf("failed to update resource: %w", err)
-	}
-	log.Info("Updated resource", "name", key.Name)
-	return nil
+	return false, nil
 }
-
-// TODO: merge and patch logic on each actor to avoid recurring rolling updates -> RavenDB-24330 Kubernetes Operator: Health check probe available via kubectl

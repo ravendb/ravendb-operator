@@ -26,6 +26,7 @@ spec:
   mode: LetsEncrypt
   email: omer.ratsaby@ravendb.net
   licenseSecretRef: ravendb-license
+  clientCertSecretRef: ravendb-client-cert
   domain: thegoldenplatypus.development.run
 
   externalAccessConfiguration:
