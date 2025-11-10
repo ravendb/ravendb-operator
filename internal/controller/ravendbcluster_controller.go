@@ -22,6 +22,7 @@ import (
 
 	"ravendb-operator/pkg/common"
 	"ravendb-operator/pkg/director"
+	"ravendb-operator/pkg/upgrade"
 
 	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
 	"ravendb-operator/pkg/health"
@@ -117,9 +118,11 @@ Step by step (detailed flow)
 // RavenDBClusterReconciler reconciles a RavenDBCluster object
 type RavenDBClusterReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Director director.Director
-	Recorder record.EventRecorder
+	Scheme     *runtime.Scheme
+	Director   director.Director
+	Upgrader   upgrade.Upgrader
+	Recorder   record.EventRecorder
+	BaseTiming upgrade.Timing
 }
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch
@@ -157,22 +160,19 @@ func (r *RavenDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	var nodeStatuses []ravendbv1alpha1.RavenDBNodeStatus
-	for _, node := range instance.Spec.Nodes {
+	applyNode := func(node ravendbv1alpha1.RavenDBNode) error {
 		_, err := r.Director.ExecutePerNode(ctx, &instance, node, r.Client, r.Scheme)
-		if err != nil {
-			logger.Error(err, "failed to reconcile node", "node", node.Tag)
-			nodeStatuses = append(nodeStatuses, ravendbv1alpha1.RavenDBNodeStatus{
-				Tag:    node.Tag,
-				Status: ravendbv1alpha1.NodeStatusFailed,
-			})
-			continue
-		}
+		return err
+	}
 
-		nodeStatuses = append(nodeStatuses, ravendbv1alpha1.RavenDBNodeStatus{
-			Tag:    node.Tag,
-			Status: ravendbv1alpha1.NodeStatusCreated,
-		})
+	r.Upgrader.SetTiming(upgrade.ReadTimingFromAnnotations(&instance, r.BaseTiming))
+
+	nodeStatuses, err := r.Upgrader.Run(ctx, &instance, r.Client, applyNode)
+	if err != nil {
+		logger.Error(err, "rolling upgrade failed")
+		if r.Recorder != nil {
+			r.Recorder.Eventf(&instance, corev1.EventTypeWarning, "RollingUpgradeFailed", "%v", err)
+		}
 	}
 	instance.Status.Nodes = nodeStatuses
 
@@ -254,6 +254,12 @@ func getEventSeverity(cur metav1.Condition) string {
 // SetupWithManager sets up the controller with the Manager.
 func (r *RavenDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Recorder = mgr.GetEventRecorderFor(common.Manager)
+	timing := upgrade.DefaultTiming()
+	r.Upgrader = upgrade.NewUpgrader(timing)
+	r.BaseTiming = timing
+
+	r.Upgrader.SetEmitter(upgrade.NewGateEventEmitter(r.Client, r.Recorder))
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&ravendbv1alpha1.RavenDBCluster{},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),

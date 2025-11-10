@@ -73,6 +73,11 @@ const (
 	AWSLoadBalancerNLBTargetTypeAnnotation  = "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type"
 	AWSLoadBalancerEIPAllocationsAnnotation = "service.beta.kubernetes.io/aws-load-balancer-eip-allocations"
 	AWSLoadBalancerSubnetsAnnotation        = "service.beta.kubernetes.io/aws-load-balancer-subnets"
+	UpgradeImageAnnotation                  = "ravendb.ravendb.io/upgrade-image"
+	UpgradePreWaitAnnotation                = "ravendb.io/upgrade-pre-wait"
+	UpgradePostWaitAnnotation               = "ravendb.io/upgrade-post-wait"
+	UpgradePingIntervalAnnotation           = "ravendb.io/upgrade-ping-interval"
+	UpgradeDBIntervalAnnotation             = "ravendb.io/upgrade-db-interval"
 )
 
 // internal ports
