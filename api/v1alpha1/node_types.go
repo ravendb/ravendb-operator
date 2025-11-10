@@ -16,6 +16,8 @@ limitations under the License.
 
 package v1alpha1
 
+import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 type RavenDBNode struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
@@ -45,5 +47,8 @@ type RavenDBNodeStatus struct {
 	Tag string `json:"tag"`
 
 	// +kubebuilder:validation:Enum=Created;Failed
-	Status RavenDBNodeStatusPhase `json:"status"`
+	Status             RavenDBNodeStatusPhase `json:"status"`
+	LastAttemptedImage string                 `json:"lastAttemptedImage,omitempty"`
+	LastError          string                 `json:"lastError,omitempty"`
+	LastAttemptTime    metav1.Time            `json:"lastAttemptTime,omitempty"`
 }
