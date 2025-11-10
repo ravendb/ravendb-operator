@@ -206,3 +206,25 @@ func WaitForPod(t *testing.T, cli ctrlclient.Client, ns, name string, timeout ti
 
 	return pod
 }
+
+func PatchSpecImage(t *testing.T, cli ctrlclient.Client, key ctrlclient.ObjectKey, img string) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	cur := &ravendbv1alpha1.RavenDBCluster{}
+	require.NoError(t, cli.Get(ctx, key, cur))
+	cur.Spec.Image = img
+	require.NoError(t, cli.Update(ctx, cur))
+}
+
+func WaitPodImage(t *testing.T, cli ctrlclient.Client, ns, podName, want string, timeout time.Duration) {
+	t.Helper()
+	require.Eventually(t, func() bool {
+		p := WaitForPod(t, cli, ns, podName, 45*time.Second)
+		if len(p.Spec.Containers) == 0 {
+			return false
+		}
+		return p.Spec.Containers[0].Image == want
+	}, timeout, 2*time.Second, "pod %s did not switch image to %s", podName, want)
+}
