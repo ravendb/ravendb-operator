@@ -27,41 +27,41 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      # - name: Cache gotestsum binary
-      #   id: cache-gts
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: ~/go/bin/gotestsum
-      #     key: ${{ runner.os }}-gotestsum-${{ env.GO_VERSION }}-${{ env.GOTESTSUM_VERSION }}
+      - name: Cache gotestsum binary
+        id: cache-gts
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gotestsum
+          key: ${{ runner.os }}-gotestsum-${{ env.GO_VERSION }}-${{ env.GOTESTSUM_VERSION }}
 
-      # - name: Install gotestsum (if cache miss)
-      #   if: steps.cache-gts.outputs.cache-hit != 'true'
-      #   run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
+      - name: Install gotestsum (if cache miss)
+        if: steps.cache-gts.outputs.cache-hit != 'true'
+        run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
       
-      # - name: Install setup-envtest tool
-      #   run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+      - name: Install setup-envtest tool
+        run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-      # - name: Cache envtest assets
-      #   id: cache-envtest
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: ~/.local/share/kubebuilder-envtest
-      #     key: ${{ runner.os }}-envtest-${{ env.K8S_VER }}
+      - name: Cache envtest assets
+        id: cache-envtest
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/kubebuilder-envtest
+          key: ${{ runner.os }}-envtest-${{ env.K8S_VER }}
 
-      # - name: Select envtest Kubernetes assets
-      #   run: echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path ${K8S_VER})" >> "$GITHUB_ENV"
+      - name: Select envtest Kubernetes assets
+        run: echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path ${K8S_VER})" >> "$GITHUB_ENV"
 
-      # - name: Cache Go build and module download
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: |
-      #       ~/.cache/go-build
-      #       ~/go/pkg/mod
-      #     key: ${{ runner.os }}-gobuild-${{ hashFiles('**/go.sum') }}
-      #     restore-keys: ${{ runner.os }}-gobuild-
+      - name: Cache Go build and module download
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-gobuild-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-gobuild-
 
-      # - name: Run API tests (gotestsum)
-      #   run: ~/go/bin/gotestsum --format=short-verbose ./api/v1alpha1
+      - name: Run API tests (gotestsum)
+        run: ~/go/bin/gotestsum --format=short-verbose ./api/v1alpha1
 
 
   e2e: 
@@ -154,32 +154,32 @@ jobs:
             go list -deps ./test/e2e/... > /dev/null
           fi
 
-      # - name: Run health nodes E2E tests
-      #   env:
-      #     RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
-      #     RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
-      #     RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
-      #     RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
-      #     RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
-      #   run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestNodes_'
+      - name: Run health nodes E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestNodes_'
 
-      # - name: Run health bootstrap E2E tests
-      #   env:
-      #     RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
-      #     RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
-      #     RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
-      #     RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
-      #     RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
-      #   run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestBootstrap_'
+      - name: Run health bootstrap E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestBootstrap_'
 
-      # - name: Run health external access E2E tests
-      #   env:
-      #     RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
-      #     RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
-      #     RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
-      #     RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
-      #     RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
-      #   run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestExternal_'
+      - name: Run health external access E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestExternal_'
 
       - name: Run health license E2E tests
         env:
