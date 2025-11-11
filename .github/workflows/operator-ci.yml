@@ -154,18 +154,50 @@ jobs:
             go list -deps ./test/e2e/... > /dev/null
           fi
 
-      - name: Run E2E tests
+      - name: Run health nodes E2E tests
         env:
           RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
           RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
           RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
           RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
           RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
-        run: |
-          go test -v -count=1 -timeout 45m ./test/e2e/...
+        run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestNodes_'
 
+      - name: Run health bootstrap E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestBootstrap_'
 
+      - name: Run health external access E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestExternal_'
 
+      - name: Run health license E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestLicense_'
+
+      - name: Run health storage E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 45m ./test/e2e -run '^TestStorage_'
 
 
 

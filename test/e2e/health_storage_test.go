@@ -28,6 +28,7 @@ import (
 )
 
 func TestStorage_S1_AllPVCsBound_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
@@ -47,6 +48,7 @@ func TestStorage_S1_AllPVCsBound_E2E(t *testing.T) {
 }
 
 func TestStorage_S2_OneOrMorePVCNotBound_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	badSC := "does-not-exist-storageclass"
@@ -72,6 +74,7 @@ func TestStorage_S2_OneOrMorePVCNotBound_E2E(t *testing.T) {
 }
 
 func TestStorage_S3_NoPVCsYet_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
