@@ -1,0 +1,123 @@
+name: CI 
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "0 10 * * 1" # every Monday at 10:00 UTC
+
+jobs:
+  unit: 
+    name: API types & Webhooks unit tests (envtest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GO_VERSION: "1.24.3"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Cache go build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-gobuild-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-gobuild-
+
+      - name: Install test tooling
+        run: |
+          go install gotest.tools/gotestsum@latest
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+      - name: Setup envtest
+        run: |
+          # Pick a Kubernetes minor compatible with your client libs
+          echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path 1.29.5)" >> "$GITHUB_ENV"
+
+      - name: Run API tests
+        run: gotestsum --format=short-verbose ./api/v1alpha
+
+
+  # e2e: 
+  #   name: E2E (kind)
+  #   runs-on: ubuntu-latest
+  #   needs: unit
+  #   timeout-minutes: 60
+  #   env:
+  #     GO_VERSION: "1.22.x"
+  #     PROJECT_ROOT: ${{ github.workspace }}
+  #     RAVEN_LICENSE: ${{ secrets.RAVEN_LICENSE }}
+  #     ADMIN_PFX_B64: ${{ secrets.ADMIN_PFX_B64 }}
+  #     A_PFX_B64: ${{ secrets.A_PFX_B64 }}
+  #     B_PFX_B64: ${{ secrets.B_PFX_B64 }}
+  #     C_PFX_B64: ${{ secrets.C_PFX_B64 }}
+  #     E2E_LICENSE_PATH: /ravendb-e2e/license.json
+  #     E2E_CLIENT_PFX_PATH: /ravendb-e2e/setup_package/admin.client.certificate.ravendbe2e.pfx
+  #     E2E_NODE_A_PFX_PATH: /ravendb-e2e/setup_package/A/cluster.server.certificate.ravendbe2e.pfx
+  #     E2E_NODE_B_PFX_PATH: /ravendb-e2e/setup_package/B/cluster.server.certificate.ravendbe2e.pfx
+  #     E2E_NODE_C_PFX_PATH: /ravendb-e2e/setup_package/C/cluster.server.certificate.ravendbe2e.pfx
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Setup Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
+  #         cache: true
+
+  #     - name: Cache go build
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: |
+  #           ~/.cache/go-build
+  #           ~/go/pkg/mod
+  #         key: ${{ runner.os }}-gobuild-${{ hashFiles('**/go.sum') }}
+  #         restore-keys: ${{ runner.os }}-gobuild-
+
+  #     - name: Install CLI tooling (kubectl, kustomize, gotestsum, kind)
+  #       run: |
+  #         curl -sSL -o kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
+  #         curl -sSL -o kubectl https://dl.k8s.io/release/$(curl -sSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+  #         chmod +x kind && sudo mv kind /usr/local/bin/kind
+  #         chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
+  #         go install gotest.tools/gotestsum@latest
+  #        # curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/latest/download/kustomize_linux_amd64.tar.gz" | tar xz
+  #        # sudo mv kustomize /usr/local/bin/kustomize
+          
+  #     - name: Pre-seed /etc/hosts for test domains
+  #       run: |
+  #         echo "172.19.255.200 a.ravendbe2e.development.run a-tcp.ravendbe2e.development.run" | sudo tee -a /etc/hosts
+  #         echo "172.19.255.200 b.ravendbe2e.development.run b-tcp.ravendbe2e.development.run" | sudo tee -a /etc/hosts
+  #         echo "172.19.255.200 c.ravendbe2e.development.run c-tcp.ravendbe2e.development.run" | sudo tee -a /etc/hosts
+
+  #     - name: Materialize E2E secrets to files
+  #       shell: bash
+  #       run: |
+  #         set -euo pipefail
+  #         mkdir -p /ravendb-e2e/setup_package/{A,B,C}
+  #         printf '%s' "$RAVEN_LICENSE" > "$E2E_LICENSE_PATH"
+  #         printf '%s' "$ADMIN_PFX_B64" | base64 -d > "$E2E_CLIENT_PFX_PATH"
+  #         printf '%s' "$A_PFX_B64"     | base64 -d > "$E2E_NODE_A_PFX_PATH"
+  #         printf '%s' "$B_PFX_B64"     | base64 -d > "$E2E_NODE_B_PFX_PATH"
+  #         printf '%s' "$C_PFX_B64"     | base64 -d > "$E2E_NODE_C_PFX_PATH"
+  #         chmod 600 "$E2E_LICENSE_PATH" "$E2E_CLIENT_PFX_PATH" "$E2E_NODE_A_PFX_PATH" "$E2E_NODE_B_PFX_PATH" "$E2E_NODE_C_PFX_PATH"
+
+  #     - name: Run E2E tests
+  #       env:
+  #         RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+  #         RAVEN_E2E_CLIENT_PFX: ${{ env.E2E_CLIENT_PFX_PATH }}
+  #         RAVEN_E2E_NODE_A_PFX: ${{ env.E2E_NODE_A_PFX_PATH }}
+  #         RAVEN_E2E_NODE_B_PFX: ${{ env.E2E_NODE_B_PFX_PATH }}
+  #         RAVEN_E2E_NODE_C_PFX: ${{ env.E2E_NODE_C_PFX_PATH }}
+  #       run: |
+  #         # Run only e2e tests
+  #         gotestsum --format=short-verbose -- $(go list ./test/e2e/...)

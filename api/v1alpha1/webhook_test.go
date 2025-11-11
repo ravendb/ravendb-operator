@@ -107,36 +107,86 @@ func baseClusterLetsEncrypt(name string) *v1alpha1.RavenDBCluster {
 func TestImageValidator(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("rejects bad image", func(t *testing.T) {
-		cluster := baseCluster("bad")
-		cluster.Spec.Image = "thegoldenplatypus/ravendb"
-		err := validator.RunCreate(ctx, cluster)
+	t.Run("rejects non-ravendb repo", func(t *testing.T) {
+		c := baseCluster("bad-repo")
+		c.Spec.Image = "thegoldenplatypus/ravendb:7.1.3-ubuntu.22.04-x64"
+		err := validator.RunCreate(ctx, c)
 		require.Error(t, err)
-		t.Logf("%v", err)
-		require.Contains(t, err.Error(), "image must be from the 'ravendb/' registry namespace")
+		require.Contains(t, err.Error(), "image must be under the 'ravendb/' registry namespace")
 	})
 
-	t.Run("accepts good image", func(t *testing.T) {
-		cluster := baseCluster("good")
-		err := validator.RunCreate(ctx, cluster)
+	t.Run("rejects digest reference", func(t *testing.T) {
+		c := baseCluster("digest")
+		c.Spec.Image = "ravendb/ravendb@sha256:deadbeef"
+		err := validator.RunCreate(ctx, c)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "digest references are not allowed")
+	})
+
+	t.Run("rejects implicit or explicit latest", func(t *testing.T) {
+		c1 := baseCluster("implicit-latest")
+		c1.Spec.Image = "ravendb/ravendb"
+		err := validator.RunCreate(ctx, c1)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "must specify a tag; implicit ':latest' is not allowed")
+
+		c2 := baseCluster("explicit-latest")
+		c2.Spec.Image = "ravendb/ravendb:latest"
+		err = validator.RunCreate(ctx, c2)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "floating tag")
+	})
+
+	t.Run("rejects non-ubuntu tags", func(t *testing.T) {
+		c := baseCluster("non-ubuntu")
+		c.Spec.Image = "ravendb/ravendb:7.1.3-windows-ltsc2022"
+		err := validator.RunCreate(ctx, c)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "non-ubuntu images are not supported")
+	})
+
+	t.Run("accepts pinned ubuntu tag", func(t *testing.T) {
+		c := baseCluster("good")
+		c.Spec.Image = "ravendb/ravendb:7.1.3-ubuntu.22.04-x64"
+		err := validator.RunCreate(ctx, c)
 		require.NoError(t, err)
+	})
+
+	t.Run("blocks downgrade (7.1.3 -> 7.1.2)", func(t *testing.T) {
+		oldC := baseCluster("old")
+		oldC.Spec.Image = "ravendb/ravendb:7.1.3-ubuntu.22.04-x64"
+
+		newC := baseCluster("new")
+		newC.Spec.Image = "ravendb/ravendb:7.1.2-ubuntu.22.04-x64"
+
+		err := validator.RunUpdate(ctx, oldC, newC)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "downgrade is not allowed")
+	})
+
+	t.Run("allows same version and upgrades", func(t *testing.T) {
+
+		oldC := baseCluster("same-old")
+		oldC.Spec.Image = "ravendb/ravendb:6.2.10-ubuntu.22.04-x64"
+		newC := baseCluster("same-new")
+		newC.Spec.Image = "ravendb/ravendb:6.2.10-ubuntu.22.04-x64"
+		require.NoError(t, validator.RunUpdate(ctx, oldC, newC))
+
+		oldC = baseCluster("patch-old")
+		oldC.Spec.Image = "ravendb/ravendb:6.2.9-ubuntu.22.04-x64"
+		newC = baseCluster("patch-new")
+		newC.Spec.Image = "ravendb/ravendb:6.2.10-ubuntu.22.04-x64"
+		require.NoError(t, validator.RunUpdate(ctx, oldC, newC))
+
+		oldC = baseCluster("major-old")
+		oldC.Spec.Image = "ravendb/ravendb:5.4.210-ubuntu.22.04-x64"
+		newC = baseCluster("major-new")
+		newC.Spec.Image = "ravendb/ravendb:6.0.0-ubuntu.22.04-x64"
+		require.NoError(t, validator.RunUpdate(ctx, oldC, newC))
 	})
 }
 
 func TestPullPolicyMutator(t *testing.T) {
-
-	t.Run("sets Always ipp for latest tag", func(t *testing.T) {
-		cluster := baseCluster("latest-image")
-		warnings, err := mutator.Run(cluster)
-		require.NoError(t, err)
-		require.Equal(t, "Always", cluster.Spec.ImagePullPolicy)
-		require.Len(t, warnings, 1)
-		require.Contains(t, warnings[0], "image \"ravendb/ravendb:latest\" uses ':latest'")
-		require.Contains(t, warnings[0], "pull-policy-mutator")
-		t.Logf("%v", warnings[0])
-
-	})
-
 	t.Run("keeps policy unset for specific version", func(t *testing.T) {
 		cluster := baseCluster("versioned-image")
 		cluster.Spec.Image = "ravendb/ravendb:6.0.0"
