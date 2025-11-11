@@ -26,7 +26,7 @@ func ApplyManifest(path string) env.Func {
 	}
 }
 
-func ApplyManifestT(t THelper, path string) {
+func ApplyManifestWithContext(t THelper, path string) {
 	t.Helper()
 	ctx := context.Background()
 	src := path
@@ -141,7 +141,7 @@ func DisableMetalLB(t THelper) {
 		time.Sleep(500 * time.Millisecond)
 	}
 	_, _ = RunKubectl(ctx, "-n", "ingress-nginx", "delete", "svc", "ingress-nginx-controller", "--ignore-not-found")
-	ApplyManifestT(t, nginxIngressFilePath)
+	ApplyManifestWithContext(t, nginxIngressFilePath)
 	_, err := RunKubectl(ctx, "-n", "ingress-nginx", "rollout", "status", "deploy/ingress-nginx-controller", "--timeout=120s")
 	if err != nil {
 		t.Fatalf("waiting for nginx controller rollout: %v", err)
@@ -153,13 +153,13 @@ func EnableMetalLB(t THelper, controllerNS, metalLBNS string, timeout time.Durat
 	ctx := context.Background()
 	_, _ = RunKubectl(ctx, "create", "namespace", metalLBNS)
 
-	ApplyManifestT(t, metallbFilePath)
+	ApplyManifestWithContext(t, metallbFilePath)
 
 	if _, err := RunKubectl(ctx, "-n", metalLBNS, "rollout", "status", "deploy/controller", "--timeout="+timeout.String()); err != nil {
 		t.Fatalf("wait metallb controller: %v", err)
 	}
 
-	ApplyManifestT(t, metallbConfigFilePath)
+	ApplyManifestWithContext(t, metallbConfigFilePath)
 
 	time.Sleep(2 * time.Second)
 }
