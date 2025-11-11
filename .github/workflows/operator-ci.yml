@@ -27,114 +27,146 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Cache gotestsum binary
-        id: cache-gts
-        uses: actions/cache@v4
-        with:
-          path: ~/go/bin/gotestsum
-          key: ${{ runner.os }}-gotestsum-${{ env.GO_VERSION }}-${{ env.GOTESTSUM_VERSION }}
+      # - name: Cache gotestsum binary
+      #   id: cache-gts
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ~/go/bin/gotestsum
+      #     key: ${{ runner.os }}-gotestsum-${{ env.GO_VERSION }}-${{ env.GOTESTSUM_VERSION }}
 
-      - name: Install gotestsum (if cache miss)
-        if: steps.cache-gts.outputs.cache-hit != 'true'
-        run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
+      # - name: Install gotestsum (if cache miss)
+      #   if: steps.cache-gts.outputs.cache-hit != 'true'
+      #   run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
       
-      - name: Install setup-envtest tool
-        run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+      # - name: Install setup-envtest tool
+      #   run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-      - name: Cache envtest assets
-        id: cache-envtest
-        uses: actions/cache@v4
+      # - name: Cache envtest assets
+      #   id: cache-envtest
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: ~/.local/share/kubebuilder-envtest
+      #     key: ${{ runner.os }}-envtest-${{ env.K8S_VER }}
+
+      # - name: Select envtest Kubernetes assets
+      #   run: echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path ${K8S_VER})" >> "$GITHUB_ENV"
+
+      # - name: Cache Go build and module download
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       ~/.cache/go-build
+      #       ~/go/pkg/mod
+      #     key: ${{ runner.os }}-gobuild-${{ hashFiles('**/go.sum') }}
+      #     restore-keys: ${{ runner.os }}-gobuild-
+
+      # - name: Run API tests (gotestsum)
+      #   run: ~/go/bin/gotestsum --format=short-verbose ./api/v1alpha1
+
+
+  e2e: 
+    name: E2E (kind)
+    runs-on: ubuntu-latest
+    needs: unit
+    timeout-minutes: 60
+    env:
+      GO_VERSION: "1.24.3"
+      PROJECT_ROOT: ${{ github.workspace }}
+      RAVEN_LICENSE: ${{ secrets.RAVEN_LICENSE }}
+      ADMIN_PFX_B64: ${{ secrets.ADMIN_PFX_B64 }}
+      A_PFX_B64: ${{ secrets.A_PFX_B64 }}
+      B_PFX_B64: ${{ secrets.B_PFX_B64 }}
+      C_PFX_B64: ${{ secrets.C_PFX_B64 }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          path: ~/.local/share/kubebuilder-envtest
-          key: ${{ runner.os }}-envtest-${{ env.K8S_VER }}
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
 
-      - name: Select envtest Kubernetes assets
-        run: echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path ${K8S_VER})" >> "$GITHUB_ENV"
+      - name: Export Go cache dirs
+        run: |
+          echo "GOMODCACHE=$(go env GOMODCACHE)" >> "$GITHUB_ENV"
+          echo "GOCACHE=$(go env GOCACHE)" >> "$GITHUB_ENV"
 
-      - name: Cache Go build and module download
+      - name: Restore Go caches
         uses: actions/cache@v4
         with:
           path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-gobuild-${{ hashFiles('**/go.sum') }}
-          restore-keys: ${{ runner.os }}-gobuild-
-
-      - name: Run API tests (gotestsum)
-        run: ~/go/bin/gotestsum --format=short-verbose ./api/v1alpha1
+            ${{ env.GOMODCACHE }}
+            ${{ env.GOCACHE }}
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
 
 
-  # e2e: 
-  #   name: E2E (kind)
-  #   runs-on: ubuntu-latest
-  #   needs: unit
-  #   timeout-minutes: 60
-  #   env:
-  #     GO_VERSION: "1.22.x"
-  #     PROJECT_ROOT: ${{ github.workspace }}
-  #     RAVEN_LICENSE: ${{ secrets.RAVEN_LICENSE }}
-  #     ADMIN_PFX_B64: ${{ secrets.ADMIN_PFX_B64 }}
-  #     A_PFX_B64: ${{ secrets.A_PFX_B64 }}
-  #     B_PFX_B64: ${{ secrets.B_PFX_B64 }}
-  #     C_PFX_B64: ${{ secrets.C_PFX_B64 }}
-  #     E2E_LICENSE_PATH: /ravendb-e2e/license.json
-  #     E2E_CLIENT_PFX_PATH: /ravendb-e2e/setup_package/admin.client.certificate.ravendbe2e.pfx
-  #     E2E_NODE_A_PFX_PATH: /ravendb-e2e/setup_package/A/cluster.server.certificate.ravendbe2e.pfx
-  #     E2E_NODE_B_PFX_PATH: /ravendb-e2e/setup_package/B/cluster.server.certificate.ravendbe2e.pfx
-  #     E2E_NODE_C_PFX_PATH: /ravendb-e2e/setup_package/C/cluster.server.certificate.ravendbe2e.pfx
-  #   steps:
-  #     - uses: actions/checkout@v4
+      - name: Install CLI tooling (kind, kubectl, gotestsum)
+        run: |
+          curl -sSL -o kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
+          curl -sSL -o kubectl https://dl.k8s.io/release/$(curl -sSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+          chmod +x kind && sudo mv kind /usr/local/bin/kind
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
+          echo "$HOME/go/bin" >> $GITHUB_PATH
 
-  #     - name: Setup Go
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version: ${{ env.GO_VERSION }}
-  #         cache: true
+      - name: Pre-seed /etc/hosts for test domains
+        run: |
+          echo "172.19.255.200 a.ravendbe2e.development.run a-tcp.ravendbe2e.development.run" | sudo tee -a /etc/hosts
+          echo "172.19.255.200 b.ravendbe2e.development.run b-tcp.ravendbe2e.development.run" | sudo tee -a /etc/hosts
+          echo "172.19.255.200 c.ravendbe2e.development.run c-tcp.ravendbe2e.development.run" | sudo tee -a /etc/hosts
 
-  #     - name: Cache go build
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: |
-  #           ~/.cache/go-build
-  #           ~/go/pkg/mod
-  #         key: ${{ runner.os }}-gobuild-${{ hashFiles('**/go.sum') }}
-  #         restore-keys: ${{ runner.os }}-gobuild-
+      - name: Resolve absolute E2E paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          E2E_BASE="$HOME/ravendb-e2e"
+          echo "E2E_BASE=$E2E_BASE" >> "$GITHUB_ENV"
+          echo "E2E_LICENSE_PATH=$E2E_BASE/license.json" >> "$GITHUB_ENV"
+          echo "E2E_CLIENT_PFX_PATH=$E2E_BASE/admin.client.certificate.ravendbe2e.pfx" >> "$GITHUB_ENV"
+          echo "E2E_NODE_A_PFX_PATH=$E2E_BASE/A/cluster.server.certificate.ravendbe2e.pfx" >> "$GITHUB_ENV"
+          echo "E2E_NODE_B_PFX_PATH=$E2E_BASE/B/cluster.server.certificate.ravendbe2e.pfx" >> "$GITHUB_ENV"
+          echo "E2E_NODE_C_PFX_PATH=$E2E_BASE/C/cluster.server.certificate.ravendbe2e.pfx" >> "$GITHUB_ENV"
 
-  #     - name: Install CLI tooling (kubectl, kustomize, gotestsum, kind)
-  #       run: |
-  #         curl -sSL -o kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
-  #         curl -sSL -o kubectl https://dl.k8s.io/release/$(curl -sSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
-  #         chmod +x kind && sudo mv kind /usr/local/bin/kind
-  #         chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
-  #         go install gotest.tools/gotestsum@latest
-  #        # curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/latest/download/kustomize_linux_amd64.tar.gz" | tar xz
-  #        # sudo mv kustomize /usr/local/bin/kustomize
-          
-  #     - name: Pre-seed /etc/hosts for test domains
-  #       run: |
-  #         echo "172.19.255.200 a.ravendbe2e.development.run a-tcp.ravendbe2e.development.run" | sudo tee -a /etc/hosts
-  #         echo "172.19.255.200 b.ravendbe2e.development.run b-tcp.ravendbe2e.development.run" | sudo tee -a /etc/hosts
-  #         echo "172.19.255.200 c.ravendbe2e.development.run c-tcp.ravendbe2e.development.run" | sudo tee -a /etc/hosts
+      - name: Materialize E2E secrets to files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$E2E_BASE"/{A,B,C}
+          printf '%s' "$RAVEN_LICENSE" > "$E2E_LICENSE_PATH"
+          printf '%s' "$ADMIN_PFX_B64" | base64 -d > "$E2E_CLIENT_PFX_PATH"
+          printf '%s' "$A_PFX_B64"     | base64 -d > "$E2E_NODE_A_PFX_PATH"
+          printf '%s' "$B_PFX_B64"     | base64 -d > "$E2E_NODE_B_PFX_PATH"
+          printf '%s' "$C_PFX_B64"     | base64 -d > "$E2E_NODE_C_PFX_PATH"
+          chmod 600 "$E2E_LICENSE_PATH" "$E2E_CLIENT_PFX_PATH" "$E2E_NODE_A_PFX_PATH" "$E2E_NODE_B_PFX_PATH" "$E2E_NODE_C_PFX_PATH"
 
-  #     - name: Materialize E2E secrets to files
-  #       shell: bash
-  #       run: |
-  #         set -euo pipefail
-  #         mkdir -p /ravendb-e2e/setup_package/{A,B,C}
-  #         printf '%s' "$RAVEN_LICENSE" > "$E2E_LICENSE_PATH"
-  #         printf '%s' "$ADMIN_PFX_B64" | base64 -d > "$E2E_CLIENT_PFX_PATH"
-  #         printf '%s' "$A_PFX_B64"     | base64 -d > "$E2E_NODE_A_PFX_PATH"
-  #         printf '%s' "$B_PFX_B64"     | base64 -d > "$E2E_NODE_B_PFX_PATH"
-  #         printf '%s' "$C_PFX_B64"     | base64 -d > "$E2E_NODE_C_PFX_PATH"
-  #         chmod 600 "$E2E_LICENSE_PATH" "$E2E_CLIENT_PFX_PATH" "$E2E_NODE_A_PFX_PATH" "$E2E_NODE_B_PFX_PATH" "$E2E_NODE_C_PFX_PATH"
+      - name: Prime module cache (root)
+        run: go mod download
 
-  #     - name: Run E2E tests
-  #       env:
-  #         RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
-  #         RAVEN_E2E_CLIENT_PFX: ${{ env.E2E_CLIENT_PFX_PATH }}
-  #         RAVEN_E2E_NODE_A_PFX: ${{ env.E2E_NODE_A_PFX_PATH }}
-  #         RAVEN_E2E_NODE_B_PFX: ${{ env.E2E_NODE_B_PFX_PATH }}
-  #         RAVEN_E2E_NODE_C_PFX: ${{ env.E2E_NODE_C_PFX_PATH }}
-  #       run: |
-  #         # Run only e2e tests
-  #         gotestsum --format=short-verbose -- $(go list ./test/e2e/...)
+      - name: Prime module cache (e2e)
+        run: |
+          if [ -f test/e2e/go.mod ]; then
+            (cd test/e2e && go mod download)
+          else
+            # ensure e2e-only deps are resolved
+            go list -deps ./test/e2e/... > /dev/null
+          fi
+
+      - name: Run E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: |
+          go test -v -count=1 -timeout 45m ./test/e2e/...
+
+
+
+
+
+
+
