@@ -15,8 +15,11 @@ jobs:
     timeout-minutes: 10
     env:
       GO_VERSION: "1.24.3"
+      GOTESTSUM_VERSION: "v1.12.0"
+      K8S_VER: "1.29.5"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -24,7 +27,31 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Cache go build
+      - name: Cache gotestsum binary
+        id: cache-gts
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gotestsum
+          key: ${{ runner.os }}-gotestsum-${{ env.GO_VERSION }}-${{ env.GOTESTSUM_VERSION }}
+
+      - name: Install gotestsum (if cache miss)
+        if: steps.cache-gts.outputs.cache-hit != 'true'
+        run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
+      
+      - name: Install setup-envtest tool
+        run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+      - name: Cache envtest assets
+        id: cache-envtest
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/kubebuilder-envtest
+          key: ${{ runner.os }}-envtest-${{ env.K8S_VER }}
+
+      - name: Select envtest Kubernetes assets
+        run: echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path ${K8S_VER})" >> "$GITHUB_ENV"
+
+      - name: Cache Go build and module download
         uses: actions/cache@v4
         with:
           path: |
@@ -33,18 +60,8 @@ jobs:
           key: ${{ runner.os }}-gobuild-${{ hashFiles('**/go.sum') }}
           restore-keys: ${{ runner.os }}-gobuild-
 
-      - name: Install test tooling
-        run: |
-          go install gotest.tools/gotestsum@latest
-          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-
-      - name: Setup envtest
-        run: |
-          # Pick a Kubernetes minor compatible with your client libs
-          echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path 1.29.5)" >> "$GITHUB_ENV"
-
-      - name: Run API tests
-        run: gotestsum --format=short-verbose ./api/v1alpha1
+      - name: Run API tests (gotestsum)
+        run: ~/go/bin/gotestsum --format=short-verbose ./api/v1alpha1
 
 
   # e2e: 
