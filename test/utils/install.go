@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	metallbFilePath       = "test/e2e/manifests/metallb-native.yaml"
+	metallbFilePath       = "https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml"
 	metallbConfigFilePath = "test/e2e/manifests/metallb-config.yaml"
 	nginxIngressFilePath  = "test/e2e/manifests/nginx-ingress-ravendb.yaml"
 )
@@ -129,12 +129,12 @@ func DisableMetalLB(t THelper) {
 	}
 
 	_, _ = RunKubectl(ctx, "-n", "ingress-nginx", "delete", "svc", "ingress-nginx-controller", "--ignore-not-found")
-	_, err := RunKubectl(ctx, "apply", "-f", PathFromRoot(nginxIngressFilePath))
+	err := ApplyManifest(nginxIngressFilePath)
 	if err != nil {
 		t.Fatalf("re-applying nginx ingress failed: %v", err)
 	}
-	_, err = RunKubectl(ctx, "-n", "ingress-nginx", "rollout", "status", "deploy/ingress-nginx-controller", "--timeout=120s")
-	if err != nil {
+	_, err2 := RunKubectl(ctx, "-n", "ingress-nginx", "rollout", "status", "deploy/ingress-nginx-controller", "--timeout=120s")
+	if err2 != nil {
 		t.Fatalf("waiting for nginx controller rollout: %v", err)
 	}
 }
@@ -143,13 +143,13 @@ func EnableMetalLB(t THelper, controllerNS, metalLBNS string, timeout time.Durat
 	t.Helper()
 	ctx := context.Background()
 
-	if _, err := RunKubectl(ctx, "apply", "-f", PathFromRoot(metallbFilePath)); err != nil {
+	if err := ApplyManifest(metallbFilePath); err != nil {
 		t.Fatalf("apply metallb: %v", err)
 	}
 	if _, err := RunKubectl(ctx, "-n", metalLBNS, "rollout", "status", "deploy/controller", "--timeout="+timeout.String()); err != nil {
 		t.Fatalf("wait metallb controller: %v", err)
 	}
-	if _, err := RunKubectl(ctx, "apply", "-f", PathFromRoot(metallbConfigFilePath)); err != nil {
+	if err := ApplyManifest(metallbConfigFilePath); err != nil {
 		t.Fatalf("apply metallb config: %v", err)
 	}
 

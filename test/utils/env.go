@@ -209,7 +209,5 @@ func WaitForPod(t *testing.T, cli ctrlclient.Client, ns, name string, timeout ti
 
 func LogStart(t *testing.T) {
 	t.Helper()
-	t.Logf("===============================================================")
-	t.Logf("===============================================================")
 	t.Logf("START: %s", t.Name())
 }
