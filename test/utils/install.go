@@ -138,6 +138,7 @@ func DisableMetalLB(t THelper) {
 func EnableMetalLB(t THelper, controllerNS, metalLBNS string, timeout time.Duration) {
 	t.Helper()
 	ctx := context.Background()
+	_, _ = RunKubectl(ctx, "create", "namespace", metalLBNS)
 
 	ApplyManifest(metallbFilePath)
 
