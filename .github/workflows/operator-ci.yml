@@ -44,7 +44,7 @@ jobs:
           echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path 1.29.5)" >> "$GITHUB_ENV"
 
       - name: Run API tests
-        run: gotestsum --format=short-verbose ./api/v1alpha
+        run: gotestsum --format=short-verbose ./api/v1alpha1
 
 
   # e2e: 
