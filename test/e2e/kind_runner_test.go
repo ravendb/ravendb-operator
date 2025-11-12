@@ -92,8 +92,8 @@ func TestMain(m *testing.M) {
 
 		testutil.WaitForSecret(webhookCertName, operatorNS, timeout),
 		testutil.SetDeploymentImage(operatorNS, ctlMgrName, "manager", operatorImage),
-		testutil.FuncPatchImagePullPolicy(operatorNS, ctlMgrName, "IfNotPresent"),
-		testutil.DumpDeploymentImage(operatorNS, ctlMgrName), // <-- print here
+		testutil.PatchImagePullPolicyIfNotPresent(operatorNS, ctlMgrName),
+		testutil.DumpDeploymentImage(operatorNS, ctlMgrName),
 		testutil.WaitForDeployment(ctlMgrName, operatorNS, timeout),
 	)
 

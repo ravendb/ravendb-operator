@@ -177,11 +177,13 @@ func Getenv(k, def string) string {
 	return def
 }
 
-func FuncPatchImagePullPolicy(ns, deploy, policy string) env.Func {
+func PatchImagePullPolicyIfNotPresent(ns, deploy string) env.Func {
 	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
-		return RunKubectl(ctx, "-n", ns, "patch", "deploy", deploy,
+		return RunKubectl(ctx,
+			"-n", ns,
+			"patch", "deploy", deploy,
 			"--type=json",
-			fmt.Sprintf(`[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"%s"}]`, policy))
+			"-p", `[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}]`)
 	}
 }
 
