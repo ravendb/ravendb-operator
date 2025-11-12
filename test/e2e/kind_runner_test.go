@@ -18,7 +18,7 @@ var (
 	clusterName           = "ravendb"
 	TestNS                = "ravendb"
 	operatorNS            = "ravendb-operator-system"
-	operatorImage         = "thegoldenplatypus/ravendb-operator-multi-node:latest" //todo: change to ravendb hosted image once we restructure
+	operatorImage         = testutil.Getenv("RAVEN_OPERATOR_IMAGE", "thegoldenplatypus/ravendb-operator-multi-node:latest") //todo: change to ravendb hosted image once we restructure
 	ctlMgrName            = "ravendb-operator-controller-manager"
 	certManagerNS         = "cert-manager"
 	controllerNS          = "controller"
@@ -83,6 +83,7 @@ func TestMain(m *testing.M) {
 		testutil.WaitForCRDEstablished(crdName, timeout),
 
 		testutil.BuildAndLoadOperator(operatorImage, dockerfileName, testutil.RepoRoot()),
+
 		testutil.ApplyKustomize(crdDefaultPath),
 
 		envfuncs.CreateNamespace(TestNS),

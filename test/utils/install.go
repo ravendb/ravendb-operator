@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -167,4 +168,11 @@ func EnableMetalLB(t THelper, controllerNS, metalLBNS string, timeout time.Durat
 type THelper interface {
 	Helper()
 	Fatalf(format string, args ...any)
+}
+
+func Getenv(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return def
 }
