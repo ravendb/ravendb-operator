@@ -54,13 +54,13 @@ func (actor *StatefulSetActor) Name() string {
 //	       NOT marked with common.UpgradeImageAnnotation (aka. should be upgraded ), we copy the current live image
 //	       onto the desired object. That means applying SSA will NOT change the PodTemplate,
 //	       so Kubernetes will not roll pods by accident just because the builder set a new image.
-//			   this allow us to do the freeze and execute health checks.
+//		   this allow us to do the freeze and execute health checks.
 //
 //
-//	   (2.2) When the Upgrader decides to roll a specific node, it first places
-//	     common.UpgradeImageAnnotation on the existing StatefulSet. Seeing that marker,
-//	     we do not freeze: we leave the builder's new image in place. SSA then updates
-//	     the PodTemplate and Kubernetes performs a controlled rollout for this node only.
+//	  (2.2) When the Upgrader decides to roll a specific node, it first places
+//	     	common.UpgradeImageAnnotation on the existing StatefulSet. Seeing that marker,
+//	    	we do not freeze: we leave the builder's new image in place. SSA then updates
+//	     	the PodTemplate and Kubernetes performs a controlled rollout for this node only.
 func (actor *StatefulSetActor) Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode, kc client.Client, scheme *runtime.Scheme) (bool, error) {
 	sts, err := actor.builder.Build(ctx, cluster, node)
 	if err != nil {
@@ -87,7 +87,7 @@ func (actor *StatefulSetActor) Act(ctx context.Context, cluster *ravendbv1alpha1
 			}
 		}
 
-		// (2.2)
+		// (2.1)
 		if len(existing.Spec.Template.Spec.Containers) > 0 && //devensive code to avoid index 0 - shouldn't happen
 			len(desired.Spec.Template.Spec.Containers) > 0 {
 
@@ -104,6 +104,7 @@ func (actor *StatefulSetActor) Act(ctx context.Context, cluster *ravendbv1alpha1
 		return false, fmt.Errorf("set owner ref on StatefulSet: %w", err)
 	}
 
+	// (2.2)
 	changed, err := applyResourceSSA(ctx, kc, desired, "ravendb-operator/statefulset")
 
 	if err != nil {

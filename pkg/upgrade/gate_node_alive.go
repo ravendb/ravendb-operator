@@ -22,8 +22,8 @@ import (
 	"strings"
 )
 
-func (g *Checks) NodeAlive(ctx context.Context, tag string) (bool, string, error) {
-	nodeURL := strings.TrimSpace(g.urlForTag(tag))
+func (hcc *HealthCheckContext) NodeAlive(ctx context.Context, tag string) (bool, string, error) {
+	nodeURL := strings.TrimSpace(hcc.urlForTag(tag))
 	if nodeURL == "" {
 		return false, "empty node url", fmt.Errorf("no URL for tag %q", tag)
 	}
@@ -33,7 +33,7 @@ func (g *Checks) NodeAlive(ctx context.Context, tag string) (bool, string, error
 		return false, err.Error(), nil
 	}
 
-	code, body, err := g.httpGET(ctx, endpoint)
+	code, body, err := hcc.httpGET(ctx, endpoint)
 	if err != nil {
 		return false, err.Error(), nil
 	}

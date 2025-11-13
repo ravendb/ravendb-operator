@@ -6,8 +6,8 @@ import (
 	"fmt"
 )
 
-func (g *Checks) ClusterConnectivity(ctx context.Context) (bool, string, error) {
-	baseURL, err := g.clusterURL()
+func (hcc *HealthCheckContext) ClusterConnectivity(ctx context.Context) (bool, string, error) {
+	baseURL, err := hcc.clusterURL()
 	if err != nil {
 		return false, "", err
 	}
@@ -17,7 +17,7 @@ func (g *Checks) ClusterConnectivity(ctx context.Context) (bool, string, error) 
 		return false, "", err
 	}
 
-	code, body, err := g.httpGET(ctx, endpoint)
+	code, body, err := hcc.httpGET(ctx, endpoint)
 	if err != nil {
 		return false, err.Error(), nil
 	}

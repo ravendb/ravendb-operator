@@ -35,12 +35,12 @@ type pingResponse struct {
 	Result []pingItem
 }
 
-func (g *Checks) httpGET(ctx context.Context, rawURL string) (int, string, error) {
+func (hcc *HealthCheckContext) httpGET(ctx context.Context, rawURL string) (int, string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 	if err != nil {
 		return 0, "", err
 	}
-	resp, err := g.http.Do(req)
+	resp, err := hcc.http.Do(req)
 	if err != nil {
 		return 0, "", err
 	}
@@ -53,11 +53,11 @@ func (g *Checks) httpGET(ctx context.Context, rawURL string) (int, string, error
 	return resp.StatusCode, string(body), nil
 }
 
-func (g *Checks) clusterURL() (string, error) {
-	if g.baseURL == "" {
+func (hcc *HealthCheckContext) clusterURL() (string, error) {
+	if hcc.baseURL == "" {
 		return "", errors.New("baseURL is empty")
 	}
-	return g.baseURL, nil
+	return hcc.baseURL, nil
 }
 
 func collapseWhitespace(s string) string { return strings.Join(strings.Fields(s), " ") }

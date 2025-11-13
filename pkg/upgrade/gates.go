@@ -38,13 +38,13 @@ const (
 	GateDatabasesOnline     GateKind = "db_groups_available_excluding_target"
 )
 
-type Checks struct {
+type HealthCheckContext struct {
 	http    *http.Client
 	baseURL string
 	byTag   map[string]string
 }
 
-func NewChecks(httpc *http.Client, c *ravendbv1alpha1.RavenDBCluster) *Checks {
+func NewChecks(httpc *http.Client, c *ravendbv1alpha1.RavenDBCluster) *HealthCheckContext {
 	leader := ""
 	if len(c.Spec.Nodes) > 0 {
 		leader = c.Spec.Nodes[0].PublicServerUrl
@@ -59,13 +59,13 @@ func NewChecks(httpc *http.Client, c *ravendbv1alpha1.RavenDBCluster) *Checks {
 		httpc = &http.Client{Timeout: 30 * time.Second}
 	}
 
-	return &Checks{
+	return &HealthCheckContext{
 		http:    httpc,
 		baseURL: strings.TrimRight(leader, "/"),
 		byTag:   urlByTag,
 	}
 }
 
-func (g *Checks) urlForTag(tag string) string {
+func (g *HealthCheckContext) urlForTag(tag string) string {
 	return g.byTag[strings.ToUpper(tag)]
 }

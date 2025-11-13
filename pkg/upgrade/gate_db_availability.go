@@ -35,8 +35,8 @@ var ignoredErrSnippets = []string{
 	"serviceunavailable", "node in rehabilitation",
 }
 
-func (g *Checks) DatabasesOnline(ctx context.Context, excludedTag string) (bool, string, error) {
-	baseURL, err := g.clusterURL()
+func (hcc *HealthCheckContext) DatabasesOnline(ctx context.Context, excludedTag string) (bool, string, error) {
+	baseURL, err := hcc.clusterURL()
 	if err != nil {
 		return false, "", err
 	}
@@ -46,7 +46,7 @@ func (g *Checks) DatabasesOnline(ctx context.Context, excludedTag string) (bool,
 		return false, "", err
 	}
 
-	code, body, err := g.httpGET(ctx, endpoint)
+	code, body, err := hcc.httpGET(ctx, endpoint)
 	if err != nil {
 		return false, err.Error(), nil
 	}

@@ -36,21 +36,21 @@ type Timing struct {
 func (u *upgrader) SetTiming(t Timing) { u.timing = t }
 func timestampNow() metav1.Time        { return metav1.Now() }
 
-func (u *upgrader) waitNodeAlive(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, g *Checks, phase GatePhase, tag string) error {
+func (u *upgrader) waitNodeAlive(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, tag string) error {
 	return u.wait(ctx, c, phase, GateNodeAlive, tag, u.timing.PingInterval, func() (bool, string, error) {
-		return g.NodeAlive(ctx, tag)
+		return hcc.NodeAlive(ctx, tag)
 	})
 }
 
-func (u *upgrader) waitConnectivity(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, g *Checks, phase GatePhase, tag string) error {
+func (u *upgrader) waitConnectivity(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, tag string) error {
 	return u.wait(ctx, c, phase, GateClusterConnectivity, tag, u.timing.PingInterval, func() (bool, string, error) {
-		return g.ClusterConnectivity(ctx)
+		return hcc.ClusterConnectivity(ctx)
 	})
 }
 
-func (u *upgrader) waitDB(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, g *Checks, phase GatePhase, excluded string, tag string) error {
+func (u *upgrader) waitDB(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, excluded string, tag string) error {
 	return u.wait(ctx, c, phase, GateDatabasesOnline, tag, u.timing.DBInterval, func() (bool, string, error) {
-		return g.DatabasesOnline(ctx, excluded)
+		return hcc.DatabasesOnline(ctx, excluded)
 	})
 }
 

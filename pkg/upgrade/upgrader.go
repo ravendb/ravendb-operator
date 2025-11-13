@@ -39,7 +39,7 @@ type Upgrader interface {
 }
 
 type upgrader struct {
-	buildGates func(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster) (*Checks, error)
+	buildGates func(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster) (*HealthCheckContext, error)
 	timing     Timing
 	emit       GateEmitter
 }
@@ -82,7 +82,7 @@ func NewUpgrader(t Timing) Upgrader {
 	}
 }
 
-func buildGatesDefault(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster) (*Checks, error) {
+func buildGatesDefault(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster) (*HealthCheckContext, error) {
 	httpc, err := BuildHTTPSClientFromCluster(ctx, kc, c)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func buildGatesDefault(ctx context.Context, kc client.Client, c *ravendbv1alpha1
 //  3. if a node was chosen:
 //     a) if upgrading, run pre-checks and mark it as upgrading with an annotation.
 //     b) call applyNode(node) to mutate its image.
-//     c) if upgraded, run post-checks. On failure, On failure, mark node status as Failed.
+//     c) if upgraded, run post-checks. On failure, mark node status as Failed.
 //  4. Return statuses for all nodes.
 func (u *upgrader) Run(
 	ctx context.Context,
@@ -235,22 +235,22 @@ func (u *upgrader) findInFlightTag(ctx context.Context, kc client.Client, c *rav
 	return "", nil
 }
 
-func (u *upgrader) preNode(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, g *Checks, tag string) error {
-	if err := u.waitNodeAlive(ctx, c, g, GatePreStep, tag); err != nil {
+func (u *upgrader) preNode(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, hcc *HealthCheckContext, tag string) error {
+	if err := u.waitNodeAlive(ctx, c, hcc, GatePreStep, tag); err != nil {
 		return err
 	}
-	if err := u.waitConnectivity(ctx, c, g, GatePreStep, tag); err != nil {
+	if err := u.waitConnectivity(ctx, c, hcc, GatePreStep, tag); err != nil {
 		return err
 	}
-	if err := u.waitDB(ctx, c, g, GatePreStep, tag, tag); err != nil {
+	if err := u.waitDB(ctx, c, hcc, GatePreStep, tag, tag); err != nil {
 		return err
 	}
 	return nil
 }
 
 // postNode runs checks AFTER we mutate the node (alive, connectivity, DBs full cluster).
-func (u *upgrader) postNode(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, g *Checks, tag string) error {
-	if err := u.waitNodeAlive(ctx, c, g, GatePostStep, tag); err != nil {
+func (u *upgrader) postNode(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, hcc *HealthCheckContext, tag string) error {
+	if err := u.waitNodeAlive(ctx, c, hcc, GatePostStep, tag); err != nil {
 		return err
 	}
 
@@ -261,10 +261,10 @@ func (u *upgrader) postNode(ctx context.Context, c *ravendbv1alpha1.RavenDBClust
 	case <-time.After(u.timing.GraceAfterReady):
 	}
 
-	if err := u.waitConnectivity(ctx, c, g, GatePostStep, tag); err != nil {
+	if err := u.waitConnectivity(ctx, c, hcc, GatePostStep, tag); err != nil {
 		return err
 	}
-	if err := u.waitDB(ctx, c, g, GatePostStep, "", tag); err != nil {
+	if err := u.waitDB(ctx, c, hcc, GatePostStep, "", tag); err != nil {
 		return err
 	}
 	return nil
