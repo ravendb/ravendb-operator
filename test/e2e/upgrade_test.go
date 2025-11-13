@@ -29,6 +29,7 @@ import (
 )
 
 func TestUpgrade_62_71_happy_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	const toImage = "ravendb/ravendb:7.1.3-ubuntu.22.04-x64"
@@ -111,6 +112,7 @@ func TestUpgrade_62_71_happy_E2E(t *testing.T) {
 }
 
 func TestUpgrade_62_71_pre_cluster_conn_fail_on_a_bc_b_down_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	const toImage = "ravendb/ravendb:7.1.3-ubuntu.22.04-x64"
@@ -164,6 +166,7 @@ func TestUpgrade_62_71_pre_cluster_conn_fail_on_a_bc_b_down_E2E(t *testing.T) {
 }
 
 func TestUpgrade_62_71_degraded_db_placement_on_a_c_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	const (
@@ -278,7 +281,7 @@ func CreateDatabaseRF3(ctx context.Context, ns, pod, container, dbName string) e
   --cert /tmp/cluster.server.certificate.pem \
   --key  /tmp/cluster.server.certificate.key \
   -X PUT -H 'Content-Type: application/json' --data-binary @- \
-  https://a.ravendbe2e.development.run/admin/databases
+  https://a.ravendb-operator-e2e.ravendb.run/admin/databases
 %s
 JSON`, payload),
 	}

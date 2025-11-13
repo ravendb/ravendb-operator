@@ -49,3 +49,12 @@ func ExecInPodCapture(ctx context.Context, ns, pod, container string, cmd ...str
 	err := c.Run()
 	return out.String(), err
 }
+
+func RunKubectlCapture(ctx context.Context, args ...string) (string, error) {
+	c := exec.CommandContext(ctx, "kubectl", args...)
+	var out bytes.Buffer
+	c.Stdout, c.Stderr = &out, &out
+	err := c.Run()
+	return out.String(), err
+}
+

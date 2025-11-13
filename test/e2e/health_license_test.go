@@ -31,6 +31,7 @@ import (
 )
 
 func TestLicense_L1_Present_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
@@ -50,6 +51,7 @@ func TestLicense_L1_Present_E2E(t *testing.T) {
 }
 
 func TestLicense_L2_DeletedAfterCreate_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{

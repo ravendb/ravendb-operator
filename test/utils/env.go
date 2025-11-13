@@ -228,3 +228,9 @@ func WaitPodImage(t *testing.T, cli ctrlclient.Client, ns, podName, want string,
 		return p.Spec.Containers[0].Image == want
 	}, timeout, 2*time.Second, "pod %s did not switch image to %s", podName, want)
 }
+
+func LogStart(t *testing.T) {
+	t.Helper()
+	t.Logf("START: %s", t.Name())
+}
+

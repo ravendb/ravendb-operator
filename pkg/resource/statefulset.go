@@ -60,9 +60,6 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 
 	affinity := buildAWSNodeAffinity(cluster, node.Tag)
 
-	// will use init containers in the upcoming bootstrapper issue
-	//	initContainers := buildInitContainers(cluster)
-
 	sts := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -87,7 +84,16 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 					Volumes:            volumes,
 					Affinity:           affinity,
 					ServiceAccountName: common.RavenDbNodeServiceAccount,
-					//InitContainers:     initContainers, // will use init containers in the upcoming bootstrapper issue
+					// alows us to bind lower ports like 443
+					// considered safe. see: https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/#safe-and-unsafe-sysctls
+					SecurityContext: &corev1.PodSecurityContext{
+						Sysctls: []corev1.Sysctl{
+							{
+								Name:  "net.ipv4.ip_unprivileged_port_start",
+								Value: "0",
+							},
+						},
+					},
 				},
 			},
 			VolumeClaimTemplates: volumeClaims,
@@ -108,14 +114,6 @@ func buildContainers(image string, env []corev1.EnvVar, ports []corev1.Container
 	return []corev1.Container{rdbContainer}
 
 }
-
-// will use init containers in the upcoming bootstrapper issue
-// func buildInitContainers(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.Container {
-// 	var initContainers []corev1.Container
-// 	//	initContainers = append(initContainers, )
-
-// 	return initContainers
-// }
 
 func buildStatefulsetSelector(node ravendbv1alpha1.RavenDBNode) map[string]string {
 	return map[string]string{

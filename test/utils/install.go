@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -12,7 +13,7 @@ import (
 )
 
 const (
-	metallbFilePath       = "test/e2e/manifests/metallb-native.yaml"
+	metallbFilePath       = "https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml"
 	metallbConfigFilePath = "test/e2e/manifests/metallb-config.yaml"
 	nginxIngressFilePath  = "test/e2e/manifests/nginx-ingress-ravendb.yaml"
 )
@@ -23,6 +24,19 @@ func ApplyManifest(path string) env.Func {
 			return RunKubectl(ctx, "apply", "-f", path)
 		}
 		return RunKubectl(ctx, "apply", "-f", PathFromRoot(path))
+	}
+}
+
+func ApplyManifestWithContext(t THelper, path string) {
+	t.Helper()
+	ctx := context.Background()
+	src := path
+	if !strings.HasPrefix(path, "https://") {
+		src = PathFromRoot(path)
+	}
+	out, err := RunKubectl(ctx, "apply", "-f", src)
+	if err != nil {
+		t.Fatalf("kubectl apply -f %s failed: %v\n%s", src, err, out)
 	}
 }
 
@@ -56,8 +70,11 @@ func InstallNodeRBAC(ns, basePath string) env.Func {
 
 func BuildAndLoadOperator(image, dockerfile, repoRoot string) env.Func {
 	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
-		if err := RunDocker(ctx, "build", "-f", PathFromRoot(dockerfile), "-t", image, repoRoot); err != nil {
-			return ctx, fmt.Errorf("docker build: %w", err)
+		// prebuilt flag for building the image from PR's code
+		if os.Getenv("RAVEN_OPERATOR_IMAGE_PREBUILT") != "1" {
+			if err := RunDocker(ctx, "build", "-f", PathFromRoot(dockerfile), "-t", image, repoRoot); err != nil {
+				return ctx, fmt.Errorf("docker build: %w", err)
+			}
 		}
 		if err := RunKind(ctx, "load", "docker-image", image, "--name", "ravendb"); err != nil {
 			return ctx, fmt.Errorf("kind load: %w", err)
@@ -129,11 +146,8 @@ func DisableMetalLB(t THelper) {
 	}
 
 	_, _ = RunKubectl(ctx, "-n", "ingress-nginx", "delete", "svc", "ingress-nginx-controller", "--ignore-not-found")
-	_, err := RunKubectl(ctx, "apply", "-f", PathFromRoot(nginxIngressFilePath))
-	if err != nil {
-		t.Fatalf("re-applying nginx ingress failed: %v", err)
-	}
-	_, err = RunKubectl(ctx, "-n", "ingress-nginx", "rollout", "status", "deploy/ingress-nginx-controller", "--timeout=120s")
+	ApplyManifestWithContext(t, nginxIngressFilePath)
+	_, err := RunKubectl(ctx, "-n", "ingress-nginx", "rollout", "status", "deploy/ingress-nginx-controller", "--timeout=120s")
 	if err != nil {
 		t.Fatalf("waiting for nginx controller rollout: %v", err)
 	}
@@ -142,16 +156,15 @@ func DisableMetalLB(t THelper) {
 func EnableMetalLB(t THelper, controllerNS, metalLBNS string, timeout time.Duration) {
 	t.Helper()
 	ctx := context.Background()
+	_, _ = RunKubectl(ctx, "create", "namespace", metalLBNS)
 
-	if _, err := RunKubectl(ctx, "apply", "-f", PathFromRoot(metallbFilePath)); err != nil {
-		t.Fatalf("apply metallb: %v", err)
-	}
+	ApplyManifestWithContext(t, metallbFilePath)
+
 	if _, err := RunKubectl(ctx, "-n", metalLBNS, "rollout", "status", "deploy/controller", "--timeout="+timeout.String()); err != nil {
 		t.Fatalf("wait metallb controller: %v", err)
 	}
-	if _, err := RunKubectl(ctx, "apply", "-f", PathFromRoot(metallbConfigFilePath)); err != nil {
-		t.Fatalf("apply metallb config: %v", err)
-	}
+
+	ApplyManifestWithContext(t, metallbConfigFilePath)
 
 	time.Sleep(2 * time.Second)
 }
@@ -159,4 +172,44 @@ func EnableMetalLB(t THelper, controllerNS, metalLBNS string, timeout time.Durat
 type THelper interface {
 	Helper()
 	Fatalf(format string, args ...any)
+}
+
+func Getenv(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return def
+}
+
+func PatchImagePullPolicyIfNotPresent(ns, deploy string) env.Func {
+	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
+		out, err := RunKubectlCapture(
+			ctx,
+			"-n", ns,
+			"get", "deploy", deploy,
+			"-o", "jsonpath={.spec.template.spec.containers[0].imagePullPolicy}",
+		)
+		if err != nil {
+			return ctx, err
+		}
+
+		current := strings.TrimSpace(out)
+		if current == "IfNotPresent" {
+			return ctx, nil
+		}
+
+		return RunKubectl(ctx,
+			"-n", ns,
+			"patch", "deploy", deploy,
+			"--type=json",
+			"-p", `[{"op":"replace","path":"/spec/template/spec/containers/0/imagePullPolicy","value":"IfNotPresent"}]`)
+	}
+}
+
+func DumpDeploymentImage(ns, deploy string) env.Func {
+	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
+		_, err := RunKubectl(ctx, "-n", ns, "get", "deploy", deploy,
+			"-o", `jsonpath={.spec.template.spec.containers[0].image}{"\n"}{.spec.template.spec.containers[0].imagePullPolicy}{"\n"}`)
+		return ctx, err
+	}
 }

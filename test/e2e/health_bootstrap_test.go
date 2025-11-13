@@ -27,6 +27,7 @@ import (
 )
 
 func TestBootstrap_B1_JobSucceeded_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
@@ -47,6 +48,7 @@ func TestBootstrap_B1_JobSucceeded_E2E(t *testing.T) {
 }
 
 func TestBootstrap_B2_JobRunning_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{

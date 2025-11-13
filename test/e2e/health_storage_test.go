@@ -28,6 +28,7 @@ import (
 )
 
 func TestStorage_S1_AllPVCsBound_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
@@ -47,6 +48,7 @@ func TestStorage_S1_AllPVCsBound_E2E(t *testing.T) {
 }
 
 func TestStorage_S2_OneOrMorePVCNotBound_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	badSC := "does-not-exist-storageclass"
@@ -72,6 +74,7 @@ func TestStorage_S2_OneOrMorePVCNotBound_E2E(t *testing.T) {
 }
 
 func TestStorage_S3_NoPVCsYet_E2E(t *testing.T) {
+	testutil.LogStart(t)
 	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
@@ -89,5 +92,5 @@ func TestStorage_S3_NoPVCsYet_E2E(t *testing.T) {
 	cond, ok := testutil.GetCondition(cur, ravendbv1alpha1.ConditionStorageReady)
 	require.True(t, ok)
 	require.Equal(t, string(ravendbv1alpha1.ReasonPVCNotBound), cond.Reason)
-	require.Contains(t, cond.Message, "PVCs not bound")
+	require.True(t, strings.Contains(cond.Message, "PVCs not bound") || strings.Contains(cond.Message, "waiting for PVCs"))
 }

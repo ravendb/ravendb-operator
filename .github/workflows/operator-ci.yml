@@ -1,0 +1,244 @@
+name: CI 
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "0 10 * * 1" # every Monday at 10:00 UTC
+
+jobs:
+  unit: 
+    name: API types & Webhooks unit tests (envtest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GO_VERSION: "1.24.3"
+      GOTESTSUM_VERSION: "v1.12.0"
+      K8S_VER: "1.29.5"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Cache gotestsum binary
+        id: cache-gts
+        uses: actions/cache@v4
+        with:
+          path: ~/go/bin/gotestsum
+          key: ${{ runner.os }}-gotestsum-${{ env.GO_VERSION }}-${{ env.GOTESTSUM_VERSION }}
+
+      - name: Install gotestsum (if cache miss)
+        if: steps.cache-gts.outputs.cache-hit != 'true'
+        run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
+      
+      - name: Install setup-envtest tool
+        run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+      - name: Cache envtest assets
+        id: cache-envtest
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/kubebuilder-envtest
+          key: ${{ runner.os }}-envtest-${{ env.K8S_VER }}
+
+      - name: Select envtest Kubernetes assets
+        run: echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path ${K8S_VER})" >> "$GITHUB_ENV"
+
+      - name: Cache Go build and module download
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-gobuild-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-gobuild-
+
+      - name: Run API tests (gotestsum)
+        run: ~/go/bin/gotestsum --format=short-verbose ./api/v1alpha1
+
+
+  e2e: 
+    name: E2E (kind)
+    runs-on: ubuntu-latest
+    needs: unit
+    timeout-minutes: 60
+    env:
+      GO_VERSION: "1.24.3"
+      PROJECT_ROOT: ${{ github.workspace }}
+      RAVEN_LICENSE: ${{ secrets.RAVEN_LICENSE }}
+      ADMIN_PFX_B64: ${{ secrets.ADMIN_PFX_B64 }}
+      A_PFX_B64: ${{ secrets.A_PFX_B64 }}
+      B_PFX_B64: ${{ secrets.B_PFX_B64 }}
+      C_PFX_B64: ${{ secrets.C_PFX_B64 }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Export Go cache dirs
+        run: |
+          echo "GOMODCACHE=$(go env GOMODCACHE)" >> "$GITHUB_ENV"
+          echo "GOCACHE=$(go env GOCACHE)" >> "$GITHUB_ENV"
+
+      - name: Restore Go caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.GOMODCACHE }}
+            ${{ env.GOCACHE }}
+          key: ${{ runner.os }}-go-${{ env.GO_VERSION }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-${{ env.GO_VERSION }}-
+
+      - name: Install CLI tooling (kind, kubectl, gotestsum)
+        run: |
+          curl -sSL -o kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
+          curl -sSL -o kubectl https://dl.k8s.io/release/$(curl -sSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
+          chmod +x kind && sudo mv kind /usr/local/bin/kind
+          chmod +x kubectl && sudo mv kubectl /usr/local/bin/kubectl
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Pre-seed /etc/hosts for test domains
+        run: |
+          echo "172.19.255.200 a.ravendb-operator-e2e.ravendb.run a-tcp.ravendb-operator-e2e.ravendb.run" | sudo tee -a /etc/hosts
+          echo "172.19.255.200 a.ravendb-operator-e2e.ravendb.run b-tcp.ravendb-operator-e2e.ravendb.run" | sudo tee -a /etc/hosts
+          echo "172.19.255.200 a.ravendb-operator-e2e.ravendb.run c-tcp.ravendb-operator-e2e.ravendb.run" | sudo tee -a /etc/hosts
+
+      - name: Resolve absolute E2E paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          E2E_BASE="$HOME/ravendb-operator-e2e"
+          echo "E2E_BASE=$E2E_BASE" >> "$GITHUB_ENV"
+          echo "E2E_LICENSE_PATH=$E2E_BASE/license.json" >> "$GITHUB_ENV"
+          echo "E2E_CLIENT_PFX_PATH=$E2E_BASE/admin.client.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
+          echo "E2E_NODE_A_PFX_PATH=$E2E_BASE/A/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
+          echo "E2E_NODE_B_PFX_PATH=$E2E_BASE/B/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
+          echo "E2E_NODE_C_PFX_PATH=$E2E_BASE/C/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
+
+      - name: Materialize E2E secrets to files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$E2E_BASE"/{A,B,C}
+          printf '%s' "$RAVEN_LICENSE" > "$E2E_LICENSE_PATH"
+          printf '%s' "$ADMIN_PFX_B64" | base64 -d > "$E2E_CLIENT_PFX_PATH"
+          printf '%s' "$A_PFX_B64"     | base64 -d > "$E2E_NODE_A_PFX_PATH"
+          printf '%s' "$B_PFX_B64"     | base64 -d > "$E2E_NODE_B_PFX_PATH"
+          printf '%s' "$C_PFX_B64"     | base64 -d > "$E2E_NODE_C_PFX_PATH"
+          chmod 600 "$E2E_LICENSE_PATH" "$E2E_CLIENT_PFX_PATH" "$E2E_NODE_A_PFX_PATH" "$E2E_NODE_B_PFX_PATH" "$E2E_NODE_C_PFX_PATH"
+
+      - name: Prime module cache (root)
+        run: go mod download
+
+      - name: Prime module cache (e2e)
+        run: |
+          if [ -f test/e2e/go.mod ]; then
+            (cd test/e2e && go mod download)
+          else
+            # ensure e2e-only deps are resolved
+            go list -deps ./test/e2e/... > /dev/null
+          fi
+
+      - name: Build operator image (from the PR's branch)
+        run: docker build -t ravendb/ravendb-operator:ci-${GITHUB_SHA} .
+
+      - name: Set operator image env
+        run: |
+          echo "RAVEN_OPERATOR_IMAGE=ravendb/ravendb-operator:ci-$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "RAVEN_OPERATOR_IMAGE_PREBUILT=1" >> "$GITHUB_ENV"
+
+      # - name: Run health nodes E2E tests
+      #   env:
+      #     RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+      #     RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+      #     RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+      #     RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+      #     RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+      #   run: go test -v -count=1 -timeout 20m ./test/e2e -run '^TestNodes_'
+
+      # - name: Run health bootstrap E2E tests
+      #   env:
+      #     RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+      #     RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+      #     RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+      #     RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+      #     RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+      #   run: go test -v -count=1 -timeout 10m ./test/e2e -run '^TestBootstrap_'
+
+      # - name: Run health external access E2E tests
+      #   env:
+      #     RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+      #     RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+      #     RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+      #     RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+      #     RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+      #   run: go test -v -count=1 -timeout 10m ./test/e2e -run '^TestExternal_'
+
+      # - name: Run health license E2E tests
+      #   env:
+      #     RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+      #     RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+      #     RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+      #     RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+      #     RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+      #   run: go test -v -count=1 -timeout 10m ./test/e2e -run '^TestLicense_'
+
+      # - name: Run health storage E2E tests
+      #   env:
+      #     RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+      #     RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+      #     RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+      #     RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+      #     RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+      #   run: go test -v -count=1 -timeout 10m ./test/e2e -run '^TestStorage_'
+
+      # - name: Run health rolling upgrade E2E tests
+      #   env:
+      #     RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+      #     RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+      #     RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+      #     RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+      #     RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+      #   run: go test -v -count=1 -timeout 10m ./test/e2e -run '^TestUpgrade_'
+
+      - name: Run health rolling upgrade E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 10m ./test/e2e -run TestUpgrade_62_71_happy_E2E
+
+
+      - name: Run health rolling upgrade E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 10m ./test/e2e -run TestUpgrade_62_71_pre_cluster_conn_fail_on_a_bc_b_down_E2E
+
+      - name: Run health rolling upgrade E2E tests
+        env:
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 10m ./test/e2e -run TestUpgrade_62_71_degraded_db_placement_on_a_c_E2E
+

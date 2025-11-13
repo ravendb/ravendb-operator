@@ -20,16 +20,12 @@ func BaseClusterLE(name string) *ravendbv1alpha1.RavenDBCluster {
 			Email:               &email,
 			LicenseSecretRef:    "ravendb-license",
 			ClientCertSecretRef: "ravendb-client-cert",
-			Domain:              "ravendbe2e.development.run",
+			Domain:              "ravendb-operator-e2e.ravendb.run",
 			Nodes: []ravendbv1alpha1.RavenDBNode{
-				{Tag: "a", PublicServerUrl: "https://a.ravendbe2e.development.run:443", PublicServerUrlTcp: "tcp://a-tcp.ravendbe2e.development.run:443", CertSecretRef: &certA},
-				{Tag: "b", PublicServerUrl: "https://b.ravendbe2e.development.run:443", PublicServerUrlTcp: "tcp://b-tcp.ravendbe2e.development.run:443", CertSecretRef: &certB},
-				{Tag: "c", PublicServerUrl: "https://c.ravendbe2e.development.run:443", PublicServerUrlTcp: "tcp://c-tcp.ravendbe2e.development.run:443", CertSecretRef: &certC},
+				{Tag: "a", PublicServerUrl: "https://a.ravendb-operator-e2e.ravendb.run:443", PublicServerUrlTcp: "tcp://a-tcp.ravendb-operator-e2e.ravendb.run:443", CertSecretRef: &certA},
+				{Tag: "b", PublicServerUrl: "https://b.ravendb-operator-e2e.ravendb.run:443", PublicServerUrlTcp: "tcp://b-tcp.ravendb-operator-e2e.ravendb.run:443", CertSecretRef: &certB},
+				{Tag: "c", PublicServerUrl: "https://c.ravendb-operator-e2e.ravendb.run:443", PublicServerUrlTcp: "tcp://c-tcp.ravendb-operator-e2e.ravendb.run:443", CertSecretRef: &certC},
 			},
-			Env: map[string]string{
-				"RAVEN_Cluster_TimeBeforeMovingToRehabInSec": "10",
-			},
-
 			ExternalAccessConfiguration: &ravendbv1alpha1.ExternalAccessConfiguration{
 				Type:                            "ingress-controller",
 				IngressControllerExternalAccess: &ravendbv1alpha1.IngressControllerContext{IngressClassName: "nginx"},
