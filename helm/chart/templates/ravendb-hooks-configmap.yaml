@@ -1,0 +1,23 @@
+{{- $ns := default "ravendb" .Values.ravendb.namespace }}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ravendb-bootstrapper-hook
+  namespace: {{ $ns }}
+data:
+  check-nodes-discoverability.sh: |
+{{ .Files.Get "hooks/check-nodes-discoverability.sh" | indent 4 }}
+  init-cluster.sh: |
+{{ .Files.Get "hooks/init-cluster.sh" | indent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ravendb-cert-hook
+  namespace: {{ $ns }}
+data:
+  update-cert.sh: |
+{{ .Files.Get "hooks/update-cert.sh" | indent 4 }}
+  get-server-cert.sh: |
+{{ .Files.Get "hooks/get-server-cert.sh" | indent 4 }}

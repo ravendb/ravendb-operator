@@ -1,0 +1,7 @@
+apiVersion: v2
+name: ravendb-operator
+description: RavenDB Kubernetes Operator
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+icon: "https://s3.us-west-2.amazonaws.com/static.ravendb.net/ravendb-mp-black.png"

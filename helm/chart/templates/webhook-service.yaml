@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ravendb-operator.fullname" . }}-webhook-service
+  labels:
+    {{- include "ravendb-operator.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: ravendb-operator
+    control-plane: controller-manager
+    {{- include "ravendb-operator.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: 443
+      targetPort: 9443
+      protocol: TCP
+      name: https
