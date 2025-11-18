@@ -57,7 +57,7 @@ func BuildClusterBootstrapperContainer(image string, vMounts []corev1.VolumeMoun
 }
 
 // TODO: might use sidecars later
-// func BuildSidecarContainers(sidecars []ravendbv1alpha1.Sidecar, additionalMounts []corev1.VolumeMount) []corev1.Container {
+// func BuildSidecarContainers(sidecars []ravendbv1.Sidecar, additionalMounts []corev1.VolumeMount) []corev1.Container {
 // 	var containers []corev1.Container
 
 // 	for _, s := range sidecars {

@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,11 +35,11 @@ func NewServiceBuilder() PerNodeBuilder {
 	return &ServiceBuilder{}
 }
 
-func (b *ServiceBuilder) Build(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) (client.Object, error) {
+func (b *ServiceBuilder) Build(ctx context.Context, cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) (client.Object, error) {
 	return BuildService(cluster, node)
 }
 
-func BuildService(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) (*corev1.Service, error) {
+func BuildService(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) (*corev1.Service, error) {
 
 	svcName := fmt.Sprintf("%s%s", common.Prefix, node.Tag)
 
@@ -71,7 +71,7 @@ func BuildService(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.
 	return svc, nil
 }
 
-func buildServiceLabels(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) map[string]string {
+func buildServiceLabels(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) map[string]string {
 	return map[string]string{
 		common.LabelAppName:   common.App,
 		common.LabelManagedBy: common.Manager,
@@ -80,7 +80,7 @@ func buildServiceLabels(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1a
 	}
 }
 
-func buildServiceSelector(node ravendbv1alpha1.RavenDBNode) map[string]string {
+func buildServiceSelector(node ravendbv1.RavenDBNode) map[string]string {
 	return map[string]string{
 		common.LabelNodeTag: node.Tag,
 	}
@@ -99,11 +99,11 @@ func buildServicePorts() []corev1.ServicePort {
 		},
 	}
 }
-func modifyServiceForExternalAccess(svc *corev1.Service, access *ravendbv1alpha1.ExternalAccessConfiguration, tag string) {
+func modifyServiceForExternalAccess(svc *corev1.Service, access *ravendbv1.ExternalAccessConfiguration, tag string) {
 
 	switch access.Type {
 
-	case ravendbv1alpha1.ExternalAccessTypeAWS:
+	case ravendbv1.ExternalAccessTypeAWS:
 		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
 		svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
 		if svc.Annotations == nil {
@@ -113,7 +113,7 @@ func modifyServiceForExternalAccess(svc *corev1.Service, access *ravendbv1alpha1
 			svc.Annotations[k] = v
 		}
 
-	case ravendbv1alpha1.ExternalAccessTypeAzure:
+	case ravendbv1.ExternalAccessTypeAzure:
 		svc.Spec.Type = corev1.ServiceTypeLoadBalancer
 		svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeCluster
 
@@ -126,13 +126,13 @@ func modifyServiceForExternalAccess(svc *corev1.Service, access *ravendbv1alpha1
 			}
 		}
 
-	case ravendbv1alpha1.ExternalAccessTypeIngressController:
+	case ravendbv1.ExternalAccessTypeIngressController:
 		// do nothing
 	}
 
 }
 
-func buildAwsNlbAnnotations(cfg *ravendbv1alpha1.AWSExternalAccessContext, tag string) map[string]string {
+func buildAwsNlbAnnotations(cfg *ravendbv1.AWSExternalAccessContext, tag string) map[string]string {
 	for _, m := range cfg.NodeMappings {
 		if m.Tag == tag {
 			return map[string]string{

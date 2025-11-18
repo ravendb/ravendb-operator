@@ -10,7 +10,7 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +24,7 @@ import (
 type ClusterCase struct {
 	Name      string
 	Namespace string
-	Modify    func(*ravendbv1alpha1.RavenDBClusterSpec)
+	Modify    func(*ravendbv1.RavenDBClusterSpec)
 }
 
 const DefaultNS = "ravendb"
@@ -41,7 +41,7 @@ func BindKubectlToSuiteEnv() env.Func {
 	}
 }
 
-func CreateCluster(t *testing.T, base func(name string) *ravendbv1alpha1.RavenDBCluster, tc ClusterCase) (ctrlclient.Client, ctrlclient.ObjectKey) {
+func CreateCluster(t *testing.T, base func(name string) *ravendbv1.RavenDBCluster, tc ClusterCase) (ctrlclient.Client, ctrlclient.ObjectKey) {
 	t.Helper()
 	cli := K8sClient(t)
 	name := SanitizeName("e2e-" + tc.Name)
@@ -106,15 +106,15 @@ func PathFromRoot(rel string) string { return filepath.Join(RepoRoot(), rel) }
 func WaitReadable(t *testing.T, cli ctrlclient.Client, k ctrlclient.ObjectKey, timeout time.Duration) {
 	t.Helper()
 	require.Eventually(t, func() bool {
-		tmp := &ravendbv1alpha1.RavenDBCluster{}
+		tmp := &ravendbv1.RavenDBCluster{}
 		return cli.Get(context.Background(), k, tmp) == nil
 	}, timeout, 500*time.Millisecond)
 }
 
-func WaitCondition(t *testing.T, cli ctrlclient.Client, k ctrlclient.ObjectKey, condType ravendbv1alpha1.ClusterConditionType, want metav1.ConditionStatus, timeout, interval time.Duration) {
+func WaitCondition(t *testing.T, cli ctrlclient.Client, k ctrlclient.ObjectKey, condType ravendbv1.ClusterConditionType, want metav1.ConditionStatus, timeout, interval time.Duration) {
 	t.Helper()
 	require.Eventually(t, func() bool {
-		cur := &ravendbv1alpha1.RavenDBCluster{}
+		cur := &ravendbv1.RavenDBCluster{}
 		if err := cli.Get(context.Background(), k, cur); err != nil {
 			return false
 		}
@@ -123,7 +123,7 @@ func WaitCondition(t *testing.T, cli ctrlclient.Client, k ctrlclient.ObjectKey, 
 	}, timeout, interval, fmt.Sprintf("condition %s did not become %s", condType, want))
 }
 
-func GetCondition(obj *ravendbv1alpha1.RavenDBCluster, t ravendbv1alpha1.ClusterConditionType) (metav1.Condition, bool) {
+func GetCondition(obj *ravendbv1.RavenDBCluster, t ravendbv1.ClusterConditionType) (metav1.Condition, bool) {
 	for i := range obj.Status.Conditions {
 		c := obj.Status.Conditions[i]
 		if c.Type == string(t) {
@@ -212,7 +212,7 @@ func PatchSpecImage(t *testing.T, cli ctrlclient.Client, key ctrlclient.ObjectKe
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(ctx, key, cur))
 	cur.Spec.Image = img
 	require.NoError(t, cli.Update(ctx, cur))

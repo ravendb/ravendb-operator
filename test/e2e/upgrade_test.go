@@ -18,7 +18,7 @@ package e2e
 import (
 	"context"
 	"fmt"
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	testutil "ravendb-operator/test/utils"
 	"strings"
 	"testing"
@@ -39,7 +39,7 @@ func TestUpgrade_62_71_happy_E2E(t *testing.T) {
 
 	testutil.RegisterClusterCleanup(t, cli, key, timeout)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
 
 	require.NoError(t,
 		ExtractServerCertToTmp(t.Context(), testutil.DefaultNS, "ravendb-a-0", "", "/ravendb/certs/server.pfx", ""),
@@ -62,7 +62,7 @@ func TestUpgrade_62_71_happy_E2E(t *testing.T) {
 	testutil.WaitPodImage(t, cli, testutil.DefaultNS, "ravendb-c-0", toImage, timeout)
 	t.Logf("ravendb-c-0 now running %s", toImage)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
 	t.Logf("cluster marked as upgraded and healthy ConditionReady=True")
 
 	expectedEvents := []string{
@@ -95,11 +95,11 @@ func TestUpgrade_62_71_happy_E2E(t *testing.T) {
 		30*time.Second, //let some time for events to appear
 	)
 
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(t.Context(), key, cur))
-	ready, ok := testutil.GetCondition(cur, ravendbv1alpha1.ConditionReady)
+	ready, ok := testutil.GetCondition(cur, ravendbv1.ConditionReady)
 	require.True(t, ok)
-	require.Equal(t, string(ravendbv1alpha1.ReasonCompleted), ready.Reason)
+	require.Equal(t, string(ravendbv1.ReasonCompleted), ready.Reason)
 
 	RequirePodsRavenVersion(
 		t,
@@ -122,7 +122,7 @@ func TestUpgrade_62_71_pre_cluster_conn_fail_on_a_bc_b_down_E2E(t *testing.T) {
 
 	testutil.RegisterClusterCleanup(t, cli, key, timeout)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
 
 	// sabotage node B cert to cause failure
 	ctx := context.Background()
@@ -181,7 +181,7 @@ func TestUpgrade_62_71_degraded_db_placement_on_a_c_E2E(t *testing.T) {
 
 	testutil.RegisterClusterCleanup(t, cli, key, timeout)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
 
 	require.NoError(t, ExtractServerCertToTmp(t.Context(), ns, podA, "", "/ravendb/certs/server.pfx", ""), "extract pem/key")
 	require.NoError(t, CreateDatabaseRF3(t.Context(), ns, podA, "", dbName), "create RF3 DB")

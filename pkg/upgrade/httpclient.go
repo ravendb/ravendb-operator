@@ -30,7 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 )
 
 const (
@@ -39,7 +39,7 @@ const (
 	caCRTKey     = "ca.crt"
 )
 
-func BuildHTTPSClientFromCluster(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster) (*http.Client, error) {
+func BuildHTTPSClientFromCluster(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster) (*http.Client, error) {
 
 	needCA, err := needsCA(c)
 	if err != nil {
@@ -73,11 +73,11 @@ func BuildHTTPSClientFromCluster(ctx context.Context, kc client.Client, c *raven
 	return &http.Client{Transport: tr}, nil
 }
 
-func needsCA(c *ravendbv1alpha1.RavenDBCluster) (bool, error) {
+func needsCA(c *ravendbv1.RavenDBCluster) (bool, error) {
 	switch c.Spec.Mode {
-	case ravendbv1alpha1.ModeLetsEncrypt:
+	case ravendbv1.ModeLetsEncrypt:
 		return false, nil
-	case ravendbv1alpha1.ModeNone: // self-signed
+	case ravendbv1.ModeNone: // self-signed
 		return true, nil
 	default:
 		return false, fmt.Errorf("unsupported mode: %q", c.Spec.Mode)
@@ -110,7 +110,7 @@ func loadClientPair(secret corev1.Secret) (tls.Certificate, error) {
 	return pfxToTLSCert(pfx, pass)
 }
 
-func loadCAPool(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster) (*x509.CertPool, error) {
+func loadCAPool(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster) (*x509.CertPool, error) {
 	caName := strings.TrimSpace(*c.Spec.CACertSecretRef)
 
 	var caSecret corev1.Secret

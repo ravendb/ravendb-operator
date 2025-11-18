@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/resource"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,7 +40,7 @@ func (actor *ServiceActor) Name() string {
 	return "ServiceActor"
 }
 
-func (actor *ServiceActor) Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode, client client.Client, scheme *runtime.Scheme) (bool, error) {
+func (actor *ServiceActor) Act(ctx context.Context, cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode, client client.Client, scheme *runtime.Scheme) (bool, error) {
 	svc, err := actor.builder.Build(ctx, cluster, node)
 	if err != nil {
 		return false, fmt.Errorf("failed to build Service: %w", err)

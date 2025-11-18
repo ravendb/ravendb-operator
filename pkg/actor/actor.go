@@ -19,7 +19,7 @@ package actor
 import (
 	"context"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,11 +31,11 @@ type Actor interface {
 
 type PerNodeActor interface {
 	Actor
-	Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode, c client.Client, scheme *runtime.Scheme) (bool, error)
+	Act(ctx context.Context, cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode, c client.Client, scheme *runtime.Scheme) (bool, error)
 }
 
 type PerClusterActor interface {
 	Actor
-	ShouldAct(cluster *ravendbv1alpha1.RavenDBCluster) bool
-	Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, c client.Client, scheme *runtime.Scheme) (bool, error)
+	ShouldAct(cluster *ravendbv1.RavenDBCluster) bool
+	Act(ctx context.Context, cluster *ravendbv1.RavenDBCluster, c client.Client, scheme *runtime.Scheme) (bool, error)
 }

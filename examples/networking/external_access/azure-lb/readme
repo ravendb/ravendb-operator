@@ -42,7 +42,7 @@ Below is an example mapping of each RavenDB node to its public IP
 
 
 ```yaml
-apiVersion: ravendb.ravendb.io/v1alpha1
+apiVersion: ravendb.ravendb.io/v1
 kind: RavenDBCluster
 ...
 spec:
@@ -76,7 +76,7 @@ spec:
 Full example CR location:
 
 ```bash
-examples/networking/external_access/azure-lb/ravendb_v1alpha1_ravendbcluster_externalaccess_azure_lb.yaml
+examples/networking/external_access/azure-lb/ravendb_v1_ravendbcluster_externalaccess_azure_lb.yaml
 ```
 
 

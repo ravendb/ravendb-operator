@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/resource"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -41,7 +41,7 @@ func (actor *BootstrapperActor) Name() string {
 	return "BootstrapperActor"
 }
 
-func (actor *BootstrapperActor) Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, client client.Client, scheme *runtime.Scheme) (bool, error) {
+func (actor *BootstrapperActor) Act(ctx context.Context, cluster *ravendbv1.RavenDBCluster, client client.Client, scheme *runtime.Scheme) (bool, error) {
 	bs, err := actor.builder.Build(ctx, cluster)
 	if err != nil {
 		return false, fmt.Errorf("failed to build bootstrapper resource: %w", err)
@@ -60,6 +60,6 @@ func (actor *BootstrapperActor) Act(ctx context.Context, cluster *ravendbv1alpha
 	return false, err
 }
 
-func (actor *BootstrapperActor) ShouldAct(cluster *ravendbv1alpha1.RavenDBCluster) bool {
+func (actor *BootstrapperActor) ShouldAct(cluster *ravendbv1.RavenDBCluster) bool {
 	return !cluster.IsBootstrapped()
 }

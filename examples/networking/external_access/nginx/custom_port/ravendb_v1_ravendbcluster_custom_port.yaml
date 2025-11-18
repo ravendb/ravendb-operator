@@ -1,0 +1,41 @@
+## Let's encrypt sample
+apiVersion: ravendb.ravendb.io/v1
+kind: RavenDBCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ravendbcluster-sample
+  namespace: ravendb
+spec:
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.domaincustom.development.run:4443
+      publicServerUrlTcp: tcp://a-tcp.domaincustom.development.run:4443
+      certSecretRef: ravendb-certs-a
+    - tag: b
+      publicServerUrl: https://b.domaincustom.development.run:4443
+      publicServerUrlTcp: tcp://b-tcp.domaincustom.development.run:4443
+      certSecretRef: ravendb-certs-b
+    - tag: c
+      publicServerUrl: https://c.domaincustom.development.run:4443
+      publicServerUrlTcp: tcp://c-tcp.domaincustom.development.run:4443
+      certSecretRef: ravendb-certs-c
+
+  image: ravendb/ravendb:latest
+  imagePullPolicy: IfNotPresent
+  mode: LetsEncrypt
+  email: user@ravendb.net
+  licenseSecretRef: ravendb-license
+  domain: domaincustom.development.run
+
+  storage:
+    data:
+      size: 10Gi                  
+      storageClassName: local-path 
+    
+  externalAccessConfiguration:
+    type: ingress-controller
+    ingressControllerContext:
+      ingressClassName: nginx
+

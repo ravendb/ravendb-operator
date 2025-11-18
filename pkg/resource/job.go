@@ -18,7 +18,7 @@ package resource
 
 import (
 	"context"
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
 	"strings"
 
@@ -34,11 +34,11 @@ func NewJobBuilder() PerClusterBuilder {
 	return &JobBuilder{}
 }
 
-func (b *JobBuilder) Build(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster) (client.Object, error) {
+func (b *JobBuilder) Build(ctx context.Context, cluster *ravendbv1.RavenDBCluster) (client.Object, error) {
 	return BuildJob(cluster)
 }
 
-func BuildJob(cluster *ravendbv1alpha1.RavenDBCluster) (*batchv1.Job, error) {
+func BuildJob(cluster *ravendbv1.RavenDBCluster) (*batchv1.Job, error) {
 	jobName := common.RavenDbBootstrapperJob
 	backoff := int32(3)
 
@@ -76,7 +76,7 @@ func BuildJob(cluster *ravendbv1alpha1.RavenDBCluster) (*batchv1.Job, error) {
 	return job, nil
 }
 
-func buildJobLabels(cluster *ravendbv1alpha1.RavenDBCluster) map[string]string {
+func buildJobLabels(cluster *ravendbv1.RavenDBCluster) map[string]string {
 	return map[string]string{
 		common.LabelAppName:   common.App,
 		common.LabelManagedBy: common.Manager,
@@ -91,7 +91,7 @@ func buildJobContainers(image string, vMounts []corev1.VolumeMount, env []corev1
 
 }
 
-func buildJobVolumes(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.Volume {
+func buildJobVolumes(cluster *ravendbv1.RavenDBCluster) []corev1.Volume {
 	var vols []corev1.Volume
 
 	vols = append(vols, buildSecretVolume(common.ClientCertVolumeName, cluster.Spec.ClientCertSecretRef))
@@ -116,7 +116,7 @@ func buildJobVolumes(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.Volume {
 	return vols
 }
 
-func buildJobVolumeMounts(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.VolumeMount {
+func buildJobVolumeMounts(cluster *ravendbv1.RavenDBCluster) []corev1.VolumeMount {
 	var vMounts []corev1.VolumeMount
 
 	cvm := buildVolumeMount(common.ClientCertVolumeName, common.ClientCertMountPath)
@@ -146,7 +146,7 @@ func buildJobVolumeMounts(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.Volu
 	return vMounts
 }
 
-func buildJobEnvVars(cluster *ravendbv1alpha1.RavenDBCluster) ([]corev1.EnvVar, error) {
+func buildJobEnvVars(cluster *ravendbv1.RavenDBCluster) ([]corev1.EnvVar, error) {
 
 	leader := cluster.Spec.Nodes[0] // first node is leader
 	leaderURL := leader.PublicServerUrl
@@ -188,13 +188,13 @@ func containsTag(tagsList *[]string, tag string) bool {
 	return false
 }
 
-func getServerCertSecretName(cluster *ravendbv1alpha1.RavenDBCluster) string {
+func getServerCertSecretName(cluster *ravendbv1.RavenDBCluster) string {
 
 	switch cluster.Spec.Mode {
-	case ravendbv1alpha1.ModeLetsEncrypt:
+	case ravendbv1.ModeLetsEncrypt:
 		return *cluster.Spec.Nodes[0].CertSecretRef
 
-	case ravendbv1alpha1.ModeNone:
+	case ravendbv1.ModeNone:
 		if cluster.Spec.ClusterCertSecretRef != nil {
 			return *cluster.Spec.ClusterCertSecretRef
 		}

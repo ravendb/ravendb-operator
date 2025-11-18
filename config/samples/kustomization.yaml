@@ -1,4 +1,4 @@
 ## Append samples of your project ##
 resources:
-- ravendb_v1alpha1_ravendbcluster.yaml
+- ravendb_v1_ravendbcluster.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

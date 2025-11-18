@@ -4,5 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: thegoldenplatypus/ravendb-operator-multi-node
+  newName: thegoldenplatypus/ravendb-operator-multi-node #todo: change to ravendb hosted image once we restructure
   newTag: latest

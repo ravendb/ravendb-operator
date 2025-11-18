@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
 	"ravendb-operator/pkg/resource"
 
@@ -41,7 +41,7 @@ func (actor *ingressActor) Name() string {
 	return "IngressActor"
 }
 
-func (actor *ingressActor) Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, client client.Client, scheme *runtime.Scheme) (bool, error) {
+func (actor *ingressActor) Act(ctx context.Context, cluster *ravendbv1.RavenDBCluster, client client.Client, scheme *runtime.Scheme) (bool, error) {
 	ing, err := actor.builder.Build(ctx, cluster)
 	if err != nil {
 		return false, fmt.Errorf("failed to build Ingress: %w", err)
@@ -60,7 +60,7 @@ func (actor *ingressActor) Act(ctx context.Context, cluster *ravendbv1alpha1.Rav
 	return changed, nil
 }
 
-func (actor *ingressActor) ShouldAct(cluster *ravendbv1alpha1.RavenDBCluster) bool {
+func (actor *ingressActor) ShouldAct(cluster *ravendbv1.RavenDBCluster) bool {
 
 	externalAccess := cluster.Spec.ExternalAccessConfiguration
 
@@ -68,7 +68,7 @@ func (actor *ingressActor) ShouldAct(cluster *ravendbv1alpha1.RavenDBCluster) bo
 		return false
 	}
 
-	if externalAccess.Type != ravendbv1alpha1.ExternalAccessTypeIngressController {
+	if externalAccess.Type != ravendbv1.ExternalAccessTypeIngressController {
 		return false
 	}
 

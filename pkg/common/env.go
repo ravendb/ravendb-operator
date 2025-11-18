@@ -18,13 +18,13 @@ package common
 
 import (
 	"fmt"
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 )
 
-func BuildCommonEnvVars(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) []corev1.EnvVar {
+func BuildCommonEnvVars(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) []corev1.EnvVar {
 
 	ravendbNodeTcpEndpoint := fmt.Sprintf("%s%s%s%s:%d", ProtocolTcp, Prefix, node.Tag, ClusterFQDNSuffix, InternalTcpPort)
 	return []corev1.EnvVar{
@@ -40,7 +40,7 @@ func BuildCommonEnvVars(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1a
 	}
 }
 
-func BuildSecureEnvVars(instance *ravendbv1alpha1.RavenDBCluster) []corev1.EnvVar {
+func BuildSecureEnvVars(instance *ravendbv1.RavenDBCluster) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{Name: "RAVEN_Security_Certificate_Load_Exec", Value: GetCertScriptPath},
 		{Name: "RAVEN_Security_Certificate_Change_Exec", Value: UpdateCertScriptPath},
@@ -48,7 +48,7 @@ func BuildSecureEnvVars(instance *ravendbv1alpha1.RavenDBCluster) []corev1.EnvVa
 	}
 }
 
-func BuildSecureLetsEncryptEnvVars(instance *ravendbv1alpha1.RavenDBCluster) []corev1.EnvVar {
+func BuildSecureLetsEncryptEnvVars(instance *ravendbv1.RavenDBCluster) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{Name: "RAVEN_Security_Certificate_Load_Exec", Value: GetCertScriptPath},
 		{Name: "RAVEN_Security_Certificate_Change_Exec", Value: UpdateCertScriptPath},
@@ -57,7 +57,7 @@ func BuildSecureLetsEncryptEnvVars(instance *ravendbv1alpha1.RavenDBCluster) []c
 	}
 }
 
-func BuildAdditionalEnvVars(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.EnvVar {
+func BuildAdditionalEnvVars(cluster *ravendbv1.RavenDBCluster) []corev1.EnvVar {
 	var envVars []corev1.EnvVar
 	for k, v := range cluster.Spec.Env {
 		envVars = append(envVars, corev1.EnvVar{Name: k, Value: v})

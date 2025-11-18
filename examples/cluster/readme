@@ -97,7 +97,7 @@ Now we’ll apply a `RavenDBCluster` resource that tells the operator:
 - "b" is a member (because it isn't specified as leader or watcher)
 
 ```yaml
-apiVersion: ravendb.ravendb.io/v1alpha1
+apiVersion: ravendb.ravendb.io/v1
 kind: RavenDBCluster
 metadata:
   labels:

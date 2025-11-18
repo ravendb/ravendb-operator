@@ -18,7 +18,7 @@ package upgrade
 
 import (
 	"net/http"
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"strings"
 	"time"
 )
@@ -44,7 +44,7 @@ type HealthCheckContext struct {
 	byTag   map[string]string
 }
 
-func NewChecks(httpc *http.Client, c *ravendbv1alpha1.RavenDBCluster) *HealthCheckContext {
+func NewChecks(httpc *http.Client, c *ravendbv1.RavenDBCluster) *HealthCheckContext {
 	leader := ""
 	if len(c.Spec.Nodes) > 0 {
 		leader = c.Spec.Nodes[0].PublicServerUrl

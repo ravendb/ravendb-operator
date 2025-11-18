@@ -19,7 +19,7 @@ package resource
 import (
 	"context"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,14 +27,14 @@ import (
 type PerNodeBuilder interface {
 	Build(
 		ctx context.Context,
-		cluster *ravendbv1alpha1.RavenDBCluster,
-		node ravendbv1alpha1.RavenDBNode,
+		cluster *ravendbv1.RavenDBCluster,
+		node ravendbv1.RavenDBNode,
 	) (client.Object, error)
 }
 
 type PerClusterBuilder interface {
 	Build(
 		ctx context.Context,
-		cluster *ravendbv1alpha1.RavenDBCluster,
+		cluster *ravendbv1.RavenDBCluster,
 	) (client.Object, error)
 }

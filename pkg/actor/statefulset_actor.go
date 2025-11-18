@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
 	"ravendb-operator/pkg/resource"
 
@@ -61,7 +61,7 @@ func (actor *StatefulSetActor) Name() string {
 //	     	common.UpgradeImageAnnotation on the existing StatefulSet. Seeing that marker,
 //	    	we do not freeze: we leave the builder's new image in place. SSA then updates
 //	     	the PodTemplate and Kubernetes performs a controlled rollout for this node only.
-func (actor *StatefulSetActor) Act(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode, kc client.Client, scheme *runtime.Scheme) (bool, error) {
+func (actor *StatefulSetActor) Act(ctx context.Context, cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode, kc client.Client, scheme *runtime.Scheme) (bool, error) {
 	sts, err := actor.builder.Build(ctx, cluster, node)
 	if err != nil {
 		return false, fmt.Errorf("failed to build StatefulSet: %w", err)

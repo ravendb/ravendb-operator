@@ -35,7 +35,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/internal/controller"
 	"ravendb-operator/pkg/director"
 	// +kubebuilder:scaffold:imports
@@ -49,7 +49,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(ravendbv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(ravendbv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -154,7 +154,7 @@ func main() {
 		os.Exit(1)
 	}
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&ravendbv1alpha1.RavenDBCluster{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (&ravendbv1.RavenDBCluster{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "RavenDBCluster")
 			os.Exit(1)
 		}
