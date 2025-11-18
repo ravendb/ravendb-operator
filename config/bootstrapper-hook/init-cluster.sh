@@ -16,37 +16,33 @@ function convert_pfx_to_pem_and_key() {
     openssl pkcs12 -legacy -in "$pfx" -nocerts -nodes -out "$key_out" -passin pass:
 }
 
+
+function install_deps(){
+    apt-get update -qq >/dev/null 2>&1
+    apt-get install curl sudo jq -qq >/dev/null 2>&1
+
+    cd /usr || exit
+    mkdir kubectl
+    cd kubectl || exit
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" >/dev/null 2>&1
+    sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
+}
+
+
 function register_admin_cert() {
     log "Registering Admin client certificate..."
+    local pfx_src="$CLIENT_PFX"
+    local first_tag="${TAGS%% *}"
+    local first_pod="ravendb-$(echo "$first_tag" | tr '[:upper:]' '[:lower:]')-0"
+    local ns="ravendb"
 
-    local base64_cert
-    base64_cert=$(base64 -w 0 "$CLIENT_PFX")
+    kubectl -n "$ns" exec -i "$first_pod" -- sh -c 'cat > /tmp/client.pfx && chmod 0644 /tmp/client.pfx' < "$pfx_src"
 
-    local payload
-    payload=$(jq -n \
-        --arg cert "$base64_cert" \
-        '{Name: "AdminClientCert", Certificate: $cert, SecurityClearance: "ClusterAdmin"}')
+  log "Registering client cert via rvn on first node..."
+    kubectl -n "$ns" exec -i "$first_pod" -- /usr/lib/ravendb/server/rvn admin-channel \
+    <<< 'trustClientCert client /tmp/client.pfx' >/dev/null 2>&1
 
-    local response
-    response=$(curl -s -S \
-        --cert "$SERVER_CERT_PEM" \
-        --key "$SERVER_KEY_PEM" \
-        "${CURL_CA_ARGS[@]}" \
-        -X PUT "$LEADER_URL/admin/certificates" \
-        -H "Content-Type: application/json" \
-        -d "$payload" \
-        -w "\n%{http_code}")
-
-    local http_code
-    http_code=$(echo "$response" | tail -n1)
-
-    if [[ "$http_code" =~ ^20[0-9]$ ]]; then
-        log "Admin certificate registered."
-    else
-        log "Failed to register admin cert. HTTP $http_code"
-        echo "$response" | head -n -1 
-        exit 1
-    fi
+  log "Client cert registered on the first node."
 }
 
 function join_node_to_cluster() {
@@ -121,6 +117,8 @@ fi
 
 convert_pfx_to_pem_and_key "$SERVER_PFX" "$SERVER_CERT_PEM" "$SERVER_KEY_PEM"
 convert_pfx_to_pem_and_key "$CLIENT_PFX" "$CLIENT_CERT_PEM" "$CLIENT_KEY_PEM"
+
+install_deps
 
 register_admin_cert
 
