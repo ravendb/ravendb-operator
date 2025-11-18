@@ -13,7 +13,7 @@ webhooks:
       service:
         name: {{ include "ravendb-operator.fullname" . }}-webhook-service
         namespace: {{ .Release.Namespace }}
-        path: /mutate-ravendb-ravendb-io-v1alpha1-ravendbcluster
+        path: /mutate-ravendb-ravendb-io-v1-ravendbcluster
     failurePolicy: Fail
     name: mravendbcluster.kb.io
     namespaceSelector:
@@ -26,7 +26,7 @@ webhooks:
       - apiGroups:
           - ravendb.ravendb.io
         apiVersions:
-          - v1alpha1
+          - v1
         operations:
           - CREATE
           - UPDATE
