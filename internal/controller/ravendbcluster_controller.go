@@ -24,7 +24,7 @@ import (
 	"ravendb-operator/pkg/director"
 	"ravendb-operator/pkg/upgrade"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/health"
 
 	"github.com/go-logr/logr"
@@ -143,7 +143,7 @@ type RavenDBClusterReconciler struct {
 func (r *RavenDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
-	var instance ravendbv1alpha1.RavenDBCluster
+	var instance ravendbv1.RavenDBCluster
 	if err := r.Get(ctx, req.NamespacedName, &instance); err != nil {
 		if kerrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -160,7 +160,7 @@ func (r *RavenDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	applyNode := func(node ravendbv1alpha1.RavenDBNode) error {
+	applyNode := func(node ravendbv1.RavenDBNode) error {
 		_, err := r.Director.ExecutePerNode(ctx, &instance, node, r.Client, r.Scheme)
 		return err
 	}
@@ -197,7 +197,7 @@ func (r *RavenDBClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
-func emitConditionTransitions(cluster *ravendbv1alpha1.RavenDBCluster, prevConditions []metav1.Condition, logger logr.Logger, rec record.EventRecorder) {
+func emitConditionTransitions(cluster *ravendbv1.RavenDBCluster, prevConditions []metav1.Condition, logger logr.Logger, rec record.EventRecorder) {
 
 	previousByType := make(map[string]metav1.Condition, len(prevConditions))
 	for i := 0; i < len(prevConditions); i++ {
@@ -226,21 +226,21 @@ func emitConditionTransitions(cluster *ravendbv1alpha1.RavenDBCluster, prevCondi
 }
 
 func getEventSeverity(cur metav1.Condition) string {
-	switch ravendbv1alpha1.ClusterConditionType(cur.Type) {
+	switch ravendbv1.ClusterConditionType(cur.Type) {
 
-	case ravendbv1alpha1.ConditionReady:
+	case ravendbv1.ConditionReady:
 		if cur.Status == metav1.ConditionFalse {
 			return corev1.EventTypeWarning
 		}
 		return corev1.EventTypeNormal
 
-	case ravendbv1alpha1.ConditionDegraded:
+	case ravendbv1.ConditionDegraded:
 		if cur.Status == metav1.ConditionTrue {
 			return corev1.EventTypeWarning
 		}
 		return corev1.EventTypeNormal
 
-	case ravendbv1alpha1.ConditionProgressing:
+	case ravendbv1.ConditionProgressing:
 		return corev1.EventTypeNormal
 
 	default:
@@ -261,7 +261,7 @@ func (r *RavenDBClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Upgrader.SetEmitter(upgrade.NewGateEventEmitter(r.Client, r.Recorder))
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&ravendbv1alpha1.RavenDBCluster{},
+		For(&ravendbv1.RavenDBCluster{},
 			builder.WithPredicates(predicate.GenerationChangedPredicate{}),
 		).
 		Owns(&batchv1.Job{}).

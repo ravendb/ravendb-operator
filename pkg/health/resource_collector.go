@@ -19,7 +19,7 @@ package health
 import (
 	"context"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -38,7 +38,7 @@ func NewResourceCollector() Collector {
 
 type resourceCollector struct{}
 
-func (t *resourceCollector) Collect(ctx context.Context, cli client.Client, cluster *ravendbv1alpha1.RavenDBCluster) (*ResourceFacts, error) {
+func (t *resourceCollector) Collect(ctx context.Context, cli client.Client, cluster *ravendbv1.RavenDBCluster) (*ResourceFacts, error) {
 
 	ns := cluster.Namespace
 
@@ -97,7 +97,7 @@ func (t *resourceCollector) Collect(ctx context.Context, cli client.Client, clus
 	return facts, nil
 }
 
-func collectStatefulSets(ctx context.Context, cli client.Client, ns string, cluster *ravendbv1alpha1.RavenDBCluster) ([]StatefulSetFact, map[string]struct{}, error) {
+func collectStatefulSets(ctx context.Context, cli client.Client, ns string, cluster *ravendbv1.RavenDBCluster) ([]StatefulSetFact, map[string]struct{}, error) {
 
 	var list appsv1.StatefulSetList
 	if err := cli.List(ctx, &list, client.InNamespace(ns)); err != nil {
@@ -138,7 +138,7 @@ func collectStatefulSets(ctx context.Context, cli client.Client, ns string, clus
 	return facts, owned, nil
 }
 
-func collectJobs(ctx context.Context, cli client.Client, ns string, cluster *ravendbv1alpha1.RavenDBCluster) ([]JobFact, error) {
+func collectJobs(ctx context.Context, cli client.Client, ns string, cluster *ravendbv1.RavenDBCluster) ([]JobFact, error) {
 
 	var list batchv1.JobList
 	if err := cli.List(ctx, &list, client.InNamespace(ns)); err != nil {
@@ -255,7 +255,7 @@ func collectPVCs(
 	return facts, nil
 }
 
-func collectServices(ctx context.Context, cli client.Client, ns string, cluster *ravendbv1alpha1.RavenDBCluster) ([]ServiceFact, error) {
+func collectServices(ctx context.Context, cli client.Client, ns string, cluster *ravendbv1.RavenDBCluster) ([]ServiceFact, error) {
 
 	var svcList corev1.ServiceList
 	if err := cli.List(ctx, &svcList, client.InNamespace(ns)); err != nil {
@@ -284,7 +284,7 @@ func collectServices(ctx context.Context, cli client.Client, ns string, cluster 
 	return facts, nil
 }
 
-func collectIngresses(ctx context.Context, cli client.Client, ns string, cluster *ravendbv1alpha1.RavenDBCluster) ([]IngressFact, error) {
+func collectIngresses(ctx context.Context, cli client.Client, ns string, cluster *ravendbv1.RavenDBCluster) ([]IngressFact, error) {
 
 	var ingList networkingv1.IngressList
 	if err := cli.List(ctx, &ingList, client.InNamespace(ns)); err != nil {
@@ -327,7 +327,7 @@ func collectSecrets(ctx context.Context, cli client.Client, ns string) ([]Secret
 	return facts, nil
 }
 
-func isOwnedByCluster(owners []metav1.OwnerReference, cluster *ravendbv1alpha1.RavenDBCluster) bool {
+func isOwnedByCluster(owners []metav1.OwnerReference, cluster *ravendbv1.RavenDBCluster) bool {
 	for i := 0; i < len(owners); i++ {
 		owner := owners[i]
 		if owner.Kind == "RavenDBCluster" && owner.UID == cluster.UID {

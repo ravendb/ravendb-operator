@@ -21,21 +21,21 @@ import (
 	"sort"
 	"strings"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Evaluator interface {
-	Evaluate(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, res *ResourceFacts, now metav1.Time)
+	Evaluate(ctx context.Context, cluster *ravendbv1.RavenDBCluster, res *ResourceFacts, now metav1.Time)
 }
 
 type evaluator struct{}
 
 type conditionResult struct {
 	status  metav1.ConditionStatus
-	reason  ravendbv1alpha1.ClusterConditionReason
+	reason  ravendbv1.ClusterConditionReason
 	message string
 	skip    bool
 }
@@ -44,23 +44,23 @@ func NewEvaluator() Evaluator {
 	return &evaluator{}
 }
 
-func (e *evaluator) Evaluate(_ context.Context, cluster *ravendbv1alpha1.RavenDBCluster, res *ResourceFacts, now metav1.Time) {
+func (e *evaluator) Evaluate(_ context.Context, cluster *ravendbv1.RavenDBCluster, res *ResourceFacts, now metav1.Time) {
 
-	e.apply(cluster, ravendbv1alpha1.ConditionStorageReady, e.evalStorage(cluster, res), now)
-	e.apply(cluster, ravendbv1alpha1.ConditionCertificatesReady, e.evalCertificates(cluster, res), now)
-	e.apply(cluster, ravendbv1alpha1.ConditionLicensesValid, e.evalLicense(cluster, res), now)
-	e.apply(cluster, ravendbv1alpha1.ConditionNodesHealthy, e.evalNodesHealthy(cluster, res), now)
-	e.apply(cluster, ravendbv1alpha1.ConditionExternalAccessReady, e.evalExternalAccessReady(cluster, res), now)
-	e.apply(cluster, ravendbv1alpha1.ConditionBootstrapCompleted, e.evalBootstrap(cluster, res), now)
-	e.apply(cluster, ravendbv1alpha1.ConditionProgressing, e.evalProgressingCase(cluster, res), now)
-	e.apply(cluster, ravendbv1alpha1.ConditionDegraded, e.evalDegradingCase(cluster, res), now)
+	e.apply(cluster, ravendbv1.ConditionStorageReady, e.evalStorage(cluster, res), now)
+	e.apply(cluster, ravendbv1.ConditionCertificatesReady, e.evalCertificates(cluster, res), now)
+	e.apply(cluster, ravendbv1.ConditionLicensesValid, e.evalLicense(cluster, res), now)
+	e.apply(cluster, ravendbv1.ConditionNodesHealthy, e.evalNodesHealthy(cluster, res), now)
+	e.apply(cluster, ravendbv1.ConditionExternalAccessReady, e.evalExternalAccessReady(cluster, res), now)
+	e.apply(cluster, ravendbv1.ConditionBootstrapCompleted, e.evalBootstrap(cluster, res), now)
+	e.apply(cluster, ravendbv1.ConditionProgressing, e.evalProgressingCase(cluster, res), now)
+	e.apply(cluster, ravendbv1.ConditionDegraded, e.evalDegradingCase(cluster, res), now)
 
 	cluster.SetObservedGeneration(cluster.Generation)
 	cluster.ComputeReady(now)
 	cluster.UpdatePhaseFromConditions()
 }
 
-func (e *evaluator) apply(cluster *ravendbv1alpha1.RavenDBCluster, condType ravendbv1alpha1.ClusterConditionType, r conditionResult, now metav1.Time) {
+func (e *evaluator) apply(cluster *ravendbv1.RavenDBCluster, condType ravendbv1.ClusterConditionType, r conditionResult, now metav1.Time) {
 
 	if r.skip {
 		return
@@ -74,10 +74,10 @@ func (e *evaluator) apply(cluster *ravendbv1alpha1.RavenDBCluster, condType rave
 	cluster.SetConditionFalse(condType, r.reason, r.message, now)
 }
 
-func (e *evaluator) evalStorage(cluster *ravendbv1alpha1.RavenDBCluster, res *ResourceFacts) conditionResult {
+func (e *evaluator) evalStorage(cluster *ravendbv1.RavenDBCluster, res *ResourceFacts) conditionResult {
 
 	if res == nil || len(res.PVCs) == 0 {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonPVCNotBound, message: "waiting for PVCs to be created/bound"}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonPVCNotBound, message: "waiting for PVCs to be created/bound"}
 	}
 
 	notBound := make([]string, 0, len(res.PVCs))
@@ -91,64 +91,64 @@ func (e *evaluator) evalStorage(cluster *ravendbv1alpha1.RavenDBCluster, res *Re
 	}
 
 	if len(notBound) > 0 {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonPVCNotBound, message: "PVCs not bound: " + joinNames(notBound)}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonPVCNotBound, message: "PVCs not bound: " + joinNames(notBound)}
 	}
 
-	return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonCompleted, message: "all PVCs bound"}
+	return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonCompleted, message: "all PVCs bound"}
 }
 
-func (e *evaluator) evalBootstrap(cluster *ravendbv1alpha1.RavenDBCluster, res *ResourceFacts) conditionResult {
+func (e *evaluator) evalBootstrap(cluster *ravendbv1.RavenDBCluster, res *ResourceFacts) conditionResult {
 
 	if res == nil || len(res.Jobs) == 0 {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonBootstrapJobRunning, message: "bootstrap job not observed yet"}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonBootstrapJobRunning, message: "bootstrap job not observed yet"}
 	}
 
 	for i := 0; i < len(res.Jobs); i++ {
 		if res.Jobs[i].Completed {
-			return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonCompleted, message: "bootstrap job succeeded"}
+			return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonCompleted, message: "bootstrap job succeeded"}
 		}
 	}
 
 	for i := 0; i < len(res.Jobs); i++ {
 		if res.Jobs[i].Failed > 0 {
-			return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonBootstrapFailed, message: "bootstrap job failed"}
+			return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonBootstrapFailed, message: "bootstrap job failed"}
 		}
 	}
 
-	return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonBootstrapJobRunning, message: "bootstrap job still running"}
+	return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonBootstrapJobRunning, message: "bootstrap job still running"}
 }
 
-func (e *evaluator) evalCertificates(cluster *ravendbv1alpha1.RavenDBCluster, res *ResourceFacts) conditionResult {
+func (e *evaluator) evalCertificates(cluster *ravendbv1.RavenDBCluster, res *ResourceFacts) conditionResult {
 
 	if res == nil {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonCertSecretMissing, message: "waiting for certificate secrets to be observed"}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonCertSecretMissing, message: "waiting for certificate secrets to be observed"}
 	}
 
 	expectedSecrets := getExpectedSecretNames(cluster)
 	if len(expectedSecrets) == 0 {
-		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonCompleted, message: "no certificate secrets required"}
+		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonCompleted, message: "no certificate secrets required"}
 	}
 
 	observedSecrets := getSecretNamesSet(res.Secrets)
 	missingSecrets := getMissingSecrets(cluster.Namespace, expectedSecrets, observedSecrets)
 
 	if len(missingSecrets) > 0 {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonCertSecretMissing, message: "missing certificate secrets: " + joinNames(missingSecrets)}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonCertSecretMissing, message: "missing certificate secrets: " + joinNames(missingSecrets)}
 	}
 
-	return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonCompleted, message: "all certificate secrets present"}
+	return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonCompleted, message: "all certificate secrets present"}
 }
 
-func (e *evaluator) evalNodesHealthy(cluster *ravendbv1alpha1.RavenDBCluster, res *ResourceFacts) conditionResult {
+func (e *evaluator) evalNodesHealthy(cluster *ravendbv1.RavenDBCluster, res *ResourceFacts) conditionResult {
 
 	if res == nil || len(res.Pods) == 0 {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonWaitingForPods, message: "waiting for pods to be created/scheduled"}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonWaitingForPods, message: "waiting for pods to be created/scheduled"}
 	}
 
 	pending, failed, unknown, notReady := bucketizePodsByState(res.Pods)
 
 	if len(pending) > 0 {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonWaitingForPods, message: "pods pending: " + joinNames(pending)}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonWaitingForPods, message: "pods pending: " + joinNames(pending)}
 	}
 
 	if len(failed) > 0 || len(unknown) > 0 {
@@ -163,37 +163,37 @@ func (e *evaluator) evalNodesHealthy(cluster *ravendbv1alpha1.RavenDBCluster, re
 			msg += "pods unknown: " + joinNames(unknown)
 		}
 
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonPodsNotReady, message: msg}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonPodsNotReady, message: msg}
 	}
 
 	if len(notReady) > 0 {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonPodsNotReady, message: "pods not ready: " + joinNames(notReady)}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonPodsNotReady, message: "pods not ready: " + joinNames(notReady)}
 	}
 
-	return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonCompleted, message: "all node pods ready"}
+	return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonCompleted, message: "all node pods ready"}
 }
 
-func (e *evaluator) evalLicense(cluster *ravendbv1alpha1.RavenDBCluster, res *ResourceFacts) conditionResult {
+func (e *evaluator) evalLicense(cluster *ravendbv1.RavenDBCluster, res *ResourceFacts) conditionResult {
 
 	license := cluster.Spec.LicenseSecretRef
 	if license == "" {
-		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonCompleted, message: "no license ref in spec"}
+		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonCompleted, message: "no license ref in spec"}
 	}
 
 	if res == nil {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonLicenseSecretMissing, message: "waiting for secrets to be observed"}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonLicenseSecretMissing, message: "waiting for secrets to be observed"}
 	}
 
 	for i := 0; i < len(res.Secrets); i++ {
 		if res.Secrets[i].Name == license {
-			return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonCompleted, message: "license secret present"}
+			return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonCompleted, message: "license secret present"}
 		}
 	}
 
-	return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonLicenseSecretMissing, message: "missing license secret: " + cluster.Namespace + "/" + license}
+	return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonLicenseSecretMissing, message: "missing license secret: " + cluster.Namespace + "/" + license}
 }
 
-func (e *evaluator) evalExternalAccessReady(cluster *ravendbv1alpha1.RavenDBCluster, res *ResourceFacts) conditionResult {
+func (e *evaluator) evalExternalAccessReady(cluster *ravendbv1.RavenDBCluster, res *ResourceFacts) conditionResult {
 
 	// only when external access is configured.
 	if cluster.Spec.ExternalAccessConfiguration == nil {
@@ -201,59 +201,59 @@ func (e *evaluator) evalExternalAccessReady(cluster *ravendbv1alpha1.RavenDBClus
 	}
 
 	if res == nil {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonLoadBalancerPending, message: "waiting for ingress/load balancer to be observed"}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonLoadBalancerPending, message: "waiting for ingress/load balancer to be observed"}
 	}
 
 	ingressObserved, ingressReady := getIngressesStatus(res.Ingresses)
 	if ingressReady {
-		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonCompleted, message: "ingress load balancer address allocated"}
+		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonCompleted, message: "ingress load balancer address allocated"}
 	}
 	if ingressObserved {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonIngressPendingAddress, message: "waiting for ingress load balancer address"}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonIngressPendingAddress, message: "waiting for ingress load balancer address"}
 	}
 
 	svcObserved, svcReady := getLbServicesStatus(res.Services)
 	if svcReady {
-		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonCompleted, message: "service load balancer address allocated"}
+		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonCompleted, message: "service load balancer address allocated"}
 	}
 	if svcObserved {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonLoadBalancerPending, message: "waiting for service load balancer address"}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonLoadBalancerPending, message: "waiting for service load balancer address"}
 	}
 
-	return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonLoadBalancerPending, message: "no ingress/load balancer service observed"}
+	return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonLoadBalancerPending, message: "no ingress/load balancer service observed"}
 }
 
 // Progressing=True when any of the STSs is updating or bootstrap job is active.
-func (e *evaluator) evalProgressingCase(cluster *ravendbv1alpha1.RavenDBCluster, res *ResourceFacts) conditionResult {
+func (e *evaluator) evalProgressingCase(cluster *ravendbv1.RavenDBCluster, res *ResourceFacts) conditionResult {
 	if res == nil {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonCompleted, message: "no active rollouts"}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonCompleted, message: "no active rollouts"}
 	}
 
 	for i := 0; i < len(res.StatefulSets); i++ {
 		if res.StatefulSets[i].Updating {
-			return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonStatefulSetUpdating, message: "rollout in progress"}
+			return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonStatefulSetUpdating, message: "rollout in progress"}
 		}
 	}
 
 	for i := 0; i < len(res.Jobs); i++ {
 		if res.Jobs[i].Active > 0 {
-			return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonStatefulSetUpdating, message: "rollout in progress"}
+			return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonStatefulSetUpdating, message: "rollout in progress"}
 		}
 	}
 
-	return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonCompleted, message: "no active rollouts"}
+	return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonCompleted, message: "no active rollouts"}
 }
 
 // Degraded=True when bootstrap job failed or pods have high restart counts.
-func (e *evaluator) evalDegradingCase(cluster *ravendbv1alpha1.RavenDBCluster, res *ResourceFacts) conditionResult {
+func (e *evaluator) evalDegradingCase(cluster *ravendbv1.RavenDBCluster, res *ResourceFacts) conditionResult {
 
-	if c, ok := cluster.GetCondition(ravendbv1alpha1.ConditionBootstrapCompleted); ok &&
-		c.Status == metav1.ConditionFalse && c.Reason == string(ravendbv1alpha1.ReasonBootstrapFailed) {
-		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonBootstrapFailed, message: "bootstrap job failed"}
+	if c, ok := cluster.GetCondition(ravendbv1.ConditionBootstrapCompleted); ok &&
+		c.Status == metav1.ConditionFalse && c.Reason == string(ravendbv1.ReasonBootstrapFailed) {
+		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonBootstrapFailed, message: "bootstrap job failed"}
 	}
 
 	if res == nil {
-		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonCompleted, message: "no degradation detected"}
+		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonCompleted, message: "no degradation detected"}
 	}
 
 	const restartThreshold int32 = 5
@@ -267,17 +267,17 @@ func (e *evaluator) evalDegradingCase(cluster *ravendbv1alpha1.RavenDBCluster, r
 	}
 
 	if len(offendersPods) > 0 {
-		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1alpha1.ReasonPodsNotReady, message: "high restart count: " + joinNames(offendersPods)}
+		return conditionResult{status: metav1.ConditionTrue, reason: ravendbv1.ReasonPodsNotReady, message: "high restart count: " + joinNames(offendersPods)}
 	}
 
-	return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1alpha1.ReasonCompleted, message: "no degradation detected"}
+	return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonCompleted, message: "no degradation detected"}
 }
 
-func getExpectedSecretNames(cluster *ravendbv1alpha1.RavenDBCluster) []string {
+func getExpectedSecretNames(cluster *ravendbv1.RavenDBCluster) []string {
 	secretsList := []string{}
 
 	switch cluster.Spec.Mode {
-	case ravendbv1alpha1.ModeLetsEncrypt:
+	case ravendbv1.ModeLetsEncrypt:
 
 		if cluster.Spec.ClientCertSecretRef != "" {
 			secretsList = append(secretsList, cluster.Spec.ClientCertSecretRef)
@@ -289,7 +289,7 @@ func getExpectedSecretNames(cluster *ravendbv1alpha1.RavenDBCluster) []string {
 			}
 		}
 
-	case ravendbv1alpha1.ModeNone:
+	case ravendbv1.ModeNone:
 
 		if cluster.Spec.ClientCertSecretRef != "" {
 			secretsList = append(secretsList, cluster.Spec.ClientCertSecretRef)

@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/actor"
 	"ravendb-operator/pkg/resource"
 
@@ -31,15 +31,15 @@ import (
 type Director interface {
 	ExecutePerCluster(
 		ctx context.Context,
-		cluster *ravendbv1alpha1.RavenDBCluster,
+		cluster *ravendbv1.RavenDBCluster,
 		c client.Client,
 		scheme *runtime.Scheme,
 	) (bool, error)
 
 	ExecutePerNode(
 		ctx context.Context,
-		cluster *ravendbv1alpha1.RavenDBCluster,
-		node ravendbv1alpha1.RavenDBNode,
+		cluster *ravendbv1.RavenDBCluster,
+		node ravendbv1.RavenDBNode,
 		c client.Client,
 		scheme *runtime.Scheme,
 	) (bool, error)
@@ -65,7 +65,7 @@ func NewDefaultDirector() Director {
 
 func (d *DefaultDirector) ExecutePerCluster(
 	ctx context.Context,
-	cluster *ravendbv1alpha1.RavenDBCluster,
+	cluster *ravendbv1.RavenDBCluster,
 	c client.Client,
 	scheme *runtime.Scheme,
 ) (bool, error) {
@@ -87,8 +87,8 @@ func (d *DefaultDirector) ExecutePerCluster(
 
 func (d *DefaultDirector) ExecutePerNode(
 	ctx context.Context,
-	cluster *ravendbv1alpha1.RavenDBCluster,
-	node ravendbv1alpha1.RavenDBNode,
+	cluster *ravendbv1.RavenDBCluster,
+	node ravendbv1.RavenDBNode,
 	c client.Client,
 	scheme *runtime.Scheme,
 ) (bool, error) {

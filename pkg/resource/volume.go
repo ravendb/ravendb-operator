@@ -18,7 +18,7 @@ package resource
 
 import (
 	"fmt"
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"sort"
 
 	corev1 "k8s.io/api/core/v1"
@@ -103,7 +103,7 @@ func buildVolumeMount(name string, mountPath string) corev1.VolumeMount {
 	}
 }
 
-func buildAdditionalVolumes(additionalVols []ravendbv1alpha1.AdditionalVolume) []corev1.Volume {
+func buildAdditionalVolumes(additionalVols []ravendbv1.AdditionalVolume) []corev1.Volume {
 	var volumes []corev1.Volume
 
 	for _, av := range additionalVols {

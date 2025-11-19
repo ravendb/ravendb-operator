@@ -17,7 +17,7 @@ package e2e
 
 import (
 	"context"
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	testutil "ravendb-operator/test/utils"
 	"strings"
 	"testing"
@@ -36,14 +36,14 @@ func TestStorage_S1_AllPVCsBound_E2E(t *testing.T) {
 	})
 	testutil.RegisterClusterCleanup(t, cli, key, timeout)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionStorageReady, metav1.ConditionTrue, 3*time.Minute, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionStorageReady, metav1.ConditionTrue, 3*time.Minute, 2*time.Second)
 
 	// happy path
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
-	cond, ok := testutil.GetCondition(cur, ravendbv1alpha1.ConditionStorageReady)
+	cond, ok := testutil.GetCondition(cur, ravendbv1.ConditionStorageReady)
 	require.True(t, ok)
-	require.Equal(t, string(ravendbv1alpha1.ReasonCompleted), cond.Reason)
+	require.Equal(t, string(ravendbv1.ReasonCompleted), cond.Reason)
 }
 
 func TestStorage_S2_OneOrMorePVCNotBound_E2E(t *testing.T) {
@@ -54,20 +54,20 @@ func TestStorage_S2_OneOrMorePVCNotBound_E2E(t *testing.T) {
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
 		Name:      "storage-s2-pvc-not-bound",
 		Namespace: testutil.DefaultNS,
-		Modify: func(spec *ravendbv1alpha1.RavenDBClusterSpec) {
+		Modify: func(spec *ravendbv1.RavenDBClusterSpec) {
 			spec.StorageSpec.Data.StorageClassName = &badSC
 		},
 	})
 
 	testutil.RegisterClusterCleanup(t, cli, key, timeout)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionStorageReady, metav1.ConditionFalse, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionStorageReady, metav1.ConditionFalse, timeout, 2*time.Second)
 
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
-	cond, ok := testutil.GetCondition(cur, ravendbv1alpha1.ConditionStorageReady)
+	cond, ok := testutil.GetCondition(cur, ravendbv1.ConditionStorageReady)
 	require.True(t, ok)
-	require.Equal(t, string(ravendbv1alpha1.ReasonPVCNotBound), cond.Reason)
+	require.Equal(t, string(ravendbv1.ReasonPVCNotBound), cond.Reason)
 	require.True(t, strings.Contains(cond.Message, "PVCs not bound") || strings.Contains(cond.Message, "waiting for PVCs"))
 }
 
@@ -82,12 +82,12 @@ func TestStorage_S3_NoPVCsYet_E2E(t *testing.T) {
 	testutil.RegisterClusterCleanup(t, cli, key, 3*time.Minute)
 
 	// tight timeout don't let it enough time to bound the pvc
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionStorageReady, metav1.ConditionFalse, timeout, 200*time.Millisecond)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionStorageReady, metav1.ConditionFalse, timeout, 200*time.Millisecond)
 
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
-	cond, ok := testutil.GetCondition(cur, ravendbv1alpha1.ConditionStorageReady)
+	cond, ok := testutil.GetCondition(cur, ravendbv1.ConditionStorageReady)
 	require.True(t, ok)
-	require.Equal(t, string(ravendbv1alpha1.ReasonPVCNotBound), cond.Reason)
+	require.Equal(t, string(ravendbv1.ReasonPVCNotBound), cond.Reason)
 	require.Contains(t, cond.Message, "PVCs not bound")
 }

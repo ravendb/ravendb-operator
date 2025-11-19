@@ -19,7 +19,7 @@ package upgrade
 import (
 	"context"
 	"fmt"
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
 	"strings"
 	"time"
@@ -39,7 +39,7 @@ func DefaultTiming() Timing {
 	}
 }
 
-func ReadTimingFromAnnotations(c *ravendbv1alpha1.RavenDBCluster, def Timing) Timing {
+func ReadTimingFromAnnotations(c *ravendbv1.RavenDBCluster, def Timing) Timing {
 	anns := c.GetAnnotations()
 	if anns == nil {
 		return def
@@ -58,20 +58,20 @@ func ReadTimingFromAnnotations(c *ravendbv1alpha1.RavenDBCluster, def Timing) Ti
 	return def
 }
 
-func failedStatus(tag, msg, desired string) ravendbv1alpha1.RavenDBNodeStatus {
-	return ravendbv1alpha1.RavenDBNodeStatus{
+func failedStatus(tag, msg, desired string) ravendbv1.RavenDBNodeStatus {
+	return ravendbv1.RavenDBNodeStatus{
 		Tag:                tag,
-		Status:             ravendbv1alpha1.NodeStatusFailed,
+		Status:             ravendbv1.NodeStatusFailed,
 		LastAttemptedImage: desired,
 		LastError:          msg,
 		LastAttemptTime:    timestampNow(),
 	}
 }
 
-func successStatus(tag, desired string) ravendbv1alpha1.RavenDBNodeStatus {
-	return ravendbv1alpha1.RavenDBNodeStatus{
+func successStatus(tag, desired string) ravendbv1.RavenDBNodeStatus {
+	return ravendbv1.RavenDBNodeStatus{
 		Tag:                tag,
-		Status:             ravendbv1alpha1.NodeStatusCreated,
+		Status:             ravendbv1.NodeStatusCreated,
 		LastAttemptedImage: desired,
 		LastAttemptTime:    timestampNow(),
 	}
@@ -82,7 +82,7 @@ func statefulSetName(tag string) string {
 }
 
 // toggles the per-node STS annotation so the actor switches the image
-func (u *upgrader) setUpgradeAnnotation(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster, tag, value string) error {
+func (u *upgrader) setUpgradeAnnotation(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster, tag, value string) error {
 	stsName := statefulSetName(tag)
 	var sts appsv1.StatefulSet
 
@@ -109,7 +109,7 @@ func (u *upgrader) setUpgradeAnnotation(ctx context.Context, kc client.Client, c
 	return kc.Patch(ctx, &sts, client.MergeFrom(old))
 }
 
-func (u *upgrader) hasUpgradeAnnotation(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster, tag string) (bool, error) {
+func (u *upgrader) hasUpgradeAnnotation(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster, tag string) (bool, error) {
 	var sts appsv1.StatefulSet
 	if err := kc.Get(ctx, client.ObjectKey{Namespace: c.Namespace, Name: statefulSetName(tag)}, &sts); err != nil {
 		return false, err

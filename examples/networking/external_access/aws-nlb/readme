@@ -61,7 +61,7 @@ Below is an example mapping of each RavenDB node to its NLB, subnet, AZ, and EIP
 | c        | c.example.run  | subnet-ccccccccc | us-east-1c        | 9.10.11.12   | eipalloc-zzzzzzzzzzzzzzzzz |
 
 ```yaml
-apiVersion: ravendb.ravendb.io/v1alpha1
+apiVersion: ravendb.ravendb.io/v1
 kind: RavenDBCluster
 ...
 spec:
@@ -109,7 +109,7 @@ spec:
 Full example CR location:
 
 ```bash
-examples/networking/external_access/aws-nlb/ravendb_v1alpha1_ravendbcluster_externalaccess_aws_nlb.yaml
+examples/networking/external_access/aws-nlb/ravendb_v1_ravendbcluster_externalaccess_aws_nlb.yaml
 ```
 
 Once applied, the NLBs will expose each node at its specified domain + IP address pair, ready for secure external access via HTTPS (443) and TCP (38888).

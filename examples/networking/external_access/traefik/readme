@@ -187,5 +187,5 @@ Once Traefik is installed and the TCP Ingress routes are in place, proceed to in
 Example CR location:
 
 ```bash
-examples/networking/external_access/traefik/ravendb_v1alpha1_ravendbcluster_externalaccess_traefik.yaml
+examples/networking/external_access/traefik/ravendb_v1_ravendbcluster_externalaccess_traefik.yaml
 ```

@@ -17,7 +17,7 @@ package e2e
 
 import (
 	"context"
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	testutil "ravendb-operator/test/utils"
 	"testing"
 	"time"
@@ -35,14 +35,14 @@ func TestBootstrap_B1_JobSucceeded_E2E(t *testing.T) {
 	})
 	testutil.RegisterClusterCleanup(t, cli, key, 3*time.Minute)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionBootstrapCompleted, metav1.ConditionTrue, 5*time.Minute, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionBootstrapCompleted, metav1.ConditionTrue, 5*time.Minute, 2*time.Second)
 
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
-	cond, ok := testutil.GetCondition(cur, ravendbv1alpha1.ConditionBootstrapCompleted)
+	cond, ok := testutil.GetCondition(cur, ravendbv1.ConditionBootstrapCompleted)
 	require.True(t, ok)
-	require.Equal(t, string(ravendbv1alpha1.ReasonCompleted), cond.Reason)
-	require.Equal(t, ravendbv1alpha1.PhaseRunning, cur.Status.Phase)
+	require.Equal(t, string(ravendbv1.ReasonCompleted), cond.Reason)
+	require.Equal(t, ravendbv1.PhaseRunning, cur.Status.Phase)
 
 }
 
@@ -55,12 +55,12 @@ func TestBootstrap_B2_JobRunning_E2E(t *testing.T) {
 	})
 	testutil.RegisterClusterCleanup(t, cli, key, timeout)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionBootstrapCompleted, metav1.ConditionFalse, timeout, 500*time.Millisecond)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionBootstrapCompleted, metav1.ConditionFalse, timeout, 500*time.Millisecond)
 
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
-	cond, ok := testutil.GetCondition(cur, ravendbv1alpha1.ConditionBootstrapCompleted)
+	cond, ok := testutil.GetCondition(cur, ravendbv1.ConditionBootstrapCompleted)
 	require.True(t, ok)
-	require.Equal(t, string(ravendbv1alpha1.ReasonBootstrapJobRunning), cond.Reason)
-	require.Equal(t, ravendbv1alpha1.PhaseDeploying, cur.Status.Phase)
+	require.Equal(t, string(ravendbv1.ReasonBootstrapJobRunning), cond.Reason)
+	require.Equal(t, ravendbv1.PhaseDeploying, cur.Status.Phase)
 }

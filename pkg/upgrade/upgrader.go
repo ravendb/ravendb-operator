@@ -28,18 +28,18 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
 )
 
 type Upgrader interface {
-	Run(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, kc client.Client, applyNode ApplyNodeFn) ([]ravendbv1alpha1.RavenDBNodeStatus, error)
+	Run(ctx context.Context, cluster *ravendbv1.RavenDBCluster, kc client.Client, applyNode ApplyNodeFn) ([]ravendbv1.RavenDBNodeStatus, error)
 	SetEmitter(GateEmitter)
 	SetTiming(Timing)
 }
 
 type upgrader struct {
-	buildGates func(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster) (*HealthCheckContext, error)
+	buildGates func(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster) (*HealthCheckContext, error)
 	timing     Timing
 	emit       GateEmitter
 }
@@ -53,8 +53,8 @@ const (
 	GateTimeout GateState = "timeout"
 )
 
-type ApplyNodeFn func(node ravendbv1alpha1.RavenDBNode) error
-type GateEmitter func(cluster *ravendbv1alpha1.RavenDBCluster, state GateState, phase GatePhase, kind GateKind, tag, info string)
+type ApplyNodeFn func(node ravendbv1.RavenDBNode) error
+type GateEmitter func(cluster *ravendbv1.RavenDBCluster, state GateState, phase GatePhase, kind GateKind, tag, info string)
 
 func (u *upgrader) SetEmitter(e GateEmitter) { u.emit = e }
 func normalizeTag(t string) string           { return strings.ToUpper(strings.TrimSpace(t)) }
@@ -82,7 +82,7 @@ func NewUpgrader(t Timing) Upgrader {
 	}
 }
 
-func buildGatesDefault(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster) (*HealthCheckContext, error) {
+func buildGatesDefault(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster) (*HealthCheckContext, error) {
 	httpc, err := BuildHTTPSClientFromCluster(ctx, kc, c)
 	if err != nil {
 		return nil, err
@@ -101,10 +101,10 @@ func buildGatesDefault(ctx context.Context, kc client.Client, c *ravendbv1alpha1
 //  4. Return statuses for all nodes.
 func (u *upgrader) Run(
 	ctx context.Context,
-	cluster *ravendbv1alpha1.RavenDBCluster,
+	cluster *ravendbv1.RavenDBCluster,
 	kc client.Client,
 	applyNode ApplyNodeFn,
-) ([]ravendbv1alpha1.RavenDBNodeStatus, error) {
+) ([]ravendbv1.RavenDBNodeStatus, error) {
 
 	// 1) build gates (HTTP client to cluster for checks)
 	gates, err := u.buildGates(ctx, kc, cluster)
@@ -119,7 +119,7 @@ func (u *upgrader) Run(
 	selectedTag, err := u.pickSelectedTag(ctx, kc, cluster, desiredImg)
 	if err != nil {
 		// on error, fall back to returning current statuses
-		out := make([]ravendbv1alpha1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
+		out := make([]ravendbv1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
 		for _, n := range cluster.Spec.Nodes {
 			out = append(out, statusOrCreated(prev, n.Tag))
 		}
@@ -128,7 +128,7 @@ func (u *upgrader) Run(
 
 	// if nothing to do, just return existing statuses
 	if selectedTag == "" {
-		out := make([]ravendbv1alpha1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
+		out := make([]ravendbv1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
 		for _, n := range cluster.Spec.Nodes {
 			out = append(out, statusOrCreated(prev, n.Tag))
 		}
@@ -136,7 +136,7 @@ func (u *upgrader) Run(
 	}
 
 	// 3) iterate all nodes - only mutate the chosen one, keep the rest unchanged
-	statuses := make([]ravendbv1alpha1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
+	statuses := make([]ravendbv1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
 
 	for _, node := range cluster.Spec.Nodes {
 		// untouched nodes
@@ -149,7 +149,7 @@ func (u *upgrader) Run(
 		sts, stsExists, getErr := u.loadSTSByNodeTag(ctx, kc, cluster, node.Tag)
 		if getErr != nil {
 			// mark upgrade as failed
-			statuses = append(statuses, ravendbv1alpha1.RavenDBNodeStatus{Tag: node.Tag, Status: ravendbv1alpha1.NodeStatusFailed})
+			statuses = append(statuses, ravendbv1.RavenDBNodeStatus{Tag: node.Tag, Status: ravendbv1.NodeStatusFailed})
 			return statuses, getErr
 		}
 
@@ -207,11 +207,11 @@ func (u *upgrader) Run(
 	}
 
 	// 4) keep order like Spec.Nodes
-	byUpper := make(map[string]ravendbv1alpha1.RavenDBNodeStatus, len(statuses))
+	byUpper := make(map[string]ravendbv1.RavenDBNodeStatus, len(statuses))
 	for _, s := range statuses {
 		byUpper[normalizeTag(s.Tag)] = s
 	}
-	ordered := make([]ravendbv1alpha1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
+	ordered := make([]ravendbv1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
 	for _, n := range cluster.Spec.Nodes {
 		ordered = append(ordered, byUpper[normalizeTag(n.Tag)])
 	}
@@ -220,7 +220,7 @@ func (u *upgrader) Run(
 
 // looks for a node which StatefulSet has the "upgrade image" annotation.
 // if found, we return that tag to continue the in-progress upgrade.
-func (u *upgrader) findInFlightTag(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster) (string, error) {
+func (u *upgrader) findInFlightTag(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster) (string, error) {
 	for _, n := range c.Spec.Nodes {
 		var sts appsv1.StatefulSet
 		err := kc.Get(ctx, client.ObjectKey{Namespace: c.Namespace, Name: statefulSetName(n.Tag)}, &sts)
@@ -235,7 +235,7 @@ func (u *upgrader) findInFlightTag(ctx context.Context, kc client.Client, c *rav
 	return "", nil
 }
 
-func (u *upgrader) preNode(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, hcc *HealthCheckContext, tag string) error {
+func (u *upgrader) preNode(ctx context.Context, c *ravendbv1.RavenDBCluster, hcc *HealthCheckContext, tag string) error {
 	if err := u.waitNodeAlive(ctx, c, hcc, GatePreStep, tag); err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func (u *upgrader) preNode(ctx context.Context, c *ravendbv1alpha1.RavenDBCluste
 }
 
 // postNode runs checks AFTER we mutate the node (alive, connectivity, DBs full cluster).
-func (u *upgrader) postNode(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, hcc *HealthCheckContext, tag string) error {
+func (u *upgrader) postNode(ctx context.Context, c *ravendbv1.RavenDBCluster, hcc *HealthCheckContext, tag string) error {
 	if err := u.waitNodeAlive(ctx, c, hcc, GatePostStep, tag); err != nil {
 		return err
 	}
@@ -270,7 +270,7 @@ func (u *upgrader) postNode(ctx context.Context, c *ravendbv1alpha1.RavenDBClust
 	return nil
 }
 
-func desiredNodeImage(c *ravendbv1alpha1.RavenDBCluster) string {
+func desiredNodeImage(c *ravendbv1.RavenDBCluster) string {
 	return c.Spec.Image
 }
 
@@ -282,8 +282,8 @@ func currentStsImage(sts *appsv1.StatefulSet) string {
 }
 
 // builds map "tag":: last known status so we keep untouched nodes as is
-func buildPrevStatusMap(st ravendbv1alpha1.RavenDBClusterStatus) map[string]ravendbv1alpha1.RavenDBNodeStatus {
-	out := make(map[string]ravendbv1alpha1.RavenDBNodeStatus, len(st.Nodes))
+func buildPrevStatusMap(st ravendbv1.RavenDBClusterStatus) map[string]ravendbv1.RavenDBNodeStatus {
+	out := make(map[string]ravendbv1.RavenDBNodeStatus, len(st.Nodes))
 	for _, s := range st.Nodes {
 		out[normalizeTag(s.Tag)] = s
 	}
@@ -304,14 +304,14 @@ func isUpgrading(stsExists bool, desiredImg, currentImg string, marked bool) boo
 }
 
 // returns either previous status or default Created
-func statusOrCreated(prev map[string]ravendbv1alpha1.RavenDBNodeStatus, nodeTag string) ravendbv1alpha1.RavenDBNodeStatus {
+func statusOrCreated(prev map[string]ravendbv1.RavenDBNodeStatus, nodeTag string) ravendbv1.RavenDBNodeStatus {
 	if prestatus, ok := prev[normalizeTag(nodeTag)]; ok {
 		return prestatus
 	}
-	return ravendbv1alpha1.RavenDBNodeStatus{Tag: nodeTag, Status: ravendbv1alpha1.NodeStatusCreated}
+	return ravendbv1.RavenDBNodeStatus{Tag: nodeTag, Status: ravendbv1.NodeStatusCreated}
 }
 
-func (u *upgrader) pickSelectedTag(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster, desiredImg string) (string, error) {
+func (u *upgrader) pickSelectedTag(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster, desiredImg string) (string, error) {
 	// first we will try find those in the middle of an upgrade
 	if t, _ := u.findInFlightTag(ctx, kc, c); strings.TrimSpace(t) != "" {
 		return normalizeTag(t), nil
@@ -341,7 +341,7 @@ func (u *upgrader) pickSelectedTag(ctx context.Context, kc client.Client, c *rav
 	return "", nil
 }
 
-func (u *upgrader) loadSTSByNodeTag(ctx context.Context, kc client.Client, c *ravendbv1alpha1.RavenDBCluster, tag string) (*appsv1.StatefulSet, bool, error) {
+func (u *upgrader) loadSTSByNodeTag(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster, tag string) (*appsv1.StatefulSet, bool, error) {
 	var sts appsv1.StatefulSet
 	err := kc.Get(ctx, client.ObjectKey{Namespace: c.Namespace, Name: statefulSetName(tag)}, &sts)
 	if err != nil {
@@ -355,7 +355,7 @@ func (u *upgrader) loadSTSByNodeTag(ctx context.Context, kc client.Client, c *ra
 
 func NewGateEventEmitter(kc client.Client, rec record.EventRecorder) GateEmitter {
 	return func(
-		c *ravendbv1alpha1.RavenDBCluster,
+		c *ravendbv1.RavenDBCluster,
 		state GateState,
 		phase GatePhase,
 		kind GateKind,

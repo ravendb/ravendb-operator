@@ -14,7 +14,7 @@ spec:
     singular: ravendbcluster
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - name: v1
     schema:
       openAPIV3Schema:
         properties:

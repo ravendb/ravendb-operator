@@ -223,7 +223,7 @@ This approach offloads all the cumbersome work of certificate management—gener
 Avoid using self-signed certificates **unless you have a clear operational need and understand the implications**. Self-signed setups require manual DNS handling, trust distribution, renewal processes, and careful certificate crafting (e.g., wildcard SANs, CA trust setup). Misconfigurations can easily lead to cluster communication failures or insecure deployments.
 
 You can find full examples of complete RavenDBCluster custom resources for both modes under the `examples` directory:
-- `examples/tls/letsencrypt/ravendb_v1alpha1_ravendbcluster_letsencrypt.yaml`
-- `examples/tls/selfsigned/ravendb_v1alpha1_ravendbcluster_selfsigned.yaml`
+- `examples/tls/letsencrypt/ravendb_v1_ravendbcluster_letsencrypt.yaml`
+- `examples/tls/selfsigned/ravendb_v1_ravendbcluster_selfsigned.yaml`
 
 Questions? For more information, visit the [RavenDB Security Documentation](https://ravendb.net/docs/article-page/7.0/csharp/server/security/overview).

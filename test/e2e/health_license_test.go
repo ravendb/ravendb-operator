@@ -23,7 +23,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	testutil "ravendb-operator/test/utils"
 
 	"github.com/stretchr/testify/require"
@@ -39,13 +39,13 @@ func TestLicense_L1_Present_E2E(t *testing.T) {
 	})
 	testutil.RegisterClusterCleanup(t, cli, key, timeout)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionLicensesValid, metav1.ConditionTrue, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionLicensesValid, metav1.ConditionTrue, timeout, 2*time.Second)
 
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
-	cond, ok := testutil.GetCondition(cur, ravendbv1alpha1.ConditionLicensesValid)
+	cond, ok := testutil.GetCondition(cur, ravendbv1.ConditionLicensesValid)
 	require.True(t, ok)
-	require.Equal(t, string(ravendbv1alpha1.ReasonCompleted), cond.Reason)
+	require.Equal(t, string(ravendbv1.ReasonCompleted), cond.Reason)
 	require.Contains(t, cond.Message, "license secret present")
 }
 
@@ -58,17 +58,17 @@ func TestLicense_L2_DeletedAfterCreate_E2E(t *testing.T) {
 	})
 	testutil.RegisterClusterCleanup(t, cli, key, timeout)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionLicensesValid, metav1.ConditionTrue, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionLicensesValid, metav1.ConditionTrue, timeout, 2*time.Second)
 
 	require.NoError(t, cli.Delete(context.Background(), &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "ravendb-license", Namespace: key.Namespace}}))
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionLicensesValid, metav1.ConditionFalse, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionLicensesValid, metav1.ConditionFalse, timeout, 2*time.Second)
 
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
-	cond, ok := testutil.GetCondition(cur, ravendbv1alpha1.ConditionLicensesValid)
+	cond, ok := testutil.GetCondition(cur, ravendbv1.ConditionLicensesValid)
 	require.True(t, ok)
-	require.Equal(t, string(ravendbv1alpha1.ReasonLicenseSecretMissing), cond.Reason)
+	require.Equal(t, string(ravendbv1.ReasonLicenseSecretMissing), cond.Reason)
 	require.Contains(t, cond.Message, "missing license secret:")
 
 }

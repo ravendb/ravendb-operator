@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -35,11 +35,11 @@ func NewStatefulSetBuilder() PerNodeBuilder {
 	return &StatefulSetBuilder{}
 }
 
-func (b *StatefulSetBuilder) Build(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) (client.Object, error) {
+func (b *StatefulSetBuilder) Build(ctx context.Context, cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) (client.Object, error) {
 	return BuildStatefulSet(cluster, node)
 }
 
-func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) (*appsv1.StatefulSet, error) {
+func BuildStatefulSet(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) (*appsv1.StatefulSet, error) {
 	stsName := fmt.Sprintf("%s%s", common.Prefix, node.Tag)
 
 	replicas := int32(common.NumOfReplicas)
@@ -97,7 +97,7 @@ func BuildStatefulSet(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alp
 	return sts, nil
 }
 
-func buildContainers(image string, env []corev1.EnvVar, ports []corev1.ContainerPort, mounts []corev1.VolumeMount, ipp corev1.PullPolicy, cluster *ravendbv1alpha1.RavenDBCluster) []corev1.Container {
+func buildContainers(image string, env []corev1.EnvVar, ports []corev1.ContainerPort, mounts []corev1.VolumeMount, ipp corev1.PullPolicy, cluster *ravendbv1.RavenDBCluster) []corev1.Container {
 	rdbContainer := BuildRavenDBContainer(image, env, ports, mounts, ipp)
 
 	// TODO: might use sidecars later
@@ -110,19 +110,19 @@ func buildContainers(image string, env []corev1.EnvVar, ports []corev1.Container
 }
 
 // will use init containers in the upcoming bootstrapper issue
-// func buildInitContainers(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.Container {
+// func buildInitContainers(cluster *ravendbv1.RavenDBCluster) []corev1.Container {
 // 	var initContainers []corev1.Container
 // 	//	initContainers = append(initContainers, )
 
 // 	return initContainers
 // }
 
-func buildStatefulsetSelector(node ravendbv1alpha1.RavenDBNode) map[string]string {
+func buildStatefulsetSelector(node ravendbv1.RavenDBNode) map[string]string {
 	return map[string]string{
 		common.LabelNodeTag: node.Tag}
 }
 
-func buildStatefulsetLabels(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) map[string]string {
+func buildStatefulsetLabels(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) map[string]string {
 	return map[string]string{
 		common.LabelAppName:   common.App,
 		common.LabelManagedBy: common.Manager,
@@ -137,13 +137,13 @@ func buildStatefulsetAnnotations() map[string]string {
 	}
 }
 
-func buildEnvVars(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) ([]corev1.EnvVar, error) {
+func buildEnvVars(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) ([]corev1.EnvVar, error) {
 	env := common.BuildCommonEnvVars(cluster, node)
 
 	switch cluster.Spec.Mode {
-	case ravendbv1alpha1.ModeLetsEncrypt:
+	case ravendbv1.ModeLetsEncrypt:
 		env = append(env, common.BuildSecureLetsEncryptEnvVars(cluster)...)
-	case ravendbv1alpha1.ModeNone:
+	case ravendbv1.ModeNone:
 		env = append(env, common.BuildSecureEnvVars(cluster)...)
 	}
 
@@ -159,17 +159,17 @@ func buildPorts() []corev1.ContainerPort {
 	}
 }
 
-func buildVolumes(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.RavenDBNode) []corev1.Volume {
+func buildVolumes(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) []corev1.Volume {
 
 	var volumes []corev1.Volume
 	var certSecret *string
 
 	switch cluster.Spec.Mode {
-	case ravendbv1alpha1.ModeLetsEncrypt:
+	case ravendbv1.ModeLetsEncrypt:
 		if node.CertSecretRef != nil {
 			certSecret = node.CertSecretRef
 		}
-	case ravendbv1alpha1.ModeNone:
+	case ravendbv1.ModeNone:
 		if cluster.Spec.ClusterCertSecretRef != nil {
 			certSecret = cluster.Spec.ClusterCertSecretRef
 		}
@@ -206,7 +206,7 @@ func buildVolumes(cluster *ravendbv1alpha1.RavenDBCluster, node ravendbv1alpha1.
 	return volumes
 }
 
-func buildVolumeMounts(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.VolumeMount {
+func buildVolumeMounts(cluster *ravendbv1.RavenDBCluster) []corev1.VolumeMount {
 	vMounts := []corev1.VolumeMount{
 		buildVolumeMount(common.DataVolumeName, common.DataMountPath),
 		buildVolumeMount(common.CertVolumeName, common.CertMountPath),
@@ -257,7 +257,7 @@ func buildVolumeMounts(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.VolumeM
 	return vMounts
 }
 
-func BuildPVCs(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.PersistentVolumeClaim {
+func BuildPVCs(cluster *ravendbv1.RavenDBCluster) []corev1.PersistentVolumeClaim {
 	var pvcs []corev1.PersistentVolumeClaim
 
 	data := cluster.Spec.StorageSpec.Data
@@ -295,9 +295,9 @@ func BuildPVCs(cluster *ravendbv1alpha1.RavenDBCluster) []corev1.PersistentVolum
 	return pvcs
 }
 
-func buildAWSNodeAffinity(cluster *ravendbv1alpha1.RavenDBCluster, tag string) *corev1.Affinity {
+func buildAWSNodeAffinity(cluster *ravendbv1.RavenDBCluster, tag string) *corev1.Affinity {
 	if cluster.Spec.ExternalAccessConfiguration == nil ||
-		cluster.Spec.ExternalAccessConfiguration.Type != ravendbv1alpha1.ExternalAccessTypeAWS ||
+		cluster.Spec.ExternalAccessConfiguration.Type != ravendbv1.ExternalAccessTypeAWS ||
 		cluster.Spec.ExternalAccessConfiguration.AWSExternalAccess == nil {
 		return nil
 	}

@@ -10,14 +10,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: ravendb-operator-system
-      path: /validate-ravendb-ravendb-io-v1alpha1-ravendbcluster
+      path: /validate-ravendb-ravendb-io-v1-ravendbcluster
   failurePolicy: Fail
   name: vravendbcluster.kb.io
   rules:
   - apiGroups:
     - ravendb.ravendb.io
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE
@@ -38,14 +38,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: ravendb-operator-system
-      path: /mutate-ravendb-ravendb-io-v1alpha1-ravendbcluster
+      path: /mutate-ravendb-ravendb-io-v1-ravendbcluster
   failurePolicy: Fail
   name: mravendbcluster.kb.io
   rules:
   - apiGroups:
     - ravendb.ravendb.io
     apiVersions:
-    - v1alpha1
+    - v1
     operations:
     - CREATE
     - UPDATE

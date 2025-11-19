@@ -58,5 +58,5 @@ Once HAProxy is installed and the LoadBalancer is ready, proceed to install the 
 Example CR location:
 
 ```bash
-examples/networking/external_access/haproxy/ravendb_v1alpha1_ravendbcluster_externalaccess_haproxy.yaml
+examples/networking/external_access/haproxy/ravendb_v1_ravendbcluster_externalaccess_haproxy.yaml
 ```

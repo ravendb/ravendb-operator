@@ -18,7 +18,7 @@ package e2e
 
 import (
 	"context"
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	testutil "ravendb-operator/test/utils"
 	"testing"
 	"time"
@@ -37,13 +37,13 @@ func TestNodes_N1_AllPodsHealthy_E2E(t *testing.T) {
 	})
 	testutil.RegisterClusterCleanup(t, cli, key, timeout)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionNodesHealthy, metav1.ConditionTrue, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionNodesHealthy, metav1.ConditionTrue, timeout, 2*time.Second)
 
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
-	cond, ok := testutil.GetCondition(cur, ravendbv1alpha1.ConditionNodesHealthy)
+	cond, ok := testutil.GetCondition(cur, ravendbv1.ConditionNodesHealthy)
 	require.True(t, ok)
-	require.Equal(t, string(ravendbv1alpha1.ReasonCompleted), cond.Reason)
+	require.Equal(t, string(ravendbv1.ReasonCompleted), cond.Reason)
 }
 
 func TestNodes_N2_PodPending_E2E(t *testing.T) {
@@ -60,12 +60,12 @@ func TestNodes_N2_PodPending_E2E(t *testing.T) {
 	pod.Status.Phase = corev1.PodPending
 	require.NoError(t, cli.Status().Update(context.Background(), pod))
 
-	testutil.WaitCondition(t, cli, key, ravendbv1alpha1.ConditionNodesHealthy, metav1.ConditionFalse, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionNodesHealthy, metav1.ConditionFalse, timeout, 2*time.Second)
 
-	cur := &ravendbv1alpha1.RavenDBCluster{}
+	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
-	cond, _ := testutil.GetCondition(cur, ravendbv1alpha1.ConditionNodesHealthy)
-	require.Equal(t, string(ravendbv1alpha1.ReasonWaitingForPods), cond.Reason)
+	cond, _ := testutil.GetCondition(cur, ravendbv1.ConditionNodesHealthy)
+	require.Equal(t, string(ravendbv1.ReasonWaitingForPods), cond.Reason)
 	require.Contains(t, cond.Message, "pods pending:")
 
 }

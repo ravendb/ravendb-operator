@@ -19,7 +19,7 @@ package upgrade
 import (
 	"context"
 	"fmt"
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,19 +36,19 @@ type Timing struct {
 func (u *upgrader) SetTiming(t Timing) { u.timing = t }
 func timestampNow() metav1.Time        { return metav1.Now() }
 
-func (u *upgrader) waitNodeAlive(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, tag string) error {
+func (u *upgrader) waitNodeAlive(ctx context.Context, c *ravendbv1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, tag string) error {
 	return u.wait(ctx, c, phase, GateNodeAlive, tag, u.timing.PingInterval, func() (bool, string, error) {
 		return hcc.NodeAlive(ctx, tag)
 	})
 }
 
-func (u *upgrader) waitConnectivity(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, tag string) error {
+func (u *upgrader) waitConnectivity(ctx context.Context, c *ravendbv1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, tag string) error {
 	return u.wait(ctx, c, phase, GateClusterConnectivity, tag, u.timing.PingInterval, func() (bool, string, error) {
 		return hcc.ClusterConnectivity(ctx)
 	})
 }
 
-func (u *upgrader) waitDB(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, excluded string, tag string) error {
+func (u *upgrader) waitDB(ctx context.Context, c *ravendbv1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, excluded string, tag string) error {
 	return u.wait(ctx, c, phase, GateDatabasesOnline, tag, u.timing.DBInterval, func() (bool, string, error) {
 		return hcc.DatabasesOnline(ctx, excluded)
 	})
@@ -56,7 +56,7 @@ func (u *upgrader) waitDB(ctx context.Context, c *ravendbv1alpha1.RavenDBCluster
 
 func (u *upgrader) wait(
 	ctx context.Context,
-	c *ravendbv1alpha1.RavenDBCluster,
+	c *ravendbv1.RavenDBCluster,
 	phase GatePhase,
 	kind GateKind,
 	tag string,

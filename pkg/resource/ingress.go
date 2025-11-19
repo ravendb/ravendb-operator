@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
 
 	networkingv1 "k8s.io/api/networking/v1"
@@ -35,11 +35,11 @@ func NewIngressBuilder() PerClusterBuilder {
 	return &IngressBuilder{}
 }
 
-func (b *IngressBuilder) Build(ctx context.Context, cluster *ravendbv1alpha1.RavenDBCluster) (client.Object, error) {
+func (b *IngressBuilder) Build(ctx context.Context, cluster *ravendbv1.RavenDBCluster) (client.Object, error) {
 	return BuildIngress(cluster)
 }
 
-func BuildIngress(cluster *ravendbv1alpha1.RavenDBCluster) (*networkingv1.Ingress, error) {
+func BuildIngress(cluster *ravendbv1.RavenDBCluster) (*networkingv1.Ingress, error) {
 	ingressName := common.App
 
 	labels := buildIngressLabels(cluster)
@@ -66,7 +66,7 @@ func BuildIngress(cluster *ravendbv1alpha1.RavenDBCluster) (*networkingv1.Ingres
 	return ing, nil
 }
 
-func buildIngressLabels(cluster *ravendbv1alpha1.RavenDBCluster) map[string]string {
+func buildIngressLabels(cluster *ravendbv1.RavenDBCluster) map[string]string {
 	return map[string]string{
 		common.LabelAppName:   common.App,
 		common.LabelManagedBy: common.Manager,
@@ -74,7 +74,7 @@ func buildIngressLabels(cluster *ravendbv1alpha1.RavenDBCluster) map[string]stri
 	}
 }
 
-func buildIngressAnnotations(cluster *ravendbv1alpha1.RavenDBCluster) map[string]string {
+func buildIngressAnnotations(cluster *ravendbv1.RavenDBCluster) map[string]string {
 	annotations := map[string]string{
 		common.IngressSSLPassthroughAnnotation: "true",
 	}
@@ -100,7 +100,7 @@ func buildIngressAnnotations(cluster *ravendbv1alpha1.RavenDBCluster) map[string
 	return annotations
 }
 
-func buildIngressRules(cluster *ravendbv1alpha1.RavenDBCluster) []networkingv1.IngressRule {
+func buildIngressRules(cluster *ravendbv1.RavenDBCluster) []networkingv1.IngressRule {
 	var rules []networkingv1.IngressRule
 
 	for _, node := range cluster.Spec.Nodes {

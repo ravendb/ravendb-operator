@@ -1,0 +1,51 @@
+apiVersion: ravendb.ravendb.io/v1
+kind: RavenDBCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ravendbcluster-sample
+  namespace: ravendb
+spec:
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.domain.development.run:443
+      publicServerUrlTcp: tcp://a-tcp.domain.development.run:443
+      certSecretRef: ravendb-certs-a
+    - tag: b
+      publicServerUrl: https://b.domain.development.run:443
+      publicServerUrlTcp: tcp://b-tcp.domain.development.run:443
+      certSecretRef: ravendb-certs-b
+    - tag: c
+      publicServerUrl: https://c.domain.development.run:443
+      publicServerUrlTcp: tcp://c-tcp.domain.development.run:443
+      certSecretRef: ravendb-certs-c
+
+  image: ravendb/ravendb:latest
+  imagePullPolicy: IfNotPresent
+  mode: LetsEncrypt
+  email: user@ravendb.net
+  licenseSecretRef: ravendb-license
+  domain: domain.development.run
+
+  externalAccessConfiguration:
+    type: ingress-controller
+    ingressControllerContext:
+      ingressClassName: nginx
+
+  env:
+    RAVEN_LogPath: "/ravendb/logs"
+
+  storage:
+    data:
+      size: 10Gi                     
+      storageClassName: local-path
+    logs:
+      ravendb:
+        size: 1Gi
+        storageClassName: local-path
+        path: /ravendb/logs/ravendb         # optional , custom path, must correspond to RAVEN_LogPath
+      audit:
+        size: 1Gi
+        storageClassName: local-path
+        path: /ravendb/logs/audit         # optional , custom path, must correspond to RAVEN_LogPath

@@ -19,13 +19,13 @@ package health
 import (
 	"context"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Collector interface {
-	Collect(ctx context.Context, c client.Client, cluster *ravendbv1alpha1.RavenDBCluster) (*ResourceFacts, error)
+	Collect(ctx context.Context, c client.Client, cluster *ravendbv1.RavenDBCluster) (*ResourceFacts, error)
 }
 
 type ResourceFacts struct {

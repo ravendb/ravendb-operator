@@ -3,7 +3,7 @@ package testutil
 import (
 	"testing"
 
-	ravendbv1alpha1 "ravendb-operator/api/v1alpha1"
+	ravendbv1 "ravendb-operator/api/v1"
 
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,7 +17,7 @@ func K8sClient(t *testing.T) ctrlclient.Client {
 	t.Helper()
 	s := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(s))
-	require.NoError(t, ravendbv1alpha1.AddToScheme(s))
+	require.NoError(t, ravendbv1.AddToScheme(s))
 
 	cfg := kubeRestConfig(t)
 	cli, err := ctrlclient.New(cfg, ctrlclient.Options{Scheme: s})

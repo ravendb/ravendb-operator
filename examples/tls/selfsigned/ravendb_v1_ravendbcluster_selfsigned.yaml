@@ -1,0 +1,38 @@
+apiVersion: ravendb.ravendb.io/v1
+kind: RavenDBCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ravendbcluster-sample
+  namespace: ravendb
+spec:
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.domainselfsigned.development.run:443
+      publicServerUrlTcp: tcp://a-tcp.domainselfsigned.development.run:443
+    - tag: b
+      publicServerUrl: https://b.domainselfsigned.development.run:443
+      publicServerUrlTcp: tcp://b-tcp.domainselfsigned.development.run:443
+    - tag: c
+      publicServerUrl: https://c.domainselfsigned.development.run:443
+      publicServerUrlTcp: tcp://c-tcp.domainselfsigned.development.run:443
+
+  image: ravendb/ravendb:latest
+  imagePullPolicy: IfNotPresent
+  mode: None
+  clusterCertSecretRef: ravendb-cert
+  licenseSecretRef: ravendb-license
+  domain: domainselfsigned.development.run
+  clientCertSecretRef: ravendb-client-cert
+  caCertSecretRef: ravendb-ca-cert
+
+  externalAccessConfiguration:
+    type: ingress-controller
+    ingressControllerContext:
+      ingressClassName: nginx
+
+  storage:
+      data:
+        size: 10Gi
+        storageClassName: local-path
