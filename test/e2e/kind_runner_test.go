@@ -35,8 +35,6 @@ var (
 	nginxIngressFilePath  = "test/e2e/manifests/nginx-ingress-ravendb.yaml"
 	crdBasePath           = "config/crd/bases"
 	crdDefaultPath        = "config/default"
-	certHookPath          = "config/cert-hook"
-	bootstrapperHookPath  = "config/bootstrapper-hook"
 	rbacPath              = "config/rbac"
 	dockerfileName        = "Dockerfile"
 )
@@ -85,8 +83,6 @@ func TestMain(m *testing.M) {
 		testutil.ApplyKustomize(crdDefaultPath),
 
 		envfuncs.CreateNamespace(TestNS),
-		testutil.ApplyKustomize(certHookPath),
-		testutil.ApplyKustomize(bootstrapperHookPath),
 
 		testutil.WaitForSecret(webhookCertName, operatorNS, timeout),
 		testutil.SetDeploymentImage(operatorNS, ctlMgrName, "manager", operatorImage),

@@ -29,7 +29,7 @@ import (
 )
 
 func TestNodes_N1_AllPodsHealthy_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
+	testutil.RecreateTestEnv(t, rbacPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
 		Name:      "nodes-n1-healthy",
@@ -47,7 +47,7 @@ func TestNodes_N1_AllPodsHealthy_E2E(t *testing.T) {
 }
 
 func TestNodes_N2_PodPending_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
+	testutil.RecreateTestEnv(t, rbacPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
 		Name:      "nodes-n2-pending",

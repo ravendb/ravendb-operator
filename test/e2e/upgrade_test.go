@@ -29,7 +29,7 @@ import (
 )
 
 func TestUpgrade_62_71_happy_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
+	testutil.RecreateTestEnv(t, rbacPath)
 
 	const toImage = "ravendb/ravendb:7.1.3-ubuntu.22.04-x64"
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
@@ -111,7 +111,7 @@ func TestUpgrade_62_71_happy_E2E(t *testing.T) {
 }
 
 func TestUpgrade_62_71_pre_cluster_conn_fail_on_a_bc_b_down_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
+	testutil.RecreateTestEnv(t, rbacPath)
 
 	const toImage = "ravendb/ravendb:7.1.3-ubuntu.22.04-x64"
 
@@ -164,7 +164,7 @@ func TestUpgrade_62_71_pre_cluster_conn_fail_on_a_bc_b_down_E2E(t *testing.T) {
 }
 
 func TestUpgrade_62_71_degraded_db_placement_on_a_c_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
+	testutil.RecreateTestEnv(t, rbacPath)
 
 	const (
 		toImage = "ravendb/ravendb:7.1.3-ubuntu.22.04-x64"

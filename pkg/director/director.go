@@ -55,6 +55,7 @@ func NewDefaultDirector() Director {
 		perClusterActors: []actor.PerClusterActor{
 			actor.NewIngressActor(resource.NewIngressBuilder()),
 			actor.NewBootstrapperActor(resource.NewJobBuilder()),
+			actor.NewHooksActor(),
 		},
 		perNodeActors: []actor.PerNodeActor{
 			actor.NewStatefulSetActor(resource.NewStatefulSetBuilder()),

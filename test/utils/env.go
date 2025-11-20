@@ -174,7 +174,7 @@ func RegisterClusterCleanup(t *testing.T, cli ctrlclient.Client, key ctrlclient.
 	})
 }
 
-func RecreateTestEnv(t *testing.T, rbacPath, certHookPath, bootstrapperHookPath string) {
+func RecreateTestEnv(t *testing.T, rbacPath string) {
 	t.Helper()
 
 	EnsureNamespace(t, DefaultNS, 60*time.Second)
@@ -183,8 +183,6 @@ func RecreateTestEnv(t *testing.T, rbacPath, certHookPath, bootstrapperHookPath 
 
 	SeedSecrets(t)
 
-	EnsureKustomize(t, certHookPath, 2*time.Minute)
-	EnsureKustomize(t, bootstrapperHookPath, 2*time.Minute)
 }
 
 func ObjectKeyForPod(ns, tag string) ctrlclient.ObjectKey {
