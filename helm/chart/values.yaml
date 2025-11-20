@@ -1,0 +1,21 @@
+image:
+  repository: thegoldenplatypus/ravendb-operator-multi-node # once we restructre: ravendb/ravendb-operator
+  tag: latest
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+replicaCount: 1
+
+serviceAccount:
+  create: true
+  name: "ravendb-operator-sa"
+
+ravendb:
+  namespace: ravendb
