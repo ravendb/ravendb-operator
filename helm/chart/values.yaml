@@ -1,21 +1,91 @@
-image:
-  repository: thegoldenplatypus/ravendb-operator-multi-node # once we restructre: ravendb/ravendb-operator
-  tag: latest
-  pullPolicy: IfNotPresent
+# ==============================================================================
+# RavenDB Operator (Helm) - values.yaml
+#
+# for custom namespace use `--set`/edit this file  
+# required Secrets from files should be passed via `--set-file`.
+#
+# Pick ONE mode below:
+#   - LetsEncrypt  -> needs per-node server PFX files (a/b/c/...)
+#   - None         -> "self-signed" flow: single server PFX + CA CRT
+#
+#
+# IMPORTANT:
+# - `licenseJson`, `clientPfx`, `serverPfx`, `caCrt`, and `nodePfx.` are meant
+#   to be provided via `--set-file` (not pasted into values.yaml).
+#
+# - Secrets are created in `.ravendb.namespace`.
+# ==============================================================================
 
-resources:
-  limits:
-    cpu: 500m
-    memory: 128Mi
-  requests:
-    cpu: 10m
-    memory: 64Mi
+controllerManager:
+  # Image for the operator controller.
+  image:
+    repository: thegoldenplatypus/ravendb-operator-multi-node # todo change to the real iamge once we restrucutre
+    tag: "latest" # If empty, defaults to the chart appVersion (Chart.yaml).
 
-replicaCount: 1
+  # Number of controller replicas.
+  replicaCount: 1
 
-serviceAccount:
-  create: true
-  name: "ravendb-operator-sa"
+  # Optional pod resource requests/limits for the controller.
+  # resources:
+  #   requests:
+  #     cpu: 10m
+  #     memory: 64Mi
+  #   limits:
+  #     cpu: 500m
+  #     memory: 128Mi
 
 ravendb:
+  # Set `enabled: false` if you wish to manage the namespace and the secrets yourself
+  enabled: true
+
+  # Namespace where RavenDB clusters and the ravendb-node ServiceAccount live.
   namespace: ravendb
+
+  # Choose: "LetsEncrypt" or "None"
+  mode: LetsEncrypt
+
+  # Common secrets identifiers (required in both modes)
+  licenseSecretName: ravendb-license
+  clientSecretName: ravendb-client-cert
+
+  # Mode: LetsEncrypt (per-node certs from setup package outputs)
+  #
+  # You must list the node tags you want (must match your cluster spec).
+  # For each tag, pass a server PFX file with:
+  #   --set-file ravendb.nodePfx.a=./A/cluster.server.certificate....pfx
+  #   --set-file ravendb.nodePfx.b=./B/cluster.server.certificate....pfx
+  #   --set-file ravendb.nodePfx.c=./C/cluster.server.certificate....pfx
+  #
+  # The chart will create Secrets:
+  #   <nodeCertsSecretNamePrefix>-<tag>  (e.g., ravendb-certs-a)
+  nodeTags: ["a", "b", "c"]
+  nodeCertsSecretNamePrefix: ravendb-certs
+  nodePfx: {} # populated via --set-file ravendb.nodePfx.<tag>=...
+
+  # Mode: None (self-signed)
+  #
+  # Provide ONE server PFX and ONE CA certificate:
+  #   --set-file ravendb.serverPfx=./server.pfx
+  #   --set-file ravendb.caCrt=./ca.crt
+  #
+  # The chart will create Secrets:
+  #   serverCertSecretName (server.pfx)
+  #   caSecretName         (ca.crt)
+  
+  #serverCertSecretName: ravendb-cert
+  # caSecretName: ravendb-ca-cert
+
+  # file payloads (set via --set-file)
+  licenseJson: ""
+  clientPfx: ""
+  serverPfx: "" # populated only when mode: None
+  caCrt: ""     # populated only when mode: None
+
+# Kubernetes DNS suffix for service names. Usually "cluster.local".
+kubernetesClusterDomain: cluster.local
+
+# Controls whether the chart installs the RavenDBCluster CRDs.
+# - For real installs: set to true
+# - For testing where CRDs are applied separately:  so set this to false to avoid Helm "ownership" conflicts.
+crds:
+  enabled: true

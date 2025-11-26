@@ -1,0 +1,6 @@
+{{- if .Values.ravendb.enabled }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.ravendb.namespace | quote }}
+{{- end }}

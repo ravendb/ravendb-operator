@@ -1,8 +1,0 @@
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: {{ include "ravendb-operator.fullname" . }}-selfsigned-issuer
-  labels:
-    {{- include "ravendb-operator.labels" . | nindent 4 }}
-spec:
-  selfSigned: {}

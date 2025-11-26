@@ -1,3 +1,4 @@
+{{- if .Values.crds.enabled }}
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -5,7 +6,10 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.18.0
   labels:
-  {{- include "ravendb-operator.labels" . | nindent 4 }}
+    app.kubernetes.io/name: ravendb-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
 spec:
   group: ravendb.ravendb.io
   names:
@@ -520,3 +524,4 @@ status:
     plural: ""
   conditions: []
   storedVersions: []
+{{- end }}

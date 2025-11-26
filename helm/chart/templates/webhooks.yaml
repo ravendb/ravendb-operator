@@ -1,0 +1,65 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: ravendb-operator-mutating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/ravendb-operator-serving-cert
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+webhooks:
+  - name: mravendbcluster.kb.io
+    admissionReviewVersions: ["v1"]
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /mutate-ravendb-ravendb-io-v1-ravendbcluster
+    failurePolicy: Fail
+    sideEffects: None
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - {{ .Release.Namespace }}
+    rules:
+      - apiGroups: ["ravendb.ravendb.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE","UPDATE"]
+        resources: ["ravendbclusters"]
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: ravendb-operator-validating-webhook-configuration
+  annotations:
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/ravendb-operator-serving-cert
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+webhooks:
+  - name: vravendbcluster.kb.io
+    admissionReviewVersions: ["v1"]
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: {{ .Release.Namespace }}
+        path: /validate-ravendb-ravendb-io-v1-ravendbcluster
+    failurePolicy: Fail
+    sideEffects: None
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - {{ .Release.Namespace }}
+    rules:
+      - apiGroups: ["ravendb.ravendb.io"]
+        apiVersions: ["v1"]
+        operations: ["CREATE","UPDATE"]
+        resources: ["ravendbclusters"]

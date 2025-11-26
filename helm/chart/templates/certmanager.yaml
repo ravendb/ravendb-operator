@@ -1,0 +1,23 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: ravendb-operator-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ravendb-operator-serving-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  dnsNames:
+    - webhook-service.{{ .Release.Namespace }}.svc
+    - webhook-service.{{ .Release.Namespace }}.svc.{{ default "cluster.local" .Values.kubernetesClusterDomain }}
+  issuerRef:
+    kind: Issuer
+    name: ravendb-operator-selfsigned-issuer
+  secretName: webhook-server-cert
+  privateKey:
+    rotationPolicy: Always
