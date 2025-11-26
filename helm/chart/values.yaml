@@ -72,8 +72,8 @@ ravendb:
   #   serverCertSecretName (server.pfx)
   #   caSecretName         (ca.crt)
   
-  #serverCertSecretName: ravendb-cert
-  # caSecretName: ravendb-ca-cert
+  serverCertSecretName: ravendb-cert
+  caSecretName: ravendb-ca-cert
 
   # file payloads (set via --set-file)
   licenseJson: ""

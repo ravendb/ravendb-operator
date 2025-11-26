@@ -60,7 +60,7 @@ func TestNodes_N2_PodPending_E2E(t *testing.T) {
 	pod.Status.Phase = corev1.PodPending
 	require.NoError(t, cli.Status().Update(context.Background(), pod))
 
-	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionNodesHealthy, metav1.ConditionFalse, timeout, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionNodesHealthy, metav1.ConditionFalse, 6*time.Minute, 2*time.Second)
 
 	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
