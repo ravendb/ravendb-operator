@@ -84,7 +84,6 @@ func TestMain(m *testing.M) {
 		testutil.WaitForCRDEstablished(crdName, timeout),
 
 		testutil.BuildAndLoadOperator(operatorImage, dockerfileName, testutil.RepoRoot()),
-		envfuncs.CreateNamespace(TestNS),
 	}
 
 	if installMode == "helm" {
@@ -92,6 +91,7 @@ func TestMain(m *testing.M) {
 		setup = append(setup, testutil.InstallOperatorHelm(helmRelease, operatorNS, helmChartPath, timeout))
 	} else {
 		fmt.Println("[e2e] install mode: KUSTOMIZE (ApplyKustomize)")
+		setup = append(setup, envfuncs.CreateNamespace(TestNS))
 		setup = append(setup, testutil.ApplyKustomize(crdDefaultPath))
 	}
 	setup = append(setup,
