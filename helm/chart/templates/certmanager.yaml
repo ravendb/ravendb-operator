@@ -14,7 +14,7 @@ metadata:
 spec:
   dnsNames:
     - webhook-service.{{ .Release.Namespace }}.svc
-    - webhook-service.{{ .Release.Namespace }}.svc.{{ default "cluster.local" .Values.kubernetesClusterDomain }}
+    - webhook-service.{{ .Release.Namespace }}.svc.cluster.local
   issuerRef:
     kind: Issuer
     name: ravendb-operator-selfsigned-issuer

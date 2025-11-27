@@ -1,20 +1,18 @@
-{{- $ravendbNs := .Values.ravendb.namespace | default "ravendb" }}
-
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: ravendb-node
-  namespace: {{ $ravendbNs }}
+  name: ravendb-ops-sa
+  namespace: ravendb
   labels:
-    app: ravendb-node
+    app: ravendb-ops
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: ravendb-node
-  namespace: {{ $ravendbNs }}
+  name: ravendb-ops
+  namespace: ravendb
   labels:
-    app: ravendb-node
+    app: ravendb-ops
 rules:
 - apiGroups: ["ravendb.ravendb.io"]
   resources: ["ravendbclusters"]
@@ -32,15 +30,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: ravendb-node-binding
-  namespace: {{ $ravendbNs }}
+  name: ravendb-ops-role-binding
+  namespace: ravendb
   labels:
-    app: ravendb-node
+    app: ravendb-ops
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: ravendb-node
+  name: ravendb-ops
 subjects:
 - kind: ServiceAccount
-  name: ravendb-node
-  namespace: {{ $ravendbNs }}
+  name: ravendb-ops-sa
+  namespace: ravendb

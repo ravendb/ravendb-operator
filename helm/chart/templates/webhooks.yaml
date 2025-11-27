@@ -19,12 +19,6 @@ webhooks:
         path: /mutate-ravendb-ravendb-io-v1-ravendbcluster
     failurePolicy: Fail
     sideEffects: None
-    namespaceSelector:
-      matchExpressions:
-        - key: kubernetes.io/metadata.name
-          operator: NotIn
-          values:
-            - {{ .Release.Namespace }}
     rules:
       - apiGroups: ["ravendb.ravendb.io"]
         apiVersions: ["v1"]
@@ -52,12 +46,6 @@ webhooks:
         path: /validate-ravendb-ravendb-io-v1-ravendbcluster
     failurePolicy: Fail
     sideEffects: None
-    namespaceSelector:
-      matchExpressions:
-        - key: kubernetes.io/metadata.name
-          operator: NotIn
-          values:
-            - {{ .Release.Namespace }}
     rules:
       - apiGroups: ["ravendb.ravendb.io"]
         apiVersions: ["v1"]

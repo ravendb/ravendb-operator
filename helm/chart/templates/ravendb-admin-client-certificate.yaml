@@ -1,0 +1,10 @@
+{{- if .Values.provisioning }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.provisioning.adminClientCertSecretName }}
+  namespace: ravendb
+type: Opaque
+data:
+  client.pfx: {{ .Values.provisioning.clientPfx | b64enc }}
+{{- end }}

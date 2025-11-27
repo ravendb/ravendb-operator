@@ -1,19 +1,22 @@
 # ==============================================================================
-# RavenDB Operator (Helm) - values.yaml
+# RavenDB Operator - Helm Chart Values
 #
-# for custom namespace use `--set`/edit this file  
-# required Secrets from files should be passed via `--set-file`.
+# This chart installs the RavenDB Kubernetes Operator and (optionally)
+# provisions all certificates and Secrets required for a secure RavenDB cluster.
 #
-# Pick ONE mode below:
-#   - LetsEncrypt  -> needs per-node server PFX files (a/b/c/...)
-#   - None         -> "self-signed" flow: single server PFX + CA CRT
+# Certificate inputs must be passed via `--set-file` (never pasted directly
+# into values.yaml). The provisioning flow supports two modes:
 #
+#   * LetsEncrypt - requires per-node server PFX files (one per node tag)
+#   * None        - self-signed mode: one server PFX + one CA certificate
 #
-# IMPORTANT:
-# - `licenseJson`, `clientPfx`, `serverPfx`, `caCrt`, and `nodePfx.` are meant
-#   to be provided via `--set-file` (not pasted into values.yaml).
+# File-based inputs:
+#   provisioning.licenseJson
+#   provisioning.clientPfx
+#   provisioning.serverPfx     (self-signed mode only)
+#   provisioning.caCrt         (self-signed mode only)
+#   provisioning.nodePfx.<tag> (LetsEncrypt mode)
 #
-# - Secrets are created in `.ravendb.namespace`.
 # ==============================================================================
 
 controllerManager:
@@ -34,19 +37,13 @@ controllerManager:
   #     cpu: 500m
   #     memory: 128Mi
 
-ravendb:
-  # Set `enabled: false` if you wish to manage the namespace and the secrets yourself
-  enabled: true
-
-  # Namespace where RavenDB clusters and the ravendb-node ServiceAccount live.
-  namespace: ravendb
-
+provisioning:
   # Choose: "LetsEncrypt" or "None"
   mode: LetsEncrypt
 
   # Common secrets identifiers (required in both modes)
   licenseSecretName: ravendb-license
-  clientSecretName: ravendb-client-cert
+  adminClientCertSecretName: ravendb-client-cert
 
   # Mode: LetsEncrypt (per-node certs from setup package outputs)
   #
@@ -80,9 +77,6 @@ ravendb:
   clientPfx: ""
   serverPfx: "" # populated only when mode: None
   caCrt: ""     # populated only when mode: None
-
-# Kubernetes DNS suffix for service names. Usually "cluster.local".
-kubernetesClusterDomain: cluster.local
 
 # Controls whether the chart installs the RavenDBCluster CRDs.
 # - For real installs: set to true
