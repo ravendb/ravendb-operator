@@ -77,9 +77,3 @@ provisioning:
   clientPfx: ""
   serverPfx: "" # populated only when mode: None
   caCrt: ""     # populated only when mode: None
-
-# Controls whether the chart installs the RavenDBCluster CRDs.
-# - For real installs: set to true
-# - For testing where CRDs are applied separately:  so set this to false to avoid Helm "ownership" conflicts.
-crds:
-  enabled: true

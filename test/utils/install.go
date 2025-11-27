@@ -55,7 +55,7 @@ func ApplyCRDsFromDir(dir string) env.Func {
 func InstallNodeRBAC(ns, basePath string) env.Func {
 	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
 		files := []string{
-			filepath.Join(basePath, "ravendb_node_rbac.yaml"),
+			filepath.Join(basePath, "ravendb_ops_rbac.yaml"),
 		}
 		for _, f := range files {
 			if _, err := RunKubectl(ctx, "apply", "-f", PathFromRoot(f), "-n", ns); err != nil {
@@ -222,9 +222,8 @@ func InstallOperatorHelm(release, ns, chartRelPath string, timeout time.Duration
 			"--wait",
 			"--timeout", timeout.String(),
 			"--skip-crds",
+			// disable crd creation in tests to avoid helm ownership conflicts because the test framework applies the CRDs first
 			"--set", "crds.enabled=false",
-			// test runner will create namespace + secrets itselves
-			"--set", "ravendb.enabled=false",
 		}
 		args = append(args, extra...)
 
@@ -234,4 +233,3 @@ func InstallOperatorHelm(release, ns, chartRelPath string, timeout time.Duration
 		return ctx, nil
 	}
 }
-

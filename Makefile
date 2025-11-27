@@ -192,7 +192,7 @@ deploy: manifests kustomize install-node-rbac ## Deploy controller to the K8s cl
 
 .PHONY: install-node-rbac
 install-node-rbac:
-	kubectl apply -f config/rbac/ravendb_node_rbac.yaml -n ravendb
+	kubectl apply -f config/rbac/ravendb_ops_rbac.yaml -n ravendb
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
