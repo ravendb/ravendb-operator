@@ -21,8 +21,8 @@ import (
 	"fmt"
 
 	ravendbv1 "ravendb-operator/api/v1"
-	"ravendb-operator/pkg/assets"
 	"ravendb-operator/pkg/common"
+	"ravendb-operator/pkg/scripts"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,8 +67,8 @@ func (a *HooksActor) Act(
 			},
 		},
 		Data: map[string]string{
-			common.InitClusterHookKey:               assets.InitClusterScript,
-			common.CheckNodesDiscoverabilityHookKey: assets.CheckNodesDiscoverabilityScript,
+			common.InitClusterHookKey:               scripts.InitClusterScript,
+			common.CheckNodesDiscoverabilityHookKey: scripts.CheckNodesDiscoverabilityScript,
 		},
 	}
 
@@ -95,8 +95,8 @@ func (a *HooksActor) Act(
 			},
 		},
 		Data: map[string]string{
-			common.UpdateCertHookKey: assets.UpdateCertScript,
-			common.GetCertHookKey:    assets.GetServerCertScript,
+			common.UpdateCertHookKey: scripts.UpdateCertScript,
+			common.GetCertHookKey:    scripts.GetServerCertScript,
 		},
 	}
 

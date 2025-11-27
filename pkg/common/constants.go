@@ -49,7 +49,7 @@ const (
 	CACertVolumeName           = "ravendb-ca-cert"
 	CertHookVolumeName         = "ravendb-cert-hook"
 	BootstrapperHookVolumeName = "ravendb-bootstrapper-hook"
-	RavenDbNodeServiceAccount  = "ravendb-node"
+	RavenDbNodeServiceAccount  = "ravendb-ops-sa"
 	RavenDbBootstrapperJob     = "ravendb-cluster-init"
 )
 
