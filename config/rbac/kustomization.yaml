@@ -1,5 +1,4 @@
 resources:
   - operator_rbac.yaml
   - leader_election_rbac.yaml
-  - ravendbcluster_roles.yaml
-  - ravendb_node_rbac.yaml
+  - ravendb_ops_rbac.yaml
