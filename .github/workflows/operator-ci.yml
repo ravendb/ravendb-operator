@@ -80,6 +80,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Debug script line endings
+        run: |
+          echo '--- git ls-files --eol ---'
+          git ls-files --eol pkg/scripts/*.sh || true
+
+          echo '--- file ---'
+          file pkg/scripts/*.sh || true
+
+          echo '--- sed ---'
+          sed -n '1,10l' pkg/scripts/init-cluster.sh || true
+          sed -n '1,10l' pkg/scripts/get-server-cert.sh || true
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
