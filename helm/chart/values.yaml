@@ -22,7 +22,7 @@
 controllerManager:
   # Image for the operator controller.
   image:
-    repository: thegoldenplatypus/ravendb-operator-multi-node # todo change to the real iamge once we restrucutre
+    repository: ravendb/ravendb-operator
     tag: "latest" # If empty, defaults to the chart appVersion (Chart.yaml).
 
   # Number of controller replicas.
