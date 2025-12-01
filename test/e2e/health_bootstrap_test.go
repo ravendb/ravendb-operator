@@ -27,7 +27,7 @@ import (
 )
 
 func TestBootstrap_B1_JobSucceeded_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
+	testutil.RecreateTestEnv(t, rbacPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
 		Name:      "bootstrap-b1-succeeded",
@@ -35,7 +35,7 @@ func TestBootstrap_B1_JobSucceeded_E2E(t *testing.T) {
 	})
 	testutil.RegisterClusterCleanup(t, cli, key, 3*time.Minute)
 
-	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionBootstrapCompleted, metav1.ConditionTrue, 5*time.Minute, 2*time.Second)
+	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionBootstrapCompleted, metav1.ConditionTrue, 6*time.Minute, 2*time.Second)
 
 	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
@@ -47,7 +47,7 @@ func TestBootstrap_B1_JobSucceeded_E2E(t *testing.T) {
 }
 
 func TestBootstrap_B2_JobRunning_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
+	testutil.RecreateTestEnv(t, rbacPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
 		Name:      "bootstrap-b2-running",

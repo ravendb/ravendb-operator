@@ -25,6 +25,10 @@ import (
 
 type ClusterAdapter = validator.ClusterAdapter
 
+// Default is the defaulter webhook entrypoint.
+// It calls the mutator pipeline, which currently has no registered mutators,
+// so this function is effectively a no-op. We keep the call in place so that
+// future defaults can be plugged in without changing the webhook wiring.
 func Default(cluster ClusterAdapter) error {
 	warnings, err := mutator.Run(cluster)
 	for _, w := range warnings {

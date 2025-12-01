@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"fmt"
 	"os"
 
 	"testing"
@@ -19,6 +20,9 @@ var (
 	TestNS                = "ravendb"
 	operatorNS            = "ravendb-operator-system"
 	operatorImage         = testutil.Getenv("RAVEN_OPERATOR_IMAGE", "thegoldenplatypus/ravendb-operator-multi-node:latest") //todo: change to ravendb hosted image once we restructure
+	installMode           = testutil.Getenv("RAVEN_E2E_INSTALL_MODE", "kustomize")
+	helmChartPath         = testutil.Getenv("RAVEN_E2E_HELM_CHART_PATH", "chart")
+	helmRelease           = testutil.Getenv("RAVEN_E2E_HELM_RELEASE", "ravendb-operator")
 	ctlMgrName            = "ravendb-operator-controller-manager"
 	certManagerNS         = "cert-manager"
 	controllerNS          = "controller"
@@ -35,8 +39,6 @@ var (
 	nginxIngressFilePath  = "test/e2e/manifests/nginx-ingress-ravendb.yaml"
 	crdBasePath           = "config/crd/bases"
 	crdDefaultPath        = "config/default"
-	certHookPath          = "config/cert-hook"
-	bootstrapperHookPath  = "config/bootstrapper-hook"
 	rbacPath              = "config/rbac"
 	dockerfileName        = "Dockerfile"
 )
@@ -60,7 +62,7 @@ func TestMain(m *testing.M) {
 	cfg := envconf.New()
 	testenv = env.NewWithConfig(cfg)
 
-	testenv.Setup(
+	setup := []env.Func{
 
 		envfuncs.CreateKindCluster(clusterName),
 		testutil.BindKubectlToSuiteEnv(),
@@ -82,18 +84,25 @@ func TestMain(m *testing.M) {
 		testutil.WaitForCRDEstablished(crdName, timeout),
 
 		testutil.BuildAndLoadOperator(operatorImage, dockerfileName, testutil.RepoRoot()),
-		testutil.ApplyKustomize(crdDefaultPath),
+	}
 
-		envfuncs.CreateNamespace(TestNS),
-		testutil.ApplyKustomize(certHookPath),
-		testutil.ApplyKustomize(bootstrapperHookPath),
-
+	if installMode == "helm" {
+		fmt.Println("[e2e] install mode: HELM (InstallOperatorHelm)")
+		setup = append(setup, testutil.InstallOperatorHelm(helmRelease, operatorNS, helmChartPath, timeout))
+	} else {
+		fmt.Println("[e2e] install mode: KUSTOMIZE (ApplyKustomize)")
+		setup = append(setup, envfuncs.CreateNamespace(TestNS))
+		setup = append(setup, testutil.ApplyKustomize(crdDefaultPath))
+	}
+	setup = append(setup,
 		testutil.WaitForSecret(webhookCertName, operatorNS, timeout),
 		testutil.SetDeploymentImage(operatorNS, ctlMgrName, "manager", operatorImage),
 		testutil.PatchImagePullPolicyIfNotPresent(operatorNS, ctlMgrName),
 		testutil.DumpDeploymentImage(operatorNS, ctlMgrName),
 		testutil.WaitForDeployment(ctlMgrName, operatorNS, timeout),
 	)
+
+	testenv.Setup(setup...)
 
 	testenv.Finish(
 		envfuncs.DestroyKindCluster(clusterName),

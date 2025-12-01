@@ -1,0 +1,79 @@
+# ==============================================================================
+# RavenDB Operator - Helm Chart Values
+#
+# This chart installs the RavenDB Kubernetes Operator and (optionally)
+# provisions all certificates and Secrets required for a secure RavenDB cluster.
+#
+# Certificate inputs must be passed via `--set-file` (never pasted directly
+# into values.yaml). The provisioning flow supports two modes:
+#
+#   * LetsEncrypt - requires per-node server PFX files (one per node tag)
+#   * None        - self-signed mode: one server PFX + one CA certificate
+#
+# File-based inputs:
+#   provisioning.licenseJson
+#   provisioning.clientPfx
+#   provisioning.serverPfx     (self-signed mode only)
+#   provisioning.caCrt         (self-signed mode only)
+#   provisioning.nodePfx.<tag> (LetsEncrypt mode)
+#
+# ==============================================================================
+
+controllerManager:
+  # Image for the operator controller.
+  image:
+    repository: thegoldenplatypus/ravendb-operator-multi-node # todo change to the real iamge once we restrucutre
+    tag: "latest" # If empty, defaults to the chart appVersion (Chart.yaml).
+
+  # Number of controller replicas.
+  replicaCount: 1
+
+  # Optional pod resource requests/limits for the controller.
+  # resources:
+  #   requests:
+  #     cpu: 10m
+  #     memory: 64Mi
+  #   limits:
+  #     cpu: 500m
+  #     memory: 128Mi
+
+provisioning:
+  # Choose: "LetsEncrypt" or "None"
+  mode: LetsEncrypt
+
+  # Common secrets identifiers (required in both modes)
+  licenseSecretName: ravendb-license
+  adminClientCertSecretName: ravendb-client-cert
+
+  # Mode: LetsEncrypt (per-node certs from setup package outputs)
+  #
+  # You must list the node tags you want (must match your cluster spec).
+  # For each tag, pass a server PFX file with:
+  #   --set-file ravendb.nodePfx.a=./A/cluster.server.certificate....pfx
+  #   --set-file ravendb.nodePfx.b=./B/cluster.server.certificate....pfx
+  #   --set-file ravendb.nodePfx.c=./C/cluster.server.certificate....pfx
+  #
+  # The chart will create Secrets:
+  #   <nodeCertsSecretNamePrefix>-<tag>  (e.g., ravendb-certs-a)
+  nodeTags: ["a", "b", "c"]
+  nodeCertsSecretNamePrefix: ravendb-certs
+  nodePfx: {} # populated via --set-file ravendb.nodePfx.<tag>=...
+
+  # Mode: None (self-signed)
+  #
+  # Provide ONE server PFX and ONE CA certificate:
+  #   --set-file ravendb.serverPfx=./server.pfx
+  #   --set-file ravendb.caCrt=./ca.crt
+  #
+  # The chart will create Secrets:
+  #   serverCertSecretName (server.pfx)
+  #   caSecretName         (ca.crt)
+  
+  serverCertSecretName: ravendb-cert
+  caSecretName: ravendb-ca-cert
+
+  # file payloads (set via --set-file)
+  licenseJson: ""
+  clientPfx: ""
+  serverPfx: "" # populated only when mode: None
+  caCrt: ""     # populated only when mode: None

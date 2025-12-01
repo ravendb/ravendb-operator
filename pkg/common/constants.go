@@ -29,8 +29,8 @@ const (
 	CertSourcePath                      = "ravendb/cert-source"
 	UpdateCertScriptPath                = "/ravendb/scripts/update-cert.sh"
 	GetCertScriptPath                   = "/ravendb/scripts/get-server-cert.sh"
-	InitClusterScriptPath               = "/ravendb/scripts/init-cluster.sh"                ///
-	CheckNodesDiscoverabilityScriptPath = "/ravendb/scripts/check-nodes-discoverability.sh" ///
+	InitClusterScriptPath               = "/ravendb/scripts/init-cluster.sh"
+	CheckNodesDiscoverabilityScriptPath = "/ravendb/scripts/check-nodes-discoverability.sh"
 )
 
 // identifiers
@@ -48,8 +48,8 @@ const (
 	ClientCertVolumeName       = "ravendb-client-cert"
 	CACertVolumeName           = "ravendb-ca-cert"
 	CertHookVolumeName         = "ravendb-cert-hook"
-	BootstrapperHookVolumeName = "ravendb-bootstrapper-hook" ///
-	RavenDbNodeServiceAccount  = "ravendb-node"
+	BootstrapperHookVolumeName = "ravendb-bootstrapper-hook"
+	RavenDbNodeServiceAccount  = "ravendb-ops-sa"
 	RavenDbBootstrapperJob     = "ravendb-cluster-init"
 )
 
@@ -108,7 +108,7 @@ const (
 	UpdateCertHookKey                = "update-cert.sh"
 	GetCertHookKey                   = "get-server-cert.sh"
 	CertHookConfigMap                = "ravendb-cert-hook"
-	InitClusterHookKey               = "init-cluster.sh"                ///
-	CheckNodesDiscoverabilityHookKey = "check-nodes-discoverability.sh" ///
-	BootstrapperHookConfigMap        = "ravendb-bootstrapper-hook"      ///
+	InitClusterHookKey               = "init-cluster.sh"
+	CheckNodesDiscoverabilityHookKey = "check-nodes-discoverability.sh"
+	BootstrapperHookConfigMap        = "ravendb-bootstrapper-hook"
 )

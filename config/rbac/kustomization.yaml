@@ -1,9 +1,4 @@
 resources:
-  - operator.yaml
-  - role.yaml
-  - role_binding.yaml
-  - leader_election_role.yaml
-  - leader_election_role_binding.yaml
-  - ravendbcluster_editor_role.yaml
-  - ravendbcluster_viewer_role.yaml
- 
+  - operator_rbac.yaml
+  - leader_election_rbac.yaml
+  - ravendb_ops_rbac.yaml

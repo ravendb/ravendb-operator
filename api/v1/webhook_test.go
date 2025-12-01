@@ -22,8 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"ravendb-operator/api/v1"
-	"ravendb-operator/pkg/webhook/mutator"
+	v1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/webhook/validator"
 
 	corev1 "k8s.io/api/core/v1"
@@ -183,16 +182,6 @@ func TestImageValidator(t *testing.T) {
 		newC = baseCluster("major-new")
 		newC.Spec.Image = "ravendb/ravendb:6.0.0-ubuntu.22.04-x64"
 		require.NoError(t, validator.RunUpdate(ctx, oldC, newC))
-	})
-}
-
-func TestPullPolicyMutator(t *testing.T) {
-	t.Run("keeps policy unset for specific version", func(t *testing.T) {
-		cluster := baseCluster("versioned-image")
-		cluster.Spec.Image = "ravendb/ravendb:6.0.0"
-		warnings, err := mutator.Run(cluster)
-		require.NoError(t, err)
-		require.Empty(t, warnings)
 	})
 }
 

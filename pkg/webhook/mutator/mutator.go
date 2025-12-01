@@ -25,6 +25,16 @@ import (
 
 type ClusterAdapter = adapter.ClusterAdapter
 
+// Mutator is a generic hook that can adjust a RavenDBCluster before it is
+// persisted. Implementations are registered via Register().
+//
+// We used to have a pullPolicyMutator that enforced imagePullPolicy=Always
+// for ':latest' RavenDB images. Since the validator now rejects floating
+// tags up front, that mutator became dead code and was removed.
+//
+// Today we keep the abstraction, but we do not register any mutators.
+// Run() is effectively a no-op and only exists as an extension point for
+// the future
 type Mutator interface {
 	Name() string
 	Mutate(cluster ClusterAdapter) MutationResult

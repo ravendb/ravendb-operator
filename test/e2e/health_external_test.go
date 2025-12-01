@@ -29,7 +29,7 @@ import (
 )
 
 func TestExternal_E1_IngressReady_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
+	testutil.RecreateTestEnv(t, rbacPath)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
 		Name:      "external-e1-ingress-ready",
@@ -49,7 +49,7 @@ func TestExternal_E1_IngressReady_E2E(t *testing.T) {
 }
 
 func TestExternal_E2_IngressObserved_NoAddress_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath, certHookPath, bootstrapperHookPath)
+	testutil.RecreateTestEnv(t, rbacPath)
 
 	testutil.DisableMetalLB(t)
 	t.Cleanup(func() {

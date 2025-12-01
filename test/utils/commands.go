@@ -25,6 +25,12 @@ func RunDocker(ctx context.Context, args ...string) error {
 	return cmd.Run()
 }
 
+func RunHelm(ctx context.Context, args ...string) error {
+	cmd := exec.CommandContext(ctx, "helm", args...)
+	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+	return cmd.Run()
+}
+
 func ExecInPod(ctx context.Context, ns, pod, container string, cmd ...string) (context.Context, error) {
 	args := []string{"-n", ns, "exec", pod}
 	if container != "" {

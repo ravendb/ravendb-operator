@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.1
+VERSION ?= 1.0.0
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -186,23 +186,13 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy
-deploy: deploy-cert-hook deploy-bootstrapper-hook manifests kustomize install-node-rbac ## Deploy cert-hook and controller to the K8s cluster
+deploy: manifests kustomize install-node-rbac ## Deploy controller to the K8s cluster
 	@cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	@$(KUSTOMIZE) build config/default 2>&1 | grep -vE "Warning: 'vars'|Warning: 'patchesStrategicMerge'|well-defined vars" | $(KUBECTL) apply -f -
 
-.PHONY: deploy-cert-hook
-deploy-cert-hook: kustomize
-	$(KUSTOMIZE) build config/cert-hook | $(KUBECTL) apply -f -
-
-.PHONY: deploy-bootstrapper-hook
-deploy-bootstrapper-hook: kustomize
-	$(KUSTOMIZE) build config/bootstrapper-hook | $(KUBECTL) apply -f -
-
 .PHONY: install-node-rbac
 install-node-rbac:
-	kubectl apply -f config/rbac/ravendb-node-sa.yaml -n ravendb
-	kubectl apply -f config/rbac/ravendb-node-role.yaml -n ravendb
-	kubectl apply -f config/rbac/ravendb-node-rolebinding.yaml -n ravendb
+	kubectl apply -f config/rbac/ravendb_ops_rbac.yaml -n ravendb
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
@@ -335,3 +325,4 @@ catalog-build: opm ## Build a catalog image.
 .PHONY: catalog-push
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
+

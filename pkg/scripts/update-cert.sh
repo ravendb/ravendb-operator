@@ -6,7 +6,7 @@ function update_secret {
     echo "Reading certificate from stdin..."
     read -re new_cert
     
-    # install depts
+    # install deps
     mkdir -p "$HOME/bin"
     curl -sL "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
       -o "$HOME/bin/kubectl"

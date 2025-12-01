@@ -55,9 +55,7 @@ func ApplyCRDsFromDir(dir string) env.Func {
 func InstallNodeRBAC(ns, basePath string) env.Func {
 	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
 		files := []string{
-			filepath.Join(basePath, "ravendb-node-sa.yaml"),
-			filepath.Join(basePath, "ravendb-node-role.yaml"),
-			filepath.Join(basePath, "ravendb-node-rolebinding.yaml"),
+			filepath.Join(basePath, "ravendb_ops_rbac.yaml"),
 		}
 		for _, f := range files {
 			if _, err := RunKubectl(ctx, "apply", "-f", PathFromRoot(f), "-n", ns); err != nil {
@@ -209,5 +207,29 @@ func DumpDeploymentImage(ns, deploy string) env.Func {
 		_, err := RunKubectl(ctx, "-n", ns, "get", "deploy", deploy,
 			"-o", `jsonpath={.spec.template.spec.containers[0].image}{"\n"}{.spec.template.spec.containers[0].imagePullPolicy}{"\n"}`)
 		return ctx, err
+	}
+}
+
+func InstallOperatorHelm(release, ns, chartRelPath string, timeout time.Duration) env.Func {
+	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
+		chartPath := PathFromRoot(chartRelPath)
+		extra := strings.Fields(os.Getenv("RAVEN_E2E_HELM_ARGS"))
+
+		args := []string{
+			"upgrade", "--install", release, chartPath,
+			"-n", ns,
+			"--create-namespace",
+			"--wait",
+			"--timeout", timeout.String(),
+			"--skip-crds",
+			// disable crd creation in tests to avoid helm ownership conflicts because the test framework applies the CRDs first
+			"--set", "crds.enabled=false",
+		}
+		args = append(args, extra...)
+
+		if err := RunHelm(ctx, args...); err != nil {
+			return ctx, fmt.Errorf("helm install operator: %w", err)
+		}
+		return ctx, nil
 	}
 }

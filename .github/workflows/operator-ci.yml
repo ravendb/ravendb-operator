@@ -63,7 +63,6 @@ jobs:
       - name: Run API tests (gotestsum)
         run: ~/go/bin/gotestsum --format=short-verbose ./api/v1
 
-
   e2e: 
     name: E2E (kind)
     runs-on: ubuntu-latest
@@ -102,8 +101,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-${{ env.GO_VERSION }}-
 
-      - name: Install CLI tooling (kind, kubectl, gotestsum)
+      - name: Install CLI tooling (kind, kubectl, helm, gotestsum)
         run: |
+          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
           curl -sSL -o kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
           curl -sSL -o kubectl https://dl.k8s.io/release/$(curl -sSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
           chmod +x kind && sudo mv kind /usr/local/bin/kind
@@ -159,6 +159,45 @@ jobs:
         run: |
           echo "RAVEN_OPERATOR_IMAGE=ravendb/ravendb-operator:ci-$GITHUB_SHA" >> "$GITHUB_ENV"
           echo "RAVEN_OPERATOR_IMAGE_PREBUILT=1" >> "$GITHUB_ENV"
+
+      - name: Helm chart sanity checks (lint + template)
+        env:
+          RAVEN_E2E_HELM_CHART_PATH: ./helm/chart
+          RAVEN_E2E_HELM_RELEASE: ravendb-operator
+        shell: bash
+        run: |
+          set -euo pipefail
+          common_args=(
+            --namespace ravendb-operator-system
+            --set controllerManager.image.repository=ravendb/ravendb-operator 
+            --set controllerManager.image.tag=ci-${GITHUB_SHA}
+            --set ravendb.enabled=true
+            --set ravendb.namespace=ravendb
+            --set-file ravendb.licenseJson="${E2E_LICENSE_PATH}"
+            --set-file ravendb.clientPfx="${E2E_CLIENT_PFX_PATH}"
+            --set-file ravendb.nodePfx.a="${E2E_NODE_A_PFX_PATH}"
+            --set-file ravendb.nodePfx.b="${E2E_NODE_B_PFX_PATH}"
+            --set-file ravendb.nodePfx.c="${E2E_NODE_C_PFX_PATH}"
+          )
+          
+          helm lint "${RAVEN_E2E_HELM_CHART_PATH}" "${common_args[@]}" --strict
+
+          helm template "${RAVEN_E2E_HELM_RELEASE}" "${RAVEN_E2E_HELM_CHART_PATH}" \
+          --namespace ravendb-operator-system \
+          "${common_args[@]}" \
+          > /tmp/ravendb-operator-rendered.yaml
+
+      - name: Run health bootstrap E2E tests (HELM)
+        env:
+          RAVEN_E2E_INSTALL_MODE: helm
+          RAVEN_E2E_HELM_CHART_PATH: ./helm/chart
+          RAVEN_E2E_HELM_RELEASE: ravendb-operator
+          RAVEN_E2E_LICENSE_FILE: ${{ env.E2E_LICENSE_PATH }}
+          RAVEN_E2E_CLIENT_PFX:   ${{ env.E2E_CLIENT_PFX_PATH }}
+          RAVEN_E2E_NODE_A_PFX:   ${{ env.E2E_NODE_A_PFX_PATH }}
+          RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
+          RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
+        run: go test -v -count=1 -timeout 10m ./test/e2e -run '^TestBootstrap_'
 
       - name: Run health nodes E2E tests
         env:
@@ -232,4 +271,3 @@ jobs:
           RAVEN_E2E_NODE_B_PFX:   ${{ env.E2E_NODE_B_PFX_PATH }}
           RAVEN_E2E_NODE_C_PFX:   ${{ env.E2E_NODE_C_PFX_PATH }}
         run: go test -v -count=1 -timeout 10m ./test/e2e -run TestUpgrade_62_71_degraded_db_placement_on_a_c_E2E
-

@@ -14,30 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mutator
+package scripts
 
-import (
-	"fmt"
-	"strings"
-)
+import _ "embed"
 
-type pullPolicyMutator struct{}
+//go:embed check-nodes-discoverability.sh
+var CheckNodesDiscoverabilityScript string
 
-func (m *pullPolicyMutator) Name() string {
-	return "pull-policy-mutator"
-}
+//go:embed init-cluster.sh
+var InitClusterScript string
 
-func (m *pullPolicyMutator) Mutate(c ClusterAdapter) MutationResult {
-	image := c.GetImage()
-	if strings.HasSuffix(image, ":latest") {
-		c.SetIpp("Always")
-		return MutationResult{
-			Warning: fmt.Sprintf("image %q uses ':latest' - setting imagePullPolicy to 'Always'", image),
-		}
-	}
-	return MutationResult{}
-}
+//go:embed init-cluster.sh
+var UpdateCertScript string
 
-func init() {
-	Register(&pullPolicyMutator{})
-}
+//go:embed get-server-cert.sh
+var GetServerCertScript string

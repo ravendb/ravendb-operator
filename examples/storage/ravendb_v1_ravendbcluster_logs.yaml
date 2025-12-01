@@ -3,7 +3,6 @@ kind: RavenDBCluster
 metadata:
   labels:
     app.kubernetes.io/name: ravendb-operator
-    app.kubernetes.io/managed-by: kustomize
   name: ravendbcluster-sample
   namespace: ravendb
 spec:
