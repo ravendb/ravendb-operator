@@ -16,16 +16,30 @@ limitations under the License.
 
 package scripts
 
-import _ "embed"
+import (
+	_ "embed"
+	"strings"
+)
 
 //go:embed check-nodes-discoverability.sh
-var CheckNodesDiscoverabilityScript string
+var checkNodesDiscoverabilityScriptRaw string
 
 //go:embed init-cluster.sh
-var InitClusterScript string
+var initClusterScriptRaw string
 
-//go:embed init-cluster.sh
-var UpdateCertScript string
+//go:embed update-cert.sh
+var updateCertScriptRaw string
 
 //go:embed get-server-cert.sh
-var GetServerCertScript string
+var getServerCertScriptRaw string
+
+func normalizeLF(s string) string {
+	return strings.ReplaceAll(s, "\r\n", "\n")
+}
+
+var (
+	CheckNodesDiscoverabilityScript = normalizeLF(checkNodesDiscoverabilityScriptRaw)
+	InitClusterScript               = normalizeLF(initClusterScriptRaw)
+	UpdateCertScript                = normalizeLF(updateCertScriptRaw)
+	GetServerCertScript             = normalizeLF(getServerCertScriptRaw)
+)
