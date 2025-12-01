@@ -158,6 +158,8 @@ jobs:
       - name: Set operator image env
         run: |
           echo "RAVEN_OPERATOR_IMAGE=ravendb/ravendb-operator:ci-$GITHUB_SHA" >> "$GITHUB_ENV"
+          echo "RAVEN_OPERATOR_IMAGE_REPO=ravendb/ravendb-operator" >> "$GITHUB_ENV"
+          echo "RAVEN_OPERATOR_IMAGE_TAG=ci-$GITHUB_SHA" >> "$GITHUB_ENV"
           echo "RAVEN_OPERATOR_IMAGE_PREBUILT=1" >> "$GITHUB_ENV"
 
       - name: Helm chart sanity checks (lint + template)

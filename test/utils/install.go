@@ -225,6 +225,16 @@ func InstallOperatorHelm(release, ns, chartRelPath string, timeout time.Duration
 			// disable crd creation in tests to avoid helm ownership conflicts because the test framework applies the CRDs first
 			"--set", "crds.enabled=false",
 		}
+
+		repo := os.Getenv("RAVEN_OPERATOR_IMAGE_REPO")
+		tag := os.Getenv("RAVEN_OPERATOR_IMAGE_TAG")
+		if repo != "" {
+			args = append(args, "--set", "controllerManager.image.repository="+repo)
+		}
+		if tag != "" {
+			args = append(args, "--set", "controllerManager.image.tag="+tag)
+		}
+
 		args = append(args, extra...)
 
 		if err := RunHelm(ctx, args...); err != nil {
