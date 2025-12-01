@@ -19,7 +19,7 @@ var (
 	clusterName           = "ravendb"
 	TestNS                = "ravendb"
 	operatorNS            = "ravendb-operator-system"
-	operatorImage         = testutil.Getenv("RAVEN_OPERATOR_IMAGE", "thegoldenplatypus/ravendb-operator-multi-node:latest") //todo: change to ravendb hosted image once we restructure
+	operatorImage         = testutil.Getenv("RAVEN_OPERATOR_IMAGE", "ravendb/ravendb-operator:latest")
 	installMode           = testutil.Getenv("RAVEN_E2E_INSTALL_MODE", "kustomize")
 	helmChartPath         = testutil.Getenv("RAVEN_E2E_HELM_CHART_PATH", "chart")
 	helmRelease           = testutil.Getenv("RAVEN_E2E_HELM_RELEASE", "ravendb-operator")

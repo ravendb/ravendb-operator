@@ -51,6 +51,12 @@ endif
 OPERATOR_SDK_VERSION ?= v1.38.0
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
+
+# Release image settings for DockerHub
+RELEASE_REGISTRY ?= ravendb
+RELEASE_IMAGE_NAME ?= ravendb-operator
+RELEASE_IMG_VERSION ?= $(RELEASE_REGISTRY)/$(RELEASE_IMAGE_NAME):$(VERSION)
+RELEASE_IMG_LATEST ?= $(RELEASE_REGISTRY)/$(RELEASE_IMAGE_NAME):latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.30.0
 
@@ -147,6 +153,29 @@ docker-build: ## Build docker image with the manager.
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
+
+##@ Release Image Targets
+
+.PHONY: docker-build-release
+docker-build-release: ## Build release docker image with version and latest tags.
+	@echo "Building release image with tags:"
+	@echo "  - $(RELEASE_IMG_VERSION)"
+	@echo "  - $(RELEASE_IMG_LATEST)"
+	$(CONTAINER_TOOL) build -t $(RELEASE_IMG_VERSION) -t $(RELEASE_IMG_LATEST) .
+
+.PHONY: docker-push-version
+docker-push-version: ## Push only the version-tagged release image.
+	@echo "Pushing $(RELEASE_IMG_VERSION)"
+	$(CONTAINER_TOOL) push $(RELEASE_IMG_VERSION)
+
+.PHONY: docker-push-latest
+docker-push-latest: ## Push only the latest-tagged release image.
+	@echo "Pushing $(RELEASE_IMG_LATEST)"
+	$(CONTAINER_TOOL) push $(RELEASE_IMG_LATEST)
+
+.PHONY: docker-push-release
+docker-push-release: docker-push-version docker-push-latest ## Push both version and latest tags.
+	@echo "Release images pushed successfully"
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:
