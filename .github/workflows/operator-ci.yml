@@ -77,20 +77,20 @@ jobs:
       B_PFX_B64: ${{ secrets.B_PFX_B64 }}
       C_PFX_B64: ${{ secrets.C_PFX_B64 }}
     steps:
+      - name: Validate required E2E secrets
+        shell: bash
+        run: |
+          required=(RAVEN_LICENSE ADMIN_PFX_B64 A_PFX_B64 B_PFX_B64 C_PFX_B64)
+          
+          for k in "${required[@]}"; do
+            if [ -z "${!k:-}" ]; then
+              echo "ERROR: Missing required secret: $k"
+              exit 1
+            fi
+          done
+
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Debug script line endings
-        run: |
-          echo '--- git ls-files --eol ---'
-          git ls-files --eol pkg/scripts/*.sh || true
-
-          echo '--- file ---'
-          file pkg/scripts/*.sh || true
-
-          echo '--- sed ---'
-          sed -n '1,10l' pkg/scripts/init-cluster.sh || true
-          sed -n '1,10l' pkg/scripts/get-server-cert.sh || true
 
       - name: Setup Go
         uses: actions/setup-go@v5
