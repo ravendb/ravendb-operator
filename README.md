@@ -4,9 +4,9 @@
 <tr>
 <td>
 
-The **RavenDB Kubernetes Operator** provides a fully automated way to deploy and manage secure RavenDB clusters on Kubernetes.
-It handles certificate management, bootstrapping and forming the cluster, rolling upgrades with safety gates, external access via Ingress or Load Balancers, persistent storage orchestration, node lifecycle management, and continuous health and status evaluation - all driven from a single `RavenDBCluster` custom resource.
- The operator ensures that every component stays aligned with the declared spec, enabling fully reproducible, declarative RavenDB deployments.
+The RavenDB Kubernetes Operator provides a fully automated way to deploy and manage secure RavenDB clusters on Kubernetes. 
+It handles certificate management, bootstrapping, rolling upgrades with safety gates, external access, persistent storage orchestration, node lifecycle management, and continuous health and status evaluation - all driven from a single `RavenDBCluster` custom resource.
+The operator ensures that every component stays aligned with the declared spec, enabling fully reproducible, declarative RavenDB deployments.
 
 </td>
 <td align="right" width="250">
@@ -31,7 +31,7 @@ It handles certificate management, bootstrapping and forming the cluster, rollin
 ---
 ## Prerequisites
 Before installing the RavenDB Kubernetes Operator, ensure your environment meets the following requirements:
-- A running 1.19 or higher Kubernetes cluster (such as: [EKS](https://aws.amazon.com/eks/), [AKS](http://azure.microsoft.com/en-us/products/kubernetes-service), [Kubeadm-based-clusters](https://kubernetes.io/docs/reference/setup-tools/kubeadm/), [Kind](https://kind.sigs.k8s.io/), [Minikube (1.25 or higher)](https://minikube.sigs.k8s.io/docs/))
+- A running 1.19 or higher **Kubernetes cluster** (such as: [EKS](https://aws.amazon.com/eks/), [AKS](http://azure.microsoft.com/en-us/products/kubernetes-service), [Kubeadm-based-clusters](https://kubernetes.io/docs/reference/setup-tools/kubeadm/), [Kind](https://kind.sigs.k8s.io/), [Minikube (1.25 or higher)](https://minikube.sigs.k8s.io/docs/))
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 - [Helm](https://helm.sh/docs/intro/install/)
 - [cert-manager](https://cert-manager.io/) - The RavenDB Operator uses admission webhooks, which require TLS certificates.
@@ -46,8 +46,8 @@ There are three supported installation methods:
    - Install the operator using the official chart published on ArtifactHub.
 2. **make deploy (development / local testing)**  
    - Deploys the operator using the raw manifests under `config/` 
-3. **OLM bundle installation**  - TBD
-  - For clusters running Operator Lifecycle Manager (OLM); installs the operator via its bundle.
+3. **OLM bundle installation**
+   - For clusters running Operator Lifecycle Manager (OLM); installs the operator via its bundle.
 
 
 ### 1. Install via Helm (recommended)
@@ -63,8 +63,7 @@ helm repo add ravendb-operator https://<TODO>
 helm repo update
 ```
 
-**Install the Operator**
-You can choose one of the following flows:
+**Install the Operator** by choosing one of the following flows:
 <details>
 <summary>1. Install the operator only and create all Secrets yourself with <code>kubectl</code>. </summary>
 
@@ -150,6 +149,7 @@ This command will:
 </details>
 
 
+
 ### 2. make deploy (development / local testing)
 
 This installation method is intended **only for local development**, contributing to the operator, or testing changes before building a production image.  
@@ -183,15 +183,15 @@ Once the operator reconciles this resource, it will create and manage all underl
 >Note: Feel free to shape the CRD however you need - the validation webhooks have your back, watching for misconfigurations and letting you know right away if something doesn’t look right.
 
 For a deeper dive into each aspect of the spec, see the dedicated examples and documentation:
-- **TLS modes (Let's Encrypt / Self-Signed)** [examples/tls/README.md](examples/tls/README.md)
+- **TLS modes (Let's Encrypt / Self-Signed)** [examples/tls/README.md](examples/tls/readme.md)
 - **External access options**  
-  - AWS NLB: [examples/networking/external_access/aws-nlb/README.md](examples/networking/external_access/aws-nlb/README.md)
-  - Azure LB: [examples/networking/external_access/azure-lb/README.md](examples/networking/external_access/azure-lb/README.md)
-  - HAProxy: [examples/networking/external_access/haproxy/README.md](examples/networking/external_access/haproxy/README.md)
-  - Traefik: [examples/networking/external_access/traefik/README.md](examples/networking/external_access/traefik/README.md)
-  - NGINX: [examples/networking/external_access/nginx/README.md](examples/networking/external_access/nginx/README.md)
-- **Storage options** [examples/storage/README.md](examples/storage/README.md)
-- **Cluster bootstrapping** [examples/cluster/README.md](examples/cluster/README.md)
+  - AWS NLB: [examples/networking/external_access/aws-nlb/README.md](examples/networking/external_access/aws-nlb/readme.md)
+  - Azure LB: [examples/networking/external_access/azure-lb/README.md](examples/networking/external_access/azure-lb/readme.md)
+  - HAProxy: [examples/networking/external_access/haproxy/README.md](examples/networking/external_access/haproxy/readme.md)
+  - Traefik: [examples/networking/external_access/traefik/README.md](examples/networking/external_access/traefik/readme.md)
+  - NGINX: [examples/networking/external_access/nginx/README.md](examples/networking/external_access/nginx/readme.md)
+- **Storage options** [examples/storage/README.md](examples/storage/readme.md)
+- **Cluster bootstrapping** [examples/cluster/README.md](examples/cluster/readme.md)
 
 Below is an **example** of a **Let's Encrypt–based** cluster using the **AWS-NLB** external access mode and **Perssist/Restoring Data**. 
 
