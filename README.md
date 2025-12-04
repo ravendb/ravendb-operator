@@ -24,9 +24,7 @@ The operator ensures that every component stays aligned with the declared spec, 
 - [Installation](#installation)  
 - [Custom Resource (RavenDBCluster)](#custom-resource-ravendbcluster)  
 - [Features](#features)
-- [Architecture & How the Operator Works](#architecture-&-how-the-operator-works)
-- [Continuous Integration](#continuous-integration)
-- [Contributing](#contributing)
+
 
 ---
 ## Prerequisites
@@ -49,7 +47,6 @@ There are three supported installation methods:
 3. **OLM bundle installation**
    - For clusters running Operator Lifecycle Manager (OLM); installs the operator via its bundle.
 
-<div style="border:2px solid #3A6EA5; padding:20px; border-radius:10px;">
 
 ### 1. Install via Helm (recommended)
 The Helm chart is the recommended and simplest way to deploy the RavenDB Operator.  
@@ -149,7 +146,6 @@ This command will:
 >
 </details>
 
-</div>
 
 ### 2. make deploy (development / local testing)
 
@@ -330,33 +326,3 @@ spec:
 - Supports incremental and partial reconciliations based on resource changes.
 
 
-## Architecture & How the Operator Works
-
-The RavenDB Operator is built around the Kubernetes reconciliation loop: it continuously reads the `RavenDBCluster` resource, compares the desired state to what is running, and brings the cluster into alignment. 
-It uses an Actor/Director pattern where the Director coordinates the workflow and each Actor manages a specific resource type such as StatefulSets, Services, Ingresses, or the bootstrap Job. 
-All Kubernetes objects are created or updated using server-side apply, allowing safe merging of fields and precise ownership. 
-Admission webhooks provide validation and mutation, guaranteeing that invalid specs are rejected early while defaults are applied consistently. 
-RBAC rules restrict the operator to only the namespaces and resources it manages.
-For Ravendb version updates, the operator reconciles differences and performs rolling upgrades node-by-node using strict readiness and health gates. 
-A health collector gathers the live state of Pods, PVCs, Services, Jobs, and Secrets, and an evaluator converts these facts into Conditions and Phase, emitting Kubernetes Events when changes occur. 
-The operator is deployed through a Helm chart which installs the controller manager, webhooks, RBAC, and CRDs, while development setups can use `make` to build and deploy the controller locally. 
-Overall, reconciliation, SSA, webhooks, controlled upgrades, and consistent health reporting form the core of how the operator manages RavenDB clusters.
-
-
-
-## Continuous Integration
-
-This repository uses GitHub Actions with two jobs:
-a **unit test job** that runs API type and webhook validation against `envtest`, and a full **E2E job** that builds the operator image, spins up a `kind` cluster, validates
-the Helm chart, and runs the complete end-to-end test suite (bootstrap, nodes, external access, licensing, storage, and rolling upgrades).
-Unit tests run on every push and pull request, while E2E tests run only when on specific conditions (i.e., non-fork PRs or branches within the main repo). 
-This ensures contributors get fast feedback on API/webhook changes, while full integration tests verify real cluster behavior before merging.
-
-
-## Contributing
-TBD
-
-
-<div style="border:3px solid #3A6EA5; border-radius:8px; padding:16px;">
-This is a RavenDB-blue frame test.
-</div>
