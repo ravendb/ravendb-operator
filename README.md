@@ -1,10 +1,21 @@
 # RavenDB Kubernetes Operator
 
-<img src="assets/logo.png" width="250" align="right"/>
+<table>
+<tr>
+<td>
 
 The **RavenDB Kubernetes Operator** provides a fully automated way to deploy and manage secure RavenDB clusters on Kubernetes.
 It handles certificate management, bootstrapping and forming the cluster, rolling upgrades with safety gates, external access via Ingress or Load Balancers, persistent storage orchestration, node lifecycle management, and continuous health and status evaluation - all driven from a single `RavenDBCluster` custom resource.
  The operator ensures that every component stays aligned with the declared spec, enabling fully reproducible, declarative RavenDB deployments.
+
+</td>
+<td align="right" width="250">
+
+<img src="assets/logo.png" width="250"/>
+
+</td>
+</tr>
+</table>
 
 ---
 ## Table of Contents
