@@ -49,6 +49,7 @@ There are three supported installation methods:
 3. **OLM bundle installation**
    - For clusters running Operator Lifecycle Manager (OLM); installs the operator via its bundle.
 
+<div style="border:2px solid #3A6EA5; padding:20px; border-radius:10px;">
 
 ### 1. Install via Helm (recommended)
 The Helm chart is the recommended and simplest way to deploy the RavenDB Operator.  
@@ -63,9 +64,9 @@ helm repo add ravendb-operator https://<TODO>
 helm repo update
 ```
 
-**Install the Operator** by choosing one of the following flows:
+Install the Operator by choosing one of the following flows:
 <details>
-<summary>1. Install the operator only and create all Secrets yourself with <code>kubectl</code>. </summary>
+<summary><strong>1. Install the operator only and create all Secrets yourself with <code>kubectl</code></strong>. </summary>
 
 In this flow, you are responsible for creating all required Secrets in the `ravendb` namespace:
 
@@ -93,7 +94,7 @@ helm install ravendb-operator -n ravendb-operator-system --create-namespace
 
 
 <details>
-<summary>2. Install the operator and let the chart create Secrets - <strong><code>Let's Encrypt Mode</code></strong>. </summary>
+<summary><strong>2. Install the operator and let the chart create Secrets - <code>Let's Encrypt Mode</code></strong>. </summary>
 
 In this flow, the Helm chart will install the operator and create all required Secrets in the `ravendb` namespace for you,
 using paths you provide to the setup package artifacts.
@@ -122,7 +123,7 @@ This command will:
 
 
 <details>
-<summary>3. Install the operator and let the chart create Secrets - <strong><code>Self Signed Mode</code></strong>. </summary>
+<summary><strong>3. Install the operator and let the chart create Secrets - <code>Self Signed Mode</code></strong>. </summary>
 
 In this flow, the Helm chart will install the operator and create all required Secrets in the `ravendb` namespace for you,
 using paths you provide to single server PFX, a client PFX, and the CA certificate.
@@ -148,7 +149,7 @@ This command will:
 >
 </details>
 
-
+</div>
 
 ### 2. make deploy (development / local testing)
 
@@ -354,3 +355,8 @@ This ensures contributors get fast feedback on API/webhook changes, while full i
 
 ## Contributing
 TBD
+
+
+<div style="border:3px solid #3A6EA5; border-radius:8px; padding:16px;">
+This is a RavenDB-blue frame test.
+</div>
