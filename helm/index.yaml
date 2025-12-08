@@ -1,0 +1,18 @@
+apiVersion: v1
+entries:
+  ravendb-operator:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2025-12-08T13:51:32.302791547+02:00"
+    description: RavenDB Kubernetes Operator
+    digest: 3a12259c659bc5db7514fcfea7abb821a6a8faf9747c73ca4be7d04732fce58d
+    icon: https://s3.us-west-2.amazonaws.com/static.ravendb.net/ravendb-mp-black.png
+    maintainers:
+    - name: ravendb
+      url: https://ravendb.net
+    name: ravendb-operator
+    type: application
+    urls:
+    - https://ravendb.github.io/ravendb-operator/helm/ravendb-operator-1.0.0.tgz
+    version: 1.0.0
+generated: "2025-12-08T13:51:32.294676594+02:00"
