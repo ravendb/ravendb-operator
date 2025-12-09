@@ -6,7 +6,7 @@ entries:
     created: "2025-12-08T13:51:32.302791547+02:00"
     description: RavenDB Kubernetes Operator
     digest: 3a12259c659bc5db7514fcfea7abb821a6a8faf9747c73ca4be7d04732fce58d
-    icon: https://s3.us-west-2.amazonaws.com/static.ravendb.net/ravendb-mp-black.png
+    icon: https://raw.githubusercontent.com/ravendb/ravendb-operator/refs/heads/main/assets/logo.png
     maintainers:
     - name: ravendb
       url: https://ravendb.net
