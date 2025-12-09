@@ -57,7 +57,7 @@ The Helm chart is the recommended and simplest way to deploy the RavenDB Operato
 
 **Add the Helm repository**
 ```bash
-helm repo add ravendb-operator https://<TODO>
+helm repo add ravendb-operator https://ravendb.github.io/ravendb-operator/helm
 helm repo update
 ```
 
@@ -79,7 +79,7 @@ kubectl create secret generic ravendb-certs-c --from-file=server.pfx=/path/to/no
 Once all required Secrets are created and available in the `ravendb` namespace, you may proceed to install the Helm chart that deploys the RavenDB Operator.
 
 ```bash
-helm install ravendb-operator -n ravendb-operator-system --create-namespace
+helm install ravendb-operator ravendb-operator/ravendb-operator -n ravendb-operator-system --create-namespace
 ```
 
 > **Notes:**  
@@ -97,7 +97,7 @@ In this flow, the Helm chart will install the operator and create all required S
 using paths you provide to the setup package artifacts.
 
 ```bash
-helm install ravendb-operator ./helm/chart -n ravendb-operator-system --create-namespace \
+helm install ravendb-operator ravendb-operator/ravendb-operator -n ravendb-operator-system --create-namespace \
     --set "provisioning.nodeTags={a,b,c}" \
     --set-file provisioning.licenseJson=/path/to/license.json \
     --set-file provisioning.clientPfx=/path/to/admin-client-cert.pfx \
@@ -126,7 +126,7 @@ In this flow, the Helm chart will install the operator and create all required S
 using paths you provide to single server PFX, a client PFX, and the CA certificate.
 
 ```bash
- helm install ravendb-operator -n ravendb-operator-system --create-namespace \
+ helm install ravendb-operator ravendb-operator/ravendb-operator -n ravendb-operator-system --create-namespace \
   --set provisioning.mode=None \
   --set "provisioning.nodeTags={a,b,c}" \
   --set-file provisioning.licenseJson=/path/to/license.json \
