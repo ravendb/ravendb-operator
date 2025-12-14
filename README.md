@@ -168,8 +168,16 @@ make undeploy
 ```
 
 ### 3. **OLM bundle installation**  
-TBD
+```bash
+# Install Operator Lifecycle Manager (OLM), a tool to help manage the Operators running on your cluster.
+$ curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.38.0/install.sh | bash -s v0.38.0
 
+# Install the operator by running the following command
+$ kubectl create -f https://operatorhub.io/install/ravendb-operator.yaml
+
+# After install, watch the operator come up using next command
+$ kubectl get csv -n operators
+```
 ---
 
 ## Custom Resource (`RavenDBCluster`)
