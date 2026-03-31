@@ -3,7 +3,7 @@ entries:
   ravendb-operator:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2025-12-08T13:51:32.302791547+02:00"
+    created: "2026-03-31T17:01:29.6586527+02:00"
     description: RavenDB Kubernetes Operator
     digest: 3a12259c659bc5db7514fcfea7abb821a6a8faf9747c73ca4be7d04732fce58d
     icon: https://raw.githubusercontent.com/ravendb/ravendb-operator/refs/heads/main/assets/logo.png
@@ -15,4 +15,4 @@ entries:
     urls:
     - https://ravendb.github.io/ravendb-operator/helm/ravendb-operator-1.0.0.tgz
     version: 1.0.0
-generated: "2025-12-08T13:51:32.294676594+02:00"
+generated: "2026-03-31T17:01:29.6554714+02:00"
