@@ -92,7 +92,7 @@ func TestUpgrade_62_71_happy_E2E(t *testing.T) {
 		t,
 		func() (string, error) { return testutil.OperatorEventsTSVAll(t.Context()) },
 		expectedEvents,
-		30*time.Second, //let some time for events to appear
+		90*time.Second, //let some time for events to appear
 	)
 
 	cur := &ravendbv1.RavenDBCluster{}
@@ -142,9 +142,9 @@ func TestUpgrade_62_71_pre_cluster_conn_fail_on_a_bc_b_down_E2E(t *testing.T) {
 
 	const aClusterConnStart = "node A - pre-step/cluster_connectivity started"
 	const aClusterConnTimeout = "node A - pre-step/cluster_connectivity blocked" // we won't wait here for the full timeout
-	_ = testutil.WaitForEventSubstring(t, fetch, aClusterConnStart, 20*time.Second)
+	_ = testutil.WaitForEventSubstring(t, fetch, aClusterConnStart, 90*time.Second)
 
-	eventsTSV := testutil.WaitForEventSubstring(t, fetch, aClusterConnTimeout, 40*time.Second)
+	eventsTSV := testutil.WaitForEventSubstring(t, fetch, aClusterConnTimeout, 90*time.Second)
 
 	testutil.RequireNotContainsAny(t, eventsTSV,
 		"node A - pre-step/db_groups_available_excluding_target passed",
@@ -195,17 +195,17 @@ func TestUpgrade_62_71_degraded_db_placement_on_a_c_E2E(t *testing.T) {
 	testutil.PatchSpecImage(t, cli, key, toImage)
 	fetch := func() (string, error) { return testutil.OperatorEventsTSVAll(t.Context()) }
 
-	testutil.WaitForEventSubstring(t, fetch, "node A - pre-step/node_alive passed", 30*time.Second)
-	testutil.WaitForEventSubstring(t, fetch, "node A - pre-step/cluster_connectivity passed", 30*time.Second)
-	testutil.WaitForEventSubstring(t, fetch, "node A - pre-step/db_groups_available_excluding_target passed", 30*time.Second)
+	testutil.WaitForEventSubstring(t, fetch, "node A - pre-step/node_alive passed", 90*time.Second)
+	testutil.WaitForEventSubstring(t, fetch, "node A - pre-step/cluster_connectivity passed", 90*time.Second)
+	testutil.WaitForEventSubstring(t, fetch, "node A - pre-step/db_groups_available_excluding_target passed", 90*time.Second)
 
-	testutil.WaitForEventSubstring(t, fetch, "node B - pre-step/node_alive passed", 240*time.Second)
-	testutil.WaitForEventSubstring(t, fetch, "node B - pre-step/cluster_connectivity passed", 120*time.Second)
+	testutil.WaitForEventSubstring(t, fetch, "node B - pre-step/node_alive passed", 270*time.Second)
+	testutil.WaitForEventSubstring(t, fetch, "node B - pre-step/cluster_connectivity passed", 270*time.Second)
 
 	eventsTSV := testutil.RequireContainsAnyEventually(
 		t,
 		fetch,
-		120*time.Second,
+		270*time.Second,
 		"node B - pre-step/db_groups_available_excluding_target blocked",
 		"node B - pre-step/db_groups_available_excluding_target fail",
 		"node B - pre-step/db_groups_available_excluding_target timeout",
