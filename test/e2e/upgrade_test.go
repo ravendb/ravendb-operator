@@ -158,7 +158,7 @@ func TestUpgrade_62_71_pre_cluster_conn_fail_on_a_bc_b_down_E2E(t *testing.T) {
 		t,
 		testutil.DefaultNS,
 		[]string{"ravendb-a-0", "ravendb-c-0"},
-		"6.2.9",
+		"6.2.11",
 		20*time.Second,
 	)
 }
@@ -236,7 +236,7 @@ func TestUpgrade_62_71_degraded_db_placement_on_a_c_E2E(t *testing.T) {
 		t,
 		testutil.DefaultNS,
 		[]string{"ravendb-c-0"},
-		"6.2.9",
+		"6.2.11",
 		20*time.Second,
 	)
 }
