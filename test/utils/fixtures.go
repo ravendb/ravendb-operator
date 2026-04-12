@@ -18,7 +18,7 @@ func BaseClusterLE(name string) *ravendbv1.RavenDBCluster {
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 
 		Spec: ravendbv1.RavenDBClusterSpec{
-			Image:               "ravendb/ravendb:6.2.9-ubuntu.22.04-x64",
+			Image:               "ravendb/ravendb:6.2.11-ubuntu.22.04-x64",
 			ImagePullPolicy:     "IfNotPresent",
 			Mode:                "LetsEncrypt",
 			Email:               &email,
