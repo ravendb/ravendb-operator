@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -49,20 +48,6 @@ func ApplyKustomize(path string) env.Func {
 func ApplyCRDsFromDir(dir string) env.Func {
 	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
 		return RunKubectl(ctx, "apply", "-f", PathFromRoot(dir))
-	}
-}
-
-func InstallNodeRBAC(ns, basePath string) env.Func {
-	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
-		files := []string{
-			filepath.Join(basePath, "ravendb_ops_rbac.yaml"),
-		}
-		for _, f := range files {
-			if _, err := RunKubectl(ctx, "apply", "-f", PathFromRoot(f), "-n", ns); err != nil {
-				return ctx, err
-			}
-		}
-		return ctx, nil
 	}
 }
 
