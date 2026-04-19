@@ -1,4 +1,3 @@
 resources:
   - operator_rbac.yaml
   - leader_election_rbac.yaml
-  - ravendb_ops_rbac.yaml
