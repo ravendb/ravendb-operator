@@ -251,3 +251,12 @@ func (r *RavenDBCluster) GetClientCertSecretRef() string {
 func (r *RavenDBCluster) GetCACertSecretRef() *string {
 	return r.Spec.CACertSecretRef
 }
+
+func (r *RavenDBCluster) GetNamespace() string {
+	return r.Namespace
+}
+
+func (r *RavenDBCluster) GetName() string {
+	return r.Name
+}
+
