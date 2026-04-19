@@ -19,13 +19,14 @@ function install_kubectl() {
 }
 
 function wait_for_ravendb_pods() {
+    local ns="${POD_NAMESPACE:?POD_NAMESPACE is required}"
     log "Waiting for all RavenDB pods to be in 'Running' state..."
     MAX_RETRIES=30
 
     for ((i=1; i<=MAX_RETRIES; i++)); do
         log "Pod readiness check: attempt $i/$MAX_RETRIES"
 
-        not_ready=$(kubectl get pods -n ravendb -l app.kubernetes.io/name=ravendb \
+        not_ready=$(kubectl get pods -n "$ns" -l app.kubernetes.io/name=ravendb \
             -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}' \
             | grep -v '^.* Running$' || true)
 
