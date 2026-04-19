@@ -77,6 +77,9 @@ jobs:
       A_PFX_B64: ${{ secrets.A_PFX_B64 }}
       B_PFX_B64: ${{ secrets.B_PFX_B64 }}
       C_PFX_B64: ${{ secrets.C_PFX_B64 }}
+      D_PFX_B64: ${{ secrets.D_PFX_B64 }}
+      E_PFX_B64: ${{ secrets.E_PFX_B64 }}
+      F_PFX_B64: ${{ secrets.F_PFX_B64 }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -177,6 +180,9 @@ jobs:
       A_PFX_B64: ${{ secrets.A_PFX_B64 }}
       B_PFX_B64: ${{ secrets.B_PFX_B64 }}
       C_PFX_B64: ${{ secrets.C_PFX_B64 }}
+      D_PFX_B64: ${{ secrets.D_PFX_B64 }}
+      E_PFX_B64: ${{ secrets.E_PFX_B64 }}
+      F_PFX_B64: ${{ secrets.F_PFX_B64 }} 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -223,6 +229,9 @@ jobs:
       A_PFX_B64: ${{ secrets.A_PFX_B64 }}
       B_PFX_B64: ${{ secrets.B_PFX_B64 }}
       C_PFX_B64: ${{ secrets.C_PFX_B64 }}
+      D_PFX_B64: ${{ secrets.D_PFX_B64 }}
+      E_PFX_B64: ${{ secrets.E_PFX_B64 }}
+      F_PFX_B64: ${{ secrets.F_PFX_B64 }} 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

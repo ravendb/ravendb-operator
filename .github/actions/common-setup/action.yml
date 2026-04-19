@@ -16,6 +16,7 @@ runs:
       cache: false
 
   - name: Export Go cache dirs
+    shell: bash
     run: |
       echo "GOMODCACHE=$(go env GOMODCACHE)" >> "$GITHUB_ENV"
       echo "GOCACHE=$(go env GOCACHE)" >> "$GITHUB_ENV"
@@ -31,6 +32,7 @@ runs:
         ${{ runner.os }}-go-${{ inputs.go-version }}-
 
   - name: Install CLI tooling (kind, kubectl)
+    shell: bash
     run: |
       curl -sSL -o kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
       curl -sSL -o kubectl https://dl.k8s.io/release/$(curl -sSL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl
@@ -39,6 +41,7 @@ runs:
       echo "$HOME/go/bin" >> $GITHUB_PATH
 
   - name: Pre-seed /etc/hosts for test domains
+    shell: bash
     run: |
       echo "172.19.255.200 a.ravendb-operator-e2e.ravendb.run a-tcp.ravendb-operator-e2e.ravendb.run" | sudo tee -a /etc/hosts
       echo "172.19.255.200 b.ravendb-operator-e2e.ravendb.run b-tcp.ravendb-operator-e2e.ravendb.run" | sudo tee -a /etc/hosts
@@ -48,9 +51,11 @@ runs:
       echo "172.19.255.200 f.ravendb-operator-e2e.ravendb.run f-tcp.ravendb-operator-e2e.ravendb.run" | sudo tee -a /etc/hosts
 
   - name: Prime module cache (root)
+    shell: bash
     run: go mod download
 
   - name: Prime module cache (e2e)
+    shell: bash
     run: |
       if [ -f test/e2e/go.mod ]; then
         (cd test/e2e && go mod download)
@@ -60,9 +65,11 @@ runs:
       fi
 
   - name: Build operator image (from the PR's branch)
+    shell: bash
     run: docker build -t ravendb/ravendb-operator:ci-${GITHUB_SHA} .
 
   - name: Set operator image env
+    shell: bash
     run: |
       echo "RAVEN_OPERATOR_IMAGE=ravendb/ravendb-operator:ci-$GITHUB_SHA" >> "$GITHUB_ENV"
       echo "RAVEN_OPERATOR_IMAGE_REPO=ravendb/ravendb-operator" >> "$GITHUB_ENV"
