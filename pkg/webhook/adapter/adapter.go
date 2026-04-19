@@ -54,4 +54,6 @@ type ClusterAdapter interface {
 	GetAdditionalVolumeSources() []map[string]bool
 	GetClientCertSecretRef() string
 	GetCACertSecretRef() *string
+	GetNamespace() string
+	GetName() string
 }
