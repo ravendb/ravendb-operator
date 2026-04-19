@@ -39,7 +39,6 @@ var (
 	nginxIngressFilePath  = "test/e2e/manifests/nginx-ingress-ravendb.yaml"
 	crdBasePath           = "config/crd/bases"
 	crdDefaultPath        = "config/default"
-	rbacPath              = "config/rbac"
 	dockerfileName        = "Dockerfile"
 )
 
@@ -51,11 +50,17 @@ export E2E_CLIENT_PFX_PATH="/ravendb-operator-e2e/setup_package/admin.client.cer
 export E2E_NODE_A_PFX_PATH="/ravendb-operator-e2e/setup_package/A/cluster.server.certificate.ravendb-operator-e2e.pfx"
 export E2E_NODE_B_PFX_PATH="/ravendb-operator-e2e/setup_package/B/cluster.server.certificate.ravendb-operator-e2e.pfx"
 export E2E_NODE_C_PFX_PATH="/ravendb-operator-e2e/setup_package/C/cluster.server.certificate.ravendb-operator-e2e.pfx"
+export E2E_NODE_D_PFX_PATH="/ravendb-operator-e2e/setup_package/D/cluster.server.certificate.ravendb-operator-e2e.pfx"
+export E2E_NODE_E_PFX_PATH="/ravendb-operator-e2e/setup_package/E/cluster.server.certificate.ravendb-operator-e2e.pfx"
+export E2E_NODE_F_PFX_PATH="/ravendb-operator-e2e/setup_package/F/cluster.server.certificate.ravendb-operator-e2e.pfx"
 
 for /etc/hosts
 172.19.255.200 a.ravendb-operator-e2e.ravendb.run a-tcp.ravendb-operator-e2e.ravendb.run
 172.19.255.200 b.ravendb-operator-e2e.ravendb.run b-tcp.ravendb-operator-e2e.ravendb.run
 172.19.255.200 c.ravendb-operator-e2e.ravendb.run c-tcp.ravendb-operator-e2e.ravendb.run
+172.19.255.200 d.ravendb-operator-e2e.ravendb.run d-tcp.ravendb-operator-e2e.ravendb.run
+172.19.255.200 e.ravendb-operator-e2e.ravendb.run e-tcp.ravendb-operator-e2e.ravendb.run
+172.19.255.200 f.ravendb-operator-e2e.ravendb.run f-tcp.ravendb-operator-e2e.ravendb.run
 */
 
 func TestMain(m *testing.M) {

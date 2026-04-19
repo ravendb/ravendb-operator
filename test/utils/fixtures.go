@@ -18,14 +18,14 @@ func BaseClusterLE(name string) *ravendbv1.RavenDBCluster {
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 
 		Spec: ravendbv1.RavenDBClusterSpec{
-			Image:               "ravendb/ravendb:6.2.9-ubuntu.22.04-x64",
+			Image:               "ravendb/ravendb:6.2.11-ubuntu.22.04-x64",
 			ImagePullPolicy:     "IfNotPresent",
 			Mode:                "LetsEncrypt",
 			Email:               &email,
 			LicenseSecretRef:    "ravendb-license",
 			ClientCertSecretRef: "ravendb-client-cert",
 
-			Domain:              "ravendb-operator-e2e.ravendb.run",
+			Domain: "ravendb-operator-e2e.ravendb.run",
 
 			Nodes: []ravendbv1.RavenDBNode{
 
@@ -37,14 +37,51 @@ func BaseClusterLE(name string) *ravendbv1.RavenDBCluster {
 				"RAVEN_Cluster_TimeBeforeMovingToRehabInSec": "10",
 			},
 
-
 			ExternalAccessConfiguration: &ravendbv1.ExternalAccessConfiguration{
-				Type:                            "ingress-controller",
+				Type: "ingress-controller",
 
 				IngressControllerExternalAccess: &ravendbv1.IngressControllerContext{IngressClassName: "nginx"},
 			},
 
+			StorageSpec: ravendbv1.StorageSpec{
+				Data: ravendbv1.VolumeSpec{
+					Size:             "10Gi",
+					StorageClassName: &storageClass,
+				},
+			},
+		},
+	}
+}
 
+func BaseClusterLEDEF(name string) *ravendbv1.RavenDBCluster {
+	email := "user@ravendb.net"
+	certD, certE, certF := "ravendb-certs-d", "ravendb-certs-e", "ravendb-certs-f"
+	storageClass := "local-path"
+
+	return &ravendbv1.RavenDBCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: ravendbv1.RavenDBClusterSpec{
+			Image:               "ravendb/ravendb:6.2.11-ubuntu.22.04-x64",
+			ImagePullPolicy:     "IfNotPresent",
+			Mode:                "LetsEncrypt",
+			Email:               &email,
+			LicenseSecretRef:    "ravendb-license",
+			ClientCertSecretRef: "ravendb-client-cert",
+			Domain:              "ravendb-operator-e2e.ravendb.run",
+			Nodes: []ravendbv1.RavenDBNode{
+				{Tag: "d", PublicServerUrl: "https://d.ravendb-operator-e2e.ravendb.run:443", PublicServerUrlTcp: "tcp://d-tcp.ravendb-operator-e2e.ravendb.run:443", CertSecretRef: &certD},
+				{Tag: "e", PublicServerUrl: "https://e.ravendb-operator-e2e.ravendb.run:443", PublicServerUrlTcp: "tcp://e-tcp.ravendb-operator-e2e.ravendb.run:443", CertSecretRef: &certE},
+				{Tag: "f", PublicServerUrl: "https://f.ravendb-operator-e2e.ravendb.run:443", PublicServerUrlTcp: "tcp://f-tcp.ravendb-operator-e2e.ravendb.run:443", CertSecretRef: &certF},
+			},
+			Env: map[string]string{
+				"RAVEN_Cluster_TimeBeforeMovingToRehabInSec": "10",
+			},
+			ExternalAccessConfiguration: &ravendbv1.ExternalAccessConfiguration{
+				Type: "ingress-controller",
+				IngressControllerExternalAccess: &ravendbv1.IngressControllerContext{
+					IngressClassName: "nginx",
+				},
+			},
 			StorageSpec: ravendbv1.StorageSpec{
 				Data: ravendbv1.VolumeSpec{
 					Size:             "10Gi",

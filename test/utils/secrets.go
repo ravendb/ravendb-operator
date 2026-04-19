@@ -18,6 +18,9 @@ const (
 	SecretNodeAPFX  = "ravendb-certs-a"
 	SecretNodeBPFX  = "ravendb-certs-b"
 	SecretNodeCPFX  = "ravendb-certs-c"
+	SecretNodeDPFX  = "ravendb-certs-d"
+	SecretNodeEPFX  = "ravendb-certs-e"
+	SecretNodeFPFX  = "ravendb-certs-f"
 )
 
 const (
@@ -26,6 +29,9 @@ const (
 	EnvNodeAPFXPath  = "E2E_NODE_A_PFX_PATH"
 	EnvNodeBPFXPath  = "E2E_NODE_B_PFX_PATH"
 	EnvNodeCPFXPath  = "E2E_NODE_C_PFX_PATH"
+	EnvNodeDPFXPath  = "E2E_NODE_D_PFX_PATH"
+	EnvNodeEPFXPath  = "E2E_NODE_E_PFX_PATH"
+	EnvNodeFPFXPath  = "E2E_NODE_F_PFX_PATH"
 )
 
 func EnsureSecretFromEnvPath(ns, name, key, envVar string) env.Func {
@@ -64,11 +70,39 @@ func WaitForSecret(name, ns string, timeout time.Duration) env.Func {
 	}
 }
 
+func nodeSecretName(tag string) string {
+	return fmt.Sprintf("ravendb-certs-%s", tag)
+}
+
+func nodeSecretEnvVar(tag string) string {
+	switch tag {
+	case "a":
+		return EnvNodeAPFXPath
+	case "b":
+		return EnvNodeBPFXPath
+	case "c":
+		return EnvNodeCPFXPath
+	case "d":
+		return EnvNodeDPFXPath
+	case "e":
+		return EnvNodeEPFXPath
+	case "f":
+		return EnvNodeFPFXPath
+	default:
+		return ""
+	}
+}
+
 func SeedSecrets(t *testing.T) {
-	SeedLESecretsInNamespace(t, DefaultNS, 2*time.Minute)
+	SeedLESecretsForTagsInNamespace(t, DefaultNS, 2*time.Minute, "a", "b", "c")
 }
 
 func SeedLESecretsInNamespace(t *testing.T, ns string, timeout time.Duration) {
+	t.Helper()
+	SeedLESecretsForTagsInNamespace(t, ns, timeout, "a", "b", "c")
+}
+
+func SeedLESecretsForTagsInNamespace(t *testing.T, ns string, timeout time.Duration, tags ...string) {
 	t.Helper()
 
 	run := func(f env.Func) {
@@ -80,13 +114,17 @@ func SeedLESecretsInNamespace(t *testing.T, ns string, timeout time.Duration) {
 
 	run(EnsureSecretFromEnvPath(ns, SecretLicense, "license.json", EnvLicensePath))
 	run(EnsureSecretFromEnvPath(ns, SecretClientPFX, "client.pfx", EnvClientPFXPath))
-	run(EnsureSecretFromEnvPath(ns, SecretNodeAPFX, "server.pfx", EnvNodeAPFXPath))
-	run(EnsureSecretFromEnvPath(ns, SecretNodeBPFX, "server.pfx", EnvNodeBPFXPath))
-	run(EnsureSecretFromEnvPath(ns, SecretNodeCPFX, "server.pfx", EnvNodeCPFXPath))
 
 	run(WaitForSecret(SecretLicense, ns, timeout))
 	run(WaitForSecret(SecretClientPFX, ns, timeout))
-	run(WaitForSecret(SecretNodeAPFX, ns, timeout))
-	run(WaitForSecret(SecretNodeBPFX, ns, timeout))
-	run(WaitForSecret(SecretNodeCPFX, ns, timeout))
+
+	for _, tag := range tags {
+		envVar := nodeSecretEnvVar(tag)
+		require.NotEmpty(t, envVar, "unsupported node tag: %s", tag)
+
+		secretName := nodeSecretName(tag)
+
+		run(EnsureSecretFromEnvPath(ns, secretName, "server.pfx", envVar))
+		run(WaitForSecret(secretName, ns, timeout))
+	}
 }
