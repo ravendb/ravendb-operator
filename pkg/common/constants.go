@@ -103,7 +103,6 @@ const (
 	NumOfReplicas                    = 1
 	ConfigMapExecMode                = 0755
 	CertExecTimeout                  = "60"
-	ClusterFQDNSuffix                = ".ravendb.svc.cluster.local"
 	ProtocolTcp                      = "tcp://"
 	UpdateCertHookKey                = "update-cert.sh"
 	GetCertHookKey                   = "get-server-cert.sh"
