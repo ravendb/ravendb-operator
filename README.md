@@ -48,6 +48,11 @@ There are three supported installation methods:
    - For clusters running Operator Lifecycle Manager (OLM); installs the operator via its bundle.
 
 The operator can run in a separate namespace such as `ravendb-operator-system`, while each `RavenDBCluster` and its required Secrets/resources live in the target cluster namespace.
+> **Note:**  
+> The operator creates namespace-scoped ServiceAccount, Role, and RoleBinding resources
+> per `RavenDBCluster` namespace. This is required to support multiple clusters across
+> different namespaces and to allow bootstrap operations.  
+> The permissions are limited to the target namespace and only cover the operations needed by the operator.
 
 ### 1. Install via Helm (recommended)
 The Helm chart is the recommended and simplest way to deploy the RavenDB Operator.  

@@ -28,10 +28,6 @@ controllerManager:
   # Number of controller replicas.
   replicaCount: 1
 
-# Namespace where RavenDB cluster resources will be created.
-# Defaults to Helm release namespace if empty.
-targetNamespace: ""
-
   # Optional pod resource requests/limits for the controller.
   # resources:
   #   requests:
@@ -40,6 +36,10 @@ targetNamespace: ""
   #   limits:
   #     cpu: 500m
   #     memory: 128Mi
+
+# Namespace where RavenDB cluster resources will be created.
+# Defaults to Helm release namespace if empty.
+targetNamespace: ""
 
 provisioning:
   # Choose: "LetsEncrypt" or "None"

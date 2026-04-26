@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type RBACActor struct{}
@@ -53,6 +54,10 @@ func (a *RBACActor) Act(
 
 	changedAny := false
 	for _, obj := range objs {
+		if err := controllerutil.SetControllerReference(cluster, obj, scheme); err != nil {
+			return false, fmt.Errorf("set controller reference for %T: %w", obj, err)
+		}
+
 		changed, err := applyResourceSSA(ctx, c, obj, "ravendb-operator/rbac")
 		if err != nil {
 			return false, fmt.Errorf("apply %T: %w", obj, err)

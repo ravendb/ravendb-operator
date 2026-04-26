@@ -25,8 +25,6 @@ import (
 	v1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/webhook/validator"
 
-	ravendbv1 "ravendb-operator/api/v1"
-
 	corev1 "k8s.io/api/core/v1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1242,7 +1240,7 @@ func newWebhookFakeClientBuilder(t *testing.T) *fake.ClientBuilder {
 
 	s := runtime.NewScheme()
 	require.NoError(t, clientgoscheme.AddToScheme(s))
-	require.NoError(t, ravendbv1.AddToScheme(s))
+	require.NoError(t, v1.AddToScheme(s))
 
 	return fake.NewClientBuilder().WithScheme(s)
 }

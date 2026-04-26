@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+COMMON_CURL_ARGS=(
+  -H "User-Agent: ravendb-operator/discoverability"
+)
+
 function log() {
     echo "[$(date '+%H:%M:%S')] $1"
 }
@@ -56,7 +60,7 @@ function check_https_reachability() {
         url="${URLS_ARR[$i]}"
         tag="${TAGS_ARR[$i]}"
         log "[$tag] curl -k $url"
-        location_header=$(curl -ks -D - "$url" -o /dev/null | grep -i "^location:")
+        location_header=$(curl -ks "${COMMON_CURL_ARGS[@]}" -D - "$url" -o /dev/null | grep -i "^location:")
         if echo "$location_header" | grep -q "/studio/index.html"; then
             log "[${tag}] Studio redirect detected - looks good"
         else

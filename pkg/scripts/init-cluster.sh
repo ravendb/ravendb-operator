@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+COMMON_CURL_ARGS=(
+  -H "User-Agent: ravendb-operator/init-cluster"
+)
+
 function log() {
     echo "[$(date '+%H:%M:%S')] $1"
 }
@@ -53,6 +57,7 @@ function join_node_to_cluster() {
         --cert "$CLIENT_CERT_PEM"
         --key "$CLIENT_KEY_PEM"
         "${CURL_CA_ARGS[@]}"
+        "${COMMON_CURL_ARGS[@]}"
         -X PUT
         -G "$LEADER_URL/admin/cluster/node"
         --data-urlencode "url=$url"
@@ -89,6 +94,7 @@ function bootstrap_leader_with_tag() {
         --cert "$CLIENT_CERT_PEM" \
         --key "$CLIENT_KEY_PEM" \
         "${CURL_CA_ARGS[@]}" \
+        "${COMMON_CURL_ARGS[@]}" \
         -X POST \
         -G "$LEADER_URL/admin/cluster/bootstrap" \
         --data-urlencode "tag=$first_tag")
@@ -103,7 +109,7 @@ function bootstrap_leader_with_tag() {
 
 function print_topology() {
     log "Cluster topology:"
-    curl -s --cert "$CLIENT_CERT_PEM" --key "$CLIENT_KEY_PEM" "${CURL_CA_ARGS[@]}" \
+    curl -s "${COMMON_CURL_ARGS[@]}" --cert "$CLIENT_CERT_PEM" --key "$CLIENT_KEY_PEM" "${CURL_CA_ARGS[@]}" \
         "$LEADER_URL/cluster/topology" | jq '{
         Leader,
         CurrentState,
