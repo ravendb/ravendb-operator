@@ -26,10 +26,12 @@ import (
 	"ravendb-operator/pkg/webhook/validator"
 
 	corev1 "k8s.io/api/core/v1"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func baseCluster(name string) *v1.RavenDBCluster {
@@ -39,7 +41,7 @@ func baseCluster(name string) *v1.RavenDBCluster {
 	return &v1.RavenDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: "default",
+			Namespace: "ravendb",
 		},
 		Spec: v1.RavenDBClusterSpec{
 			Image:                "ravendb/ravendb:latest",
@@ -72,7 +74,7 @@ func baseClusterLetsEncrypt(name string) *v1.RavenDBCluster {
 	return &v1.RavenDBCluster{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: "ravenedb",
+			Namespace: "ravendb",
 		},
 		Spec: v1.RavenDBClusterSpec{
 			Image:               "ravendb/ravendb:latest",
@@ -260,12 +262,12 @@ func TestGeneralValidatorValidateLicenseSecret(t *testing.T) {
 
 	t.Run("valid license secret", func(t *testing.T) {
 		cluster := baseClusterLetsEncrypt("valid-license")
-		errs := validator.ValidateLicenseSecret(v, ctx, cluster.GetLicenseSecretRef())
+		errs := validator.ValidateLicenseSecret(v, ctx, cluster.GetNamespace(), cluster.GetLicenseSecretRef())
 		require.Empty(t, errs)
 	})
 
 	t.Run("licnese secret missing", func(t *testing.T) {
-		errs := validator.ValidateLicenseSecret(v, ctx, "non-existing-secret")
+		errs := validator.ValidateLicenseSecret(v, ctx, "ravendb", "non-existing-secret")
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "spec.licenseSecretRef: secret 'non-existing-secret' not found")
 	})
@@ -273,7 +275,7 @@ func TestGeneralValidatorValidateLicenseSecret(t *testing.T) {
 	t.Run("license secret with non-json key", func(t *testing.T) {
 		cluster := baseClusterLetsEncrypt("invalid-license")
 		cluster.Spec.LicenseSecretRef = "non-json-key-license"
-		errs := validator.ValidateLicenseSecret(v, ctx, cluster.GetLicenseSecretRef())
+		errs := validator.ValidateLicenseSecret(v, ctx, cluster.GetNamespace(), cluster.GetLicenseSecretRef())
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "spec.licenseSecretRef: secret 'non-json-key-license' must contain a file ending with '.json'")
 	})
@@ -281,7 +283,7 @@ func TestGeneralValidatorValidateLicenseSecret(t *testing.T) {
 	t.Run("license secret with multiple keys", func(t *testing.T) {
 		cluster := baseClusterLetsEncrypt("invalid-license-multi-keys")
 		cluster.Spec.LicenseSecretRef = "invalid-license-multi-keys"
-		errs := validator.ValidateLicenseSecret(v, ctx, cluster.GetLicenseSecretRef())
+		errs := validator.ValidateLicenseSecret(v, ctx, cluster.GetNamespace(), cluster.GetLicenseSecretRef())
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "spec.licenseSecretRef: secret 'invalid-license-multi-keys' must contain exactly one '.json' file")
 	})
@@ -327,7 +329,7 @@ func TestGeneralValidatorValidateClusterCertSecret(t *testing.T) {
 		cluster := baseClusterLetsEncrypt("invalid-license-multi-keys")
 		cert := "valid-cluster-cert"
 		cluster.Spec.ClusterCertSecretRef = &cert
-		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetMode(), cluster.GetClusterCertsSecretRef())
+		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetNamespace(), cluster.GetMode(), cluster.GetClusterCertsSecretRef())
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "spec.clusterCertSecretRef must not be set when mode is LetsEncrypt")
 	})
@@ -336,7 +338,7 @@ func TestGeneralValidatorValidateClusterCertSecret(t *testing.T) {
 		cluster := baseCluster("missing-cert")
 		cluster.Spec.ClusterCertSecretRef = nil
 		cluster.Spec.Mode = "None"
-		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetMode(), cluster.GetClusterCertsSecretRef())
+		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetNamespace(), cluster.GetMode(), cluster.GetClusterCertsSecretRef())
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "spec.clusterCertSecretRef is required when mode is None")
 	})
@@ -346,7 +348,7 @@ func TestGeneralValidatorValidateClusterCertSecret(t *testing.T) {
 		secret := "non-existent"
 		cluster.Spec.ClusterCertSecretRef = &secret
 		cluster.Spec.Mode = "None"
-		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetMode(), cluster.GetClusterCertsSecretRef())
+		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetNamespace(), cluster.GetMode(), cluster.GetClusterCertsSecretRef())
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "spec.clusterCertSecretRef: secret 'non-existent' not found")
 	})
@@ -355,7 +357,7 @@ func TestGeneralValidatorValidateClusterCertSecret(t *testing.T) {
 		cluster := baseCluster("non-pfx")
 		secret := "non-pfx-cluster-cert"
 		cluster.Spec.ClusterCertSecretRef = &secret
-		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetMode(), cluster.GetClusterCertsSecretRef())
+		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetNamespace(), cluster.GetMode(), cluster.GetClusterCertsSecretRef())
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "spec.clusterCertSecretRef: secret 'non-pfx-cluster-cert' must contain a file ending with '.pfx")
 	})
@@ -364,7 +366,7 @@ func TestGeneralValidatorValidateClusterCertSecret(t *testing.T) {
 		cluster := baseCluster("multi-key")
 		secret := "multi-key-cluster-cert"
 		cluster.Spec.ClusterCertSecretRef = &secret
-		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetMode(), cluster.GetClusterCertsSecretRef())
+		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetNamespace(), cluster.GetMode(), cluster.GetClusterCertsSecretRef())
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "spec.clusterCertSecretRef: secret 'multi-key-cluster-cert' must contain exactly one '.pfx' file")
 	})
@@ -373,7 +375,7 @@ func TestGeneralValidatorValidateClusterCertSecret(t *testing.T) {
 		cluster := baseCluster("valid-cert")
 		secret := "valid-cluster-cert"
 		cluster.Spec.ClusterCertSecretRef = &secret
-		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetMode(), cluster.GetClusterCertsSecretRef())
+		errs := validator.ValidateClusterCertSecret(v, ctx, cluster.GetNamespace(), cluster.GetMode(), cluster.GetClusterCertsSecretRef())
 		require.Empty(t, errs)
 	})
 }
@@ -492,6 +494,80 @@ func TestGeneralValidatorImmutableAfterCreation(t *testing.T) {
 		err := v.ValidateUpdate(ctx, old, new)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "spec.nodes[].publicServerUrlTcp is immutable after creation")
+	})
+}
+
+func TestGeneralValidatorLicenseSecretNamespaceIsolation(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("only in other namespace->fail", func(t *testing.T) {
+		client := fake.NewClientBuilder().
+			WithObjects(
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "license",
+						Namespace: "ravendb-team-b",
+					},
+					Data: map[string][]byte{
+						"license.json": []byte("{}"),
+					},
+				},
+			).Build()
+
+		v := validator.NewGeneralValidator(client)
+
+		errs := validator.ValidateLicenseSecret(v, ctx, "ravendb-team-a", "license")
+		require.NotEmpty(t, errs)
+		require.Contains(t, errs[0], "spec.licenseSecretRef: secret 'license' not found in namespace 'ravendb-team-a'")
+	})
+
+	t.Run("same name in both namespaces->use local only", func(t *testing.T) {
+		client := fake.NewClientBuilder().
+			WithObjects(
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "license",
+						Namespace: "ravendb-team-a",
+					},
+					Data: map[string][]byte{
+						"license.json": []byte("{}"),
+					},
+				},
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "license",
+						Namespace: "ravendb-team-b",
+					},
+					Data: map[string][]byte{
+						"license.json": []byte(`{"some":"other-license"}`),
+					},
+				},
+			).Build()
+
+		v := validator.NewGeneralValidator(client)
+
+		errs := validator.ValidateLicenseSecret(v, ctx, "ravendb-team-a", "license")
+		require.Empty(t, errs)
+	})
+
+	t.Run("only in local namespace->pass", func(t *testing.T) {
+		client := fake.NewClientBuilder().
+			WithObjects(
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "license",
+						Namespace: "ravendb-team-a",
+					},
+					Data: map[string][]byte{
+						"license.json": []byte("{}"),
+					},
+				},
+			).Build()
+
+		v := validator.NewGeneralValidator(client)
+
+		errs := validator.ValidateLicenseSecret(v, ctx, "ravendb-team-a", "license")
+		require.Empty(t, errs)
 	})
 }
 
@@ -710,7 +786,7 @@ func TestValidateNodeCertSecret(t *testing.T) {
 		cluster.Spec.Nodes[0].CertSecretRef = nil
 		tag := cluster.Spec.Nodes[0].Tag
 		certRef := ""
-		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetMode(), tag, certRef)
+		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetNamespace(), cluster.GetMode(), tag, certRef)
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "is required when mode is LetsEncrypt")
 	})
@@ -724,7 +800,7 @@ func TestValidateNodeCertSecret(t *testing.T) {
 		if certRefPtr != nil {
 			certRef = *certRefPtr
 		}
-		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetMode(), tag, certRef)
+		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetNamespace(), cluster.GetMode(), tag, certRef)
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "must not be set when mode is None")
 	})
@@ -735,7 +811,7 @@ func TestValidateNodeCertSecret(t *testing.T) {
 		cluster.Spec.Nodes[0].CertSecretRef = &secret
 		tag := cluster.Spec.Nodes[0].Tag
 		certRef := *cluster.Spec.Nodes[0].CertSecretRef
-		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetMode(), tag, certRef)
+		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetNamespace(), cluster.GetMode(), tag, certRef)
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "secret 'non-existent' not found")
 	})
@@ -746,7 +822,7 @@ func TestValidateNodeCertSecret(t *testing.T) {
 		cluster.Spec.Nodes[0].CertSecretRef = &secret
 		tag := cluster.Spec.Nodes[0].Tag
 		certRef := *cluster.Spec.Nodes[0].CertSecretRef
-		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetMode(), tag, certRef)
+		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetNamespace(), cluster.GetMode(), tag, certRef)
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "file 'cert.pem' must end with .pfx")
 	})
@@ -757,7 +833,7 @@ func TestValidateNodeCertSecret(t *testing.T) {
 		cluster.Spec.Nodes[0].CertSecretRef = &secret
 		tag := cluster.Spec.Nodes[0].Tag
 		certRef := *cluster.Spec.Nodes[0].CertSecretRef
-		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetMode(), tag, certRef)
+		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetNamespace(), cluster.GetMode(), tag, certRef)
 		require.NotEmpty(t, errs)
 		require.Contains(t, errs[0], "must contain exactly one .pfx file")
 	})
@@ -768,7 +844,7 @@ func TestValidateNodeCertSecret(t *testing.T) {
 		cluster.Spec.Nodes[0].CertSecretRef = &secret
 		tag := cluster.Spec.Nodes[0].Tag
 		certRef := *cluster.Spec.Nodes[0].CertSecretRef
-		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetMode(), tag, certRef)
+		errs := validator.ValidateNodeCertSecret(ctx, v, cluster.GetNamespace(), cluster.GetMode(), tag, certRef)
 		require.Empty(t, errs)
 	})
 }
@@ -1083,6 +1159,90 @@ func TestValidateAdditionalVolumes(t *testing.T) {
 	})
 }
 
-// TODO: add client and ca certs tests.
+func TestSingleClusterPerNamespaceValidator(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("pass when namespace has no other RavenDBCluster", func(t *testing.T) {
+		client := newWebhookFakeClientBuilder(t).Build()
+
+		v := validator.NewSingleClusterPerNamespaceValidator(client)
+
+		cluster := baseClusterLetsEncrypt("cluster-a")
+		cluster.Namespace = "ravendb-team-a"
+
+		err := v.ValidateCreate(ctx, cluster)
+		require.NoError(t, err)
+	})
+
+	t.Run("fails when another RavenDBCluster already exists in same namespace", func(t *testing.T) {
+		existing := baseClusterLetsEncrypt("existing-cluster")
+		existing.Namespace = "ravendb-team-a"
+
+		client := newWebhookFakeClientBuilder(t).
+			WithObjects(existing).
+			Build()
+
+		v := validator.NewSingleClusterPerNamespaceValidator(client)
+
+		cluster := baseClusterLetsEncrypt("new-cluster")
+		cluster.Namespace = "ravendb-team-a"
+
+		err := v.ValidateCreate(ctx, cluster)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "only one RavenDBCluster is allowed per namespace")
+		require.Contains(t, err.Error(), "existing-cluster")
+		require.Contains(t, err.Error(), "ravendb-team-a")
+	})
+
+	t.Run("pass when another RavenDBCluster exists in different namespace", func(t *testing.T) {
+		existing := baseClusterLetsEncrypt("existing-cluster")
+		existing.Namespace = "ravendb-team-b"
+
+		client := newWebhookFakeClientBuilder(t).
+			WithObjects(existing).
+			Build()
+
+		v := validator.NewSingleClusterPerNamespaceValidator(client)
+
+		cluster := baseClusterLetsEncrypt("new-cluster")
+		cluster.Namespace = "ravendb-team-a"
+
+		err := v.ValidateCreate(ctx, cluster)
+		require.NoError(t, err)
+	})
+
+	t.Run("update permitted for the same RavenDBCluster in same namespace", func(t *testing.T) {
+		existing := baseClusterLetsEncrypt("cluster-a")
+		existing.Namespace = "ravendb-team-a"
+
+		client := newWebhookFakeClientBuilder(t).
+			WithObjects(existing).
+			Build()
+
+		v := validator.NewSingleClusterPerNamespaceValidator(client)
+
+		oldCluster := baseClusterLetsEncrypt("cluster-a")
+		oldCluster.Namespace = "ravendb-team-a"
+
+		newCluster := baseClusterLetsEncrypt("cluster-a")
+		newCluster.Namespace = "ravendb-team-a"
+		newCluster.Spec.Env = map[string]string{
+			"SOME_NEW_KEY": "some-new-value",
+		}
+
+		err := v.ValidateUpdate(ctx, oldCluster, newCluster)
+		require.NoError(t, err)
+	})
+}
+
+func newWebhookFakeClientBuilder(t *testing.T) *fake.ClientBuilder {
+	t.Helper()
+
+	s := runtime.NewScheme()
+	require.NoError(t, clientgoscheme.AddToScheme(s))
+	require.NoError(t, v1.AddToScheme(s))
+
+	return fake.NewClientBuilder().WithScheme(s)
+}
 
 func ptr(s string) *string { return &s }

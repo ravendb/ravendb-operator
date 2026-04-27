@@ -47,12 +47,18 @@ There are three supported installation methods:
 3. **OLM bundle installation**
    - For clusters running Operator Lifecycle Manager (OLM); installs the operator via its bundle.
 
+The operator can run in a separate namespace such as `ravendb-operator-system`, while each `RavenDBCluster` and its required Secrets/resources live in the target cluster namespace.
+> **Note:**  
+> The operator creates namespace-scoped ServiceAccount, Role, and RoleBinding resources
+> per `RavenDBCluster` namespace. This is required to support multiple clusters across
+> different namespaces and to allow bootstrap operations.  
+> The permissions are limited to the target namespace and only cover the operations needed by the operator.
 
 ### 1. Install via Helm (recommended)
 The Helm chart is the recommended and simplest way to deploy the RavenDB Operator.  
-> **Note:**  The Helm chart deploys **only the RavenDB Operator**. A RavenDB cluster will start **only after** you:
-> - create the required Secrets via the chart/manually 
-> - apply a `RavenDBCluster` custom resource that uses them. 
+> **Note:**  The Helm chart deploys the RavenDB Operator. A RavenDB cluster will start only after you:
+> - create the required Secrets manually in the same namespace as the `RavenDBCluster`, or let the chart create them in `targetNamespace`
+> - apply a `RavenDBCluster` custom resource in that target namespace
 
 
 **Add the Helm repository**
@@ -65,18 +71,19 @@ Install the Operator by choosing one of the following flows:
 <details>
 <summary><strong>1. Install the operator only and create all Secrets yourself with <code>kubectl</code></strong>. </summary>
 
-In this flow, you are responsible for creating all required Secrets in the `ravendb` namespace:
-
+In this flow, you are responsible for creating all required Secrets in the same namespace as the `RavenDBCluster` custom resource.
 
 ```bash
-kubectl create secret generic ravendb-license --from-file=license.json=/path/to/license.json -n ravendb
-kubectl create secret generic ravendb-client-cert --from-file=client.pfx=/path/to/admin-client-cert.pfx -n ravendb
-kubectl create secret generic ravendb-certs-a --from-file=server.pfx=/path/to/node-a/server-cert.pfx -n ravendb
-kubectl create secret generic ravendb-certs-b --from-file=server.pfx=/path/to/node-b/server-cert.pfx -n ravendb
-kubectl create secret generic ravendb-certs-c --from-file=server.pfx=/path/to/node-b/server-cert.pfx -n ravendb
+kubectl create namespace ravendb-dev
+
+kubectl create secret generic ravendb-license --from-file=license.json=/path/to/license.json -n ravendb-dev
+kubectl create secret generic ravendb-client-cert --from-file=client.pfx=/path/to/admin-client-cert.pfx -n ravendb-dev
+kubectl create secret generic ravendb-certs-a --from-file=server.pfx=/path/to/node-a/server-cert.pfx -n ravendb-dev
+kubectl create secret generic ravendb-certs-b --from-file=server.pfx=/path/to/node-b/server-cert.pfx -n ravendb-dev
+kubectl create secret generic ravendb-certs-c --from-file=server.pfx=/path/to/node-c/server-cert.pfx -n ravendb-dev
 ```
 
-Once all required Secrets are created and available in the `ravendb` namespace, you may proceed to install the Helm chart that deploys the RavenDB Operator.
+Once all required Secrets are created and available in the target cluster namespace, you may proceed to install the Helm chart that deploys the RavenDB Operator.
 
 ```bash
 helm install ravendb-operator ravendb-operator/ravendb-operator -n ravendb-operator-system --create-namespace
@@ -93,11 +100,11 @@ helm install ravendb-operator ravendb-operator/ravendb-operator -n ravendb-opera
 <details>
 <summary><strong>2. Install the operator and let the chart create Secrets - <code>Let's Encrypt Mode</code></strong>. </summary>
 
-In this flow, the Helm chart will install the operator and create all required Secrets in the `ravendb` namespace for you,
-using paths you provide to the setup package artifacts.
+In this flow, the Helm chart will install the operator and create all required Secrets in the namespace defined by `targetNamespace` for you, using paths you provide to the setup package artifacts.
 
 ```bash
 helm install ravendb-operator ravendb-operator/ravendb-operator -n ravendb-operator-system --create-namespace \
+    --set targetNamespace=ravendb-dev \
     --set "provisioning.nodeTags={a,b,c}" \
     --set-file provisioning.licenseJson=/path/to/license.json \
     --set-file provisioning.clientPfx=/path/to/admin-client-cert.pfx \
@@ -108,7 +115,7 @@ helm install ravendb-operator ravendb-operator/ravendb-operator -n ravendb-opera
 
 This command will:
 - Deploys the operator into `ravendb-operator-system` 
-- Creates a `ravendb` namespace 
+- Creates the required Secrets in `ravendb-dev` 
 - Automatically generate all required Secrets for the license, the client certificate, and per-node server certificates.
 
 > **Notes:**  
@@ -122,11 +129,11 @@ This command will:
 <details>
 <summary><strong>3. Install the operator and let the chart create Secrets - <code>Self Signed Mode</code></strong>. </summary>
 
-In this flow, the Helm chart will install the operator and create all required Secrets in the `ravendb` namespace for you,
-using paths you provide to single server PFX, a client PFX, and the CA certificate.
+In this flow, the Helm chart will install the operator and create all required Secrets in the namespace defined by `targetNamespace` for you, using paths you provide to a single server PFX, a client PFX, and the CA certificate.
 
 ```bash
  helm install ravendb-operator ravendb-operator/ravendb-operator -n ravendb-operator-system --create-namespace \
+  --set targetNamespace=ravendb-dev \
   --set provisioning.mode=None \
   --set "provisioning.nodeTags={a,b,c}" \
   --set-file provisioning.licenseJson=/path/to/license.json \
@@ -137,7 +144,7 @@ using paths you provide to single server PFX, a client PFX, and the CA certifica
 
 This command will:
 - Deploys the operator into `ravendb-operator-system` 
-- Creates a `ravendb` namespace 
+- Creates the required Secrets in `ravendb-dev`
 - Automatically generate all required Secrets for the license, the client certificate, and per-node server certificates.
 
 > **Notes:**  
@@ -207,7 +214,7 @@ metadata:
   labels:
     app.kubernetes.io/name: ravendb-operator
   name: ravendbcluster-sample
-  namespace: ravendb
+  namespace: ravendb-dev
 spec:
   nodes:
     - tag: a

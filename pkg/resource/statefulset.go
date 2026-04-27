@@ -159,6 +159,15 @@ func buildEnvVars(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode)
 
 	env = append(env, common.BuildAdditionalEnvVars(cluster)...)
 
+	env = append(env, corev1.EnvVar{
+		Name: "POD_NAMESPACE",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.namespace",
+			},
+		},
+	})
+
 	return env, nil
 }
 

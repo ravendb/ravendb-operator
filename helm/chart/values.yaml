@@ -37,6 +37,10 @@ controllerManager:
   #     cpu: 500m
   #     memory: 128Mi
 
+# Namespace where RavenDB cluster resources will be created.
+# Defaults to Helm release namespace if empty.
+targetNamespace: ""
+
 provisioning:
   # Choose: "LetsEncrypt" or "None"
   mode: LetsEncrypt
@@ -49,21 +53,21 @@ provisioning:
   #
   # You must list the node tags you want (must match your cluster spec).
   # For each tag, pass a server PFX file with:
-  #   --set-file ravendb.nodePfx.a=./A/cluster.server.certificate....pfx
-  #   --set-file ravendb.nodePfx.b=./B/cluster.server.certificate....pfx
-  #   --set-file ravendb.nodePfx.c=./C/cluster.server.certificate....pfx
+  #   --set-file provisioning.nodePfx.a=./A/cluster.server.certificate....pfx
+  #   --set-file provisioning.nodePfx.b=./B/cluster.server.certificate....pfx
+  #   --set-file provisioning.nodePfx.c=./C/cluster.server.certificate....pfx
   #
   # The chart will create Secrets:
   #   <nodeCertsSecretNamePrefix>-<tag>  (e.g., ravendb-certs-a)
   nodeTags: ["a", "b", "c"]
   nodeCertsSecretNamePrefix: ravendb-certs
-  nodePfx: {} # populated via --set-file ravendb.nodePfx.<tag>=...
+  nodePfx: {} # populated via --set-file provisioning.nodePfx.<tag>=...
 
   # Mode: None (self-signed)
   #
   # Provide ONE server PFX and ONE CA certificate:
-  #   --set-file ravendb.serverPfx=./server.pfx
-  #   --set-file ravendb.caCrt=./ca.crt
+  #   --set-file provisioning.serverPfx=./server.pfx
+  #   --set-file provisioning.caCrt=./ca.crt
   #
   # The chart will create Secrets:
   #   serverCertSecretName (server.pfx)

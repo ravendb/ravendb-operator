@@ -50,14 +50,15 @@ func (v *generalValidator) ValidateCreate(ctx context.Context, c ClusterAdapter)
 	envVars := c.GetEnv()
 	clientCert := c.GetClientCertSecretRef()
 	caCert := c.GetCACertSecretRef()
+	namespace := c.GetNamespace()
 
 	errs = append(errs, ValidateEmail(mode, email)...)
-	errs = append(errs, ValidateLicenseSecret(v, ctx, license)...)
-	errs = append(errs, ValidateClusterCertSecret(v, ctx, mode, clusterCert)...)
+	errs = append(errs, ValidateLicenseSecret(v, ctx, namespace, license)...)
+	errs = append(errs, ValidateClusterCertSecret(v, ctx, namespace, mode, clusterCert)...)
 	errs = append(errs, ValidateDomain(domain)...)
 	errs = append(errs, ValidateEnv(envVars)...)
-	errs = append(errs, ValidateClientCertSecret(v, ctx, clientCert)...)
-	errs = append(errs, ValidateCACertSecret(v, ctx, mode, caCert)...)
+	errs = append(errs, ValidateClientCertSecret(v, ctx, namespace, clientCert)...)
+	errs = append(errs, ValidateCACertSecret(v, ctx, namespace, mode, caCert)...)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "\n"))
@@ -91,10 +92,10 @@ func ValidateEmail(mode, email string) []string {
 	return errs
 }
 
-func ValidateLicenseSecret(v *generalValidator, ctx context.Context, license string) []string {
+func ValidateLicenseSecret(v *generalValidator, ctx context.Context, namespace, license string) []string {
 	var errs []string
 
-	secret, err := v.getSecret(ctx, license)
+	secret, err := v.getSecret(ctx, namespace, license)
 	if err != nil {
 		errs = append(errs, fmt.Sprintf("spec.licenseSecretRef: %v", err))
 		return errs
@@ -114,7 +115,7 @@ func ValidateLicenseSecret(v *generalValidator, ctx context.Context, license str
 	return errs
 }
 
-func ValidateClusterCertSecret(v *generalValidator, ctx context.Context, mode, clusterCert string) []string {
+func ValidateClusterCertSecret(v *generalValidator, ctx context.Context, namespace, mode, clusterCert string) []string {
 	var errs []string
 
 	if mode == "LetsEncrypt" {
@@ -129,7 +130,7 @@ func ValidateClusterCertSecret(v *generalValidator, ctx context.Context, mode, c
 		return errs
 	}
 
-	secret, err := v.getSecret(ctx, clusterCert)
+	secret, err := v.getSecret(ctx, namespace, clusterCert)
 	if err != nil {
 		errs = append(errs, fmt.Sprintf("spec.clusterCertSecretRef: %v", err))
 		return errs
@@ -182,18 +183,18 @@ func isValidFQDN(s string) bool {
 	return ip == nil
 }
 
-func (v *generalValidator) getSecret(ctx context.Context, name string) (*corev1.Secret, error) {
+func (v *generalValidator) getSecret(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
 	var secret corev1.Secret
-	if err := v.client.Get(ctx, client.ObjectKey{Name: name, Namespace: "ravendb"}, &secret); err != nil {
-		return nil, fmt.Errorf("secret '%s' not found", name)
+	if err := v.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, &secret); err != nil {
+		return nil, fmt.Errorf("secret '%s' not found in namespace '%s'", name, namespace)
 	}
 	return &secret, nil
 }
 
-func ValidateClientCertSecret(v *generalValidator, ctx context.Context, clientCert string) []string {
+func ValidateClientCertSecret(v *generalValidator, ctx context.Context, namespace, clientCert string) []string {
 	var errs []string
 
-	secret, err := v.getSecret(ctx, clientCert)
+	secret, err := v.getSecret(ctx, namespace, clientCert)
 	if err != nil {
 		errs = append(errs, fmt.Sprintf("spec.clientCertSecretRef: %v", err))
 		return errs
@@ -213,7 +214,7 @@ func ValidateClientCertSecret(v *generalValidator, ctx context.Context, clientCe
 	return errs
 }
 
-func ValidateCACertSecret(v *generalValidator, ctx context.Context, mode string, caCert *string) []string {
+func ValidateCACertSecret(v *generalValidator, ctx context.Context, namespace, mode string, caCert *string) []string {
 	var errs []string
 
 	if mode == "LetsEncrypt" {
@@ -228,7 +229,7 @@ func ValidateCACertSecret(v *generalValidator, ctx context.Context, mode string,
 		return errs
 	}
 
-	secret, err := v.getSecret(ctx, *caCert)
+	secret, err := v.getSecret(ctx, namespace, *caCert)
 	if err != nil {
 		errs = append(errs, fmt.Sprintf("spec.caCertSecretRef: %v", err))
 		return errs

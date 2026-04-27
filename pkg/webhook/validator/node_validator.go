@@ -58,6 +58,7 @@ func (v *nodeValidator) ValidateCreate(ctx context.Context, c ClusterAdapter) er
 	mode := c.GetMode()
 	domain := c.GetDomain()
 	extAccType := c.GetExternalAccessType()
+	namespace := c.GetNamespace()
 
 	for i := range tags {
 		var cert string
@@ -80,7 +81,7 @@ func (v *nodeValidator) ValidateCreate(ctx context.Context, c ClusterAdapter) er
 	for _, n := range input {
 		errs = append(errs, ValidateNodeUrl(n.Tag, n.PublicUrl, domain, "https", "publicServerUrl", n.Tag+".")...)
 		errs = append(errs, ValidateNodeUrl(n.Tag, n.TcpUrl, domain, "tcp", "publicServerUrlTcp", n.Tag+"-tcp.")...)
-		errs = append(errs, ValidateNodeCertSecret(ctx, v, mode, n.Tag, n.CertSecret)...)
+		errs = append(errs, ValidateNodeCertSecret(ctx, v, namespace, mode, n.Tag, n.CertSecret)...)
 	}
 
 	if len(errs) > 0 {
@@ -206,7 +207,7 @@ func ValidateNodeUrl(tag, rawUrl, domain, expectedScheme, labelPrefix, expectedH
 	return errs
 }
 
-func ValidateNodeCertSecret(ctx context.Context, v *nodeValidator, mode, tag, secretName string) []string {
+func ValidateNodeCertSecret(ctx context.Context, v *nodeValidator, namespace, mode, tag, secretName string) []string {
 	var errs []string
 	label := fmt.Sprintf("spec.nodes[tag=%s].certsSecretRef", tag)
 
@@ -221,7 +222,7 @@ func ValidateNodeCertSecret(ctx context.Context, v *nodeValidator, mode, tag, se
 		return errs
 	}
 
-	secret, err := v.getSecret(ctx, secretName)
+	secret, err := v.getSecret(ctx, namespace, secretName)
 	if err != nil {
 		errs = append(errs, fmt.Sprintf("%s: %v", label, err))
 		return errs
@@ -255,9 +256,9 @@ func extractPort(raw string) string {
 	return port
 }
 
-func (v *nodeValidator) getSecret(ctx context.Context, name string) (*corev1.Secret, error) {
+func (v *nodeValidator) getSecret(ctx context.Context, namespace, name string) (*corev1.Secret, error) {
 	var secret corev1.Secret
-	err := v.client.Get(ctx, client.ObjectKey{Name: name, Namespace: "ravendb"}, &secret)
+	err := v.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, &secret)
 	if err != nil {
 		return nil, fmt.Errorf("secret '%s' not found", name)
 	}

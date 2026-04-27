@@ -53,6 +53,7 @@ type DefaultDirector struct {
 func NewDefaultDirector() Director {
 	return &DefaultDirector{
 		perClusterActors: []actor.PerClusterActor{
+			actor.NewRBACActor(),
 			actor.NewIngressActor(resource.NewIngressBuilder()),
 			actor.NewBootstrapperActor(resource.NewJobBuilder()),
 			actor.NewHooksActor(),

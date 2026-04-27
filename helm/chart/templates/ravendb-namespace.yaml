@@ -1,5 +1,6 @@
+{{- if and .Values.targetNamespace (ne .Values.targetNamespace .Release.Namespace) }}
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: ravendb
-
+  name: {{ .Values.targetNamespace }}
+{{- end }}

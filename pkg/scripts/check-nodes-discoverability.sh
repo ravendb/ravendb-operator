@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+COMMON_CURL_ARGS=(
+  -H "User-Agent: ravendb-operator/discoverability"
+)
+
 function log() {
     echo "[$(date '+%H:%M:%S')] $1"
 }
@@ -19,13 +23,14 @@ function install_kubectl() {
 }
 
 function wait_for_ravendb_pods() {
+    local ns="${POD_NAMESPACE:?POD_NAMESPACE is required}"
     log "Waiting for all RavenDB pods to be in 'Running' state..."
     MAX_RETRIES=30
 
     for ((i=1; i<=MAX_RETRIES; i++)); do
         log "Pod readiness check: attempt $i/$MAX_RETRIES"
 
-        not_ready=$(kubectl get pods -n ravendb -l app.kubernetes.io/name=ravendb \
+        not_ready=$(kubectl get pods -n "$ns" -l app.kubernetes.io/name=ravendb \
             -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}' \
             | grep -v '^.* Running$' || true)
 
@@ -55,7 +60,7 @@ function check_https_reachability() {
         url="${URLS_ARR[$i]}"
         tag="${TAGS_ARR[$i]}"
         log "[$tag] curl -k $url"
-        location_header=$(curl -ks -D - "$url" -o /dev/null | grep -i "^location:")
+        location_header=$(curl -ks "${COMMON_CURL_ARGS[@]}" -D - "$url" -o /dev/null | grep -i "^location:")
         if echo "$location_header" | grep -q "/studio/index.html"; then
             log "[${tag}] Studio redirect detected - looks good"
         else

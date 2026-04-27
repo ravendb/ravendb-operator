@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+COMMON_CURL_ARGS=(
+  -H "User-Agent: ravendb-operator/init-cluster"
+)
+
 function log() {
     echo "[$(date '+%H:%M:%S')] $1"
 }
@@ -30,7 +34,7 @@ function register_admin_cert() {
     local pfx_src="$CLIENT_PFX"
     local first_tag="${TAGS%% *}"
     local first_pod="ravendb-$(echo "$first_tag" | tr '[:upper:]' '[:lower:]')-0"
-    local ns="ravendb"
+    local ns="${POD_NAMESPACE:?POD_NAMESPACE is required}"
 
     kubectl -n "$ns" exec -i "$first_pod" -- sh -c 'cat > /tmp/client.pfx && chmod 0644 /tmp/client.pfx' < "$pfx_src"
 
@@ -53,6 +57,7 @@ function join_node_to_cluster() {
         --cert "$CLIENT_CERT_PEM"
         --key "$CLIENT_KEY_PEM"
         "${CURL_CA_ARGS[@]}"
+        "${COMMON_CURL_ARGS[@]}"
         -X PUT
         -G "$LEADER_URL/admin/cluster/node"
         --data-urlencode "url=$url"
@@ -63,7 +68,7 @@ function join_node_to_cluster() {
         curl_args+=( --data-urlencode "watcher=true" )
     fi
 
-      local response
+    local response
     response=$(curl "${curl_args[@]}" -w "\n%{http_code}")
 
     local http_code
@@ -78,9 +83,33 @@ function join_node_to_cluster() {
     fi
 }
 
+function bootstrap_leader_with_tag() {
+    local first_tag="${TAGS%% *}"
+    first_tag=${first_tag^^}
+
+    log "Bootstrapping leader with tag [$first_tag]..."
+
+    local http_code
+    http_code=$(curl -s -S -o /dev/null -w "%{http_code}" \
+        --cert "$CLIENT_CERT_PEM" \
+        --key "$CLIENT_KEY_PEM" \
+        "${CURL_CA_ARGS[@]}" \
+        "${COMMON_CURL_ARGS[@]}" \
+        -X POST \
+        -G "$LEADER_URL/admin/cluster/bootstrap" \
+        --data-urlencode "tag=$first_tag")
+
+    if [[ ! "$http_code" =~ ^20[0-9]$ ]]; then
+        log "Failed to bootstrap leader with tag [$first_tag]. HTTP $http_code"
+        exit 1
+    fi
+
+    log "Leader bootstrapped with tag [$first_tag]."
+}
+
 function print_topology() {
     log "Cluster topology:"
-    curl -s --cert "$CLIENT_CERT_PEM" --key "$CLIENT_KEY_PEM" "${CURL_CA_ARGS[@]}" \
+    curl -s "${COMMON_CURL_ARGS[@]}" --cert "$CLIENT_CERT_PEM" --key "$CLIENT_KEY_PEM" "${CURL_CA_ARGS[@]}" \
         "$LEADER_URL/cluster/topology" | jq '{
         Leader,
         CurrentState,
@@ -117,6 +146,8 @@ convert_pfx_to_pem_and_key "$CLIENT_PFX" "$CLIENT_CERT_PEM" "$CLIENT_KEY_PEM"
 install_deps
 
 register_admin_cert
+
+bootstrap_leader_with_tag
 
 IFS=' ' read -r -a member_urls <<< "$MEMBER_URLS"
 

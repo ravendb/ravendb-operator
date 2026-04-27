@@ -29,7 +29,7 @@ import (
 )
 
 func TestStorage_S1_AllPVCsBound_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath)
+	testutil.RecreateTestEnv(t)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
 		Name:      "storage-s1-all-pvcs-bound",
@@ -51,7 +51,7 @@ func TestStorage_S1_AllPVCsBound_E2E(t *testing.T) {
 }
 
 func TestStorage_S2_OneOrMorePVCNotBound_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath)
+	testutil.RecreateTestEnv(t)
 
 	badSC := "does-not-exist-storageclass"
 
@@ -66,9 +66,7 @@ func TestStorage_S2_OneOrMorePVCNotBound_E2E(t *testing.T) {
 
 	testutil.RegisterClusterCleanup(t, cli, key, timeout)
 
-
 	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionStorageReady, metav1.ConditionFalse, timeout, 2*time.Second)
-
 
 	cur := &ravendbv1.RavenDBCluster{}
 	require.NoError(t, cli.Get(context.Background(), key, cur))
@@ -81,7 +79,7 @@ func TestStorage_S2_OneOrMorePVCNotBound_E2E(t *testing.T) {
 }
 
 func TestStorage_S3_NoPVCsYet_E2E(t *testing.T) {
-	testutil.RecreateTestEnv(t, rbacPath)
+	testutil.RecreateTestEnv(t)
 
 	cli, key := testutil.CreateCluster(t, testutil.BaseClusterLE, testutil.ClusterCase{
 		Name:      "storage-s3-no-pvcs-yet",

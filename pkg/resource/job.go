@@ -172,6 +172,14 @@ func buildJobEnvVars(cluster *ravendbv1.RavenDBCluster) ([]corev1.EnvVar, error)
 	allURLs := append([]string{leaderURL}, memberURLs...)
 	allTags := append([]string{leaderTag}, memberTags...)
 	env := common.BuildClusterBootstrapperEnvVars(leaderURL, memberURLs, allURLs, allTags, tcpHosts)
+	env = append(env, corev1.EnvVar{
+		Name: "POD_NAMESPACE",
+		ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.namespace",
+			},
+		},
+	})
 
 	return env, nil
 }

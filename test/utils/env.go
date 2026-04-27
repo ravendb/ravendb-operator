@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/e2e-framework/pkg/env"
 	"sigs.k8s.io/e2e-framework/pkg/envconf"
@@ -78,14 +79,6 @@ func EnsureNamespace(t *testing.T, ns string, timeout time.Duration) {
 	require.NoError(t, err)
 }
 
-func EnsureRBACInNamespace(t *testing.T, ns, basePath string) {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	_, err := InstallNodeRBAC(ns, basePath)(ctx, nil)
-	require.NoError(t, err)
-}
-
 func EnsureKustomize(t *testing.T, path string, timeout time.Duration) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -101,6 +94,7 @@ func RepoRoot() string {
 	wd, _ := os.Getwd()
 	return wd
 }
+
 func PathFromRoot(rel string) string { return filepath.Join(RepoRoot(), rel) }
 
 func WaitReadable(t *testing.T, cli ctrlclient.Client, k ctrlclient.ObjectKey, timeout time.Duration) {
@@ -135,14 +129,16 @@ func GetCondition(obj *ravendbv1.RavenDBCluster, t ravendbv1.ClusterConditionTyp
 
 func RegisterClusterCleanup(t *testing.T, cli ctrlclient.Client, key ctrlclient.ObjectKey, timeout time.Duration) {
 	t.Helper()
-	nsName := "ravendb"
 
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
+		nsName := key.Namespace
+
 		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: nsName}}
 		_ = cli.Delete(ctx, ns)
+
 		deadline := time.Now().Add(timeout)
 		for time.Now().Before(deadline) {
 			cur := &corev1.Namespace{}
@@ -174,15 +170,20 @@ func RegisterClusterCleanup(t *testing.T, cli ctrlclient.Client, key ctrlclient.
 	})
 }
 
-func RecreateTestEnv(t *testing.T, rbacPath string) {
+func RecreateTestEnv(t *testing.T) {
 	t.Helper()
 
 	EnsureNamespace(t, DefaultNS, 60*time.Second)
 
-	EnsureRBACInNamespace(t, DefaultNS, rbacPath)
-
 	SeedSecrets(t)
 
+}
+
+func RecreateTestEnvInNamespace(t *testing.T, ns string) {
+	t.Helper()
+
+	EnsureNamespace(t, ns, 60*time.Second)
+	SeedLESecretsInNamespace(t, ns, 2*time.Minute)
 }
 
 func ObjectKeyForPod(ns, tag string) ctrlclient.ObjectKey {
@@ -230,4 +231,25 @@ func WaitPodImage(t *testing.T, cli ctrlclient.Client, ns, podName, want string,
 func LogStart(t *testing.T) {
 	t.Helper()
 	t.Logf("START: %s", t.Name())
+}
+
+func WaitObjectDeleted(t *testing.T, cli client.Client, key client.ObjectKey, timeout time.Duration) {
+	t.Helper()
+
+	deadline := time.Now().Add(timeout)
+
+	for {
+		obj := &ravendbv1.RavenDBCluster{}
+		err := cli.Get(context.Background(), key, obj)
+
+		if apierrors.IsNotFound(err) {
+			return
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatalf("timeout waiting for object %s/%s to be deleted", key.Namespace, key.Name)
+		}
+
+		time.Sleep(1 * time.Second)
+	}
 }
