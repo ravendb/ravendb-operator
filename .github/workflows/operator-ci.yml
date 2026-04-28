@@ -115,9 +115,15 @@ jobs:
           helm lint "${RAVEN_E2E_HELM_CHART_PATH}" "${common_args[@]}" --strict
 
           helm template "${RAVEN_E2E_HELM_RELEASE}" "${RAVEN_E2E_HELM_CHART_PATH}" \
-          --namespace ravendb-operator-system \
           "${common_args[@]}" \
           > /tmp/ravendb-operator-rendered.yaml
+
+          echo "Verifying provisioned Secrets are rendered into targetNamespace..."
+          grep -A4 "name: ravendb-license" /tmp/ravendb-operator-rendered.yaml | grep "namespace: test-namespace"
+          grep -A4 "name: ravendb-client-cert" /tmp/ravendb-operator-rendered.yaml | grep "namespace: test-namespace"
+          grep -A4 "name: ravendb-certs-a" /tmp/ravendb-operator-rendered.yaml | grep "namespace: test-namespace"
+          grep -A4 "name: ravendb-certs-b" /tmp/ravendb-operator-rendered.yaml | grep "namespace: test-namespace"
+          grep -A4 "name: ravendb-certs-c" /tmp/ravendb-operator-rendered.yaml | grep "namespace: test-namespace"
 
   e2e-helm: 
     name: E2E Helm (kind)
