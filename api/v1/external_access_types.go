@@ -19,6 +19,7 @@ package v1
 type ExternalAccessConfiguration struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=aws-nlb;azure-lb;ingress-controller
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="External Access Type"
 	Type ExternalAccessType `json:"type"`
 
 	// +kubebuilder:validation:Optional
@@ -34,6 +35,7 @@ type ExternalAccessConfiguration struct {
 type AWSExternalAccessContext struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="AWS Node Mappings"
 	NodeMappings []AWSNodeMapping `json:"nodeMappings"`
 }
 
@@ -57,6 +59,7 @@ type AWSNodeMapping struct {
 type AzureExternalAccessContext struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Azure Node Mappings"
 	NodeMappings []AzureNodeMapping `json:"nodeMappings"`
 }
 
@@ -74,8 +77,10 @@ type IngressControllerContext struct {
 	// +kubebuilder:validation:Enum=nginx;traefik;haproxy
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Ingress Class"
 	IngressClassName string `json:"ingressClassName"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Ingress Annotations"
 	AdditionalAnnotations map[string]string `json:"additionalAnnotations,omitempty"`
 }
