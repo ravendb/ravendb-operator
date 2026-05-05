@@ -1,0 +1,153 @@
+name: Prepare Release
+
+# Phase 1 of the two-phase release flow.
+# Trigger: Actions tab -> Run workflow with target version.
+# Output: a `release: vX.Y.Z` PR labeled `release:auto`, carrying source bumps + helm chart.
+# Merge fires the Release workflow; remove the label first to delay publishing.
+# dry_run=true: apply bumps + upload bundle/helm artifacts; no branch/PR/label mutation.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 1.1.0, no v prefix)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (no PR / branch / label mutations)'
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      dry_run:
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Read previous version from Makefile
+        id: prev
+        run: |
+          OLD=$(awk -F'?= ' '/^VERSION \?=/ {print $2}' Makefile)
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          echo "Previous version: $OLD"
+          echo "New version:      $VERSION"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "Mode: DRY RUN (no PR / branch / label mutations)"
+          fi
+
+      - name: Bump source files
+        env:
+          OLD: ${{ steps.prev.outputs.old }}
+        run: |
+          sed -i "s/^VERSION ?=.*/VERSION ?= ${VERSION}/" Makefile
+          sed -i "s/^version:.*/version: ${VERSION}/"   helm/chart/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/chart/Chart.yaml
+          sed -i "/^| [0-9]\+\.[0-9]\+\.[0-9]\+ /c\\| ${VERSION}   | :white_check_mark: |" SECURITY.md
+
+      - name: Update OLM bundle
+        env:
+          OLD: ${{ steps.prev.outputs.old }}
+        run: |
+          mv "bundle/ravendb-operator/${OLD}" "bundle/ravendb-operator/${VERSION}"
+          CSV="bundle/ravendb-operator/${VERSION}/manifests/ravendb-operator.clusterserviceversion.yaml"
+          sed -i "s|ravendb-operator:${OLD}|ravendb-operator:${VERSION}|g" "$CSV"
+          sed -i "s|ravendb-operator.v${OLD}|ravendb-operator.v${VERSION}|g" "$CSV"
+          sed -i "s|^  version: ${OLD}\$|  version: ${VERSION}|" "$CSV"
+          sed -i "s|createdAt: \".*\"|createdAt: \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"|" "$CSV"
+
+      - name: Package helm chart
+        run: |
+          helm package helm/chart -d helm/
+          helm repo index helm/ \
+            --url https://ravendb.github.io/ravendb-operator/helm \
+            --merge helm/index.yaml
+
+      - name: Verify no stale OLD refs in new bundle
+        env:
+          OLD: ${{ steps.prev.outputs.old }}
+        run: |
+          if grep -nrE "(^|[^0-9])${OLD}([^0-9]|\$)" "bundle/ravendb-operator/${VERSION}"; then
+            echo "::error::Stale ${OLD} references found in bundle/ravendb-operator/${VERSION}/"
+            exit 1
+          fi
+
+      # ─── Real-mode mutations (skipped on dry_run) ───
+
+      - name: Ensure release:auto label exists
+        if: ${{ !inputs.dry_run }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "release:auto" \
+            --description "On merge, fires the Release workflow automatically. Remove before merging to delay publishing." \
+            --color "0e8a16" \
+            || true   # already exists is fine
+
+      - name: Open release PR
+        if: ${{ !inputs.dry_run }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="release/v${VERSION}"
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add Makefile helm/ bundle/ SECURITY.md
+          git commit -m "release: v${VERSION}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --title "release: v${VERSION}" \
+            --base main \
+            --head "$BRANCH" \
+            --label "release:auto" \
+            --body "Auto-generated bumps for v${VERSION}.
+
+          On merge with the **release:auto** label still attached, the Release workflow fires automatically:
+          builds and pushes the multi-arch image, runs a kind-based smoke test, tags v${VERSION}, and
+          publishes a GitHub Release with \`install.yaml\` attached.
+
+          Remove the **release:auto** label before merging to delay publishing. You can fire publishing
+          later by running the Release workflow manually with version \`${VERSION}\`."
+
+      # ─── Dry-run-only outputs ───
+
+      - name: Dry run — upload artifacts
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepare-release-${{ inputs.version }}
+          path: |
+            bundle/ravendb-operator/${{ inputs.version }}/
+            helm/ravendb-operator-${{ inputs.version }}.tgz
+            helm/index.yaml
+
+      - name: Dry run — summary
+        if: ${{ inputs.dry_run }}
+        run: |
+          echo "DRY RUN SUMMARY"
+          echo "==============="
+          echo "Would have:"
+          echo "  - Created branch:  release/v${VERSION}"
+          echo "  - Committed:       Makefile, helm/, bundle/, SECURITY.md"
+          echo "  - Opened PR:       'release: v${VERSION}' with label release:auto"
+          echo ""
+          echo "Working-tree diff vs HEAD:"
+          git diff --stat HEAD

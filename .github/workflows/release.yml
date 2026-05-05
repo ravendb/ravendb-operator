@@ -1,0 +1,208 @@
+name: Release
+
+# Phase 2 of the two-phase release flow.
+# Triggers: merge of a `release:auto`-labeled PR, manual workflow_dispatch, or
+# workflow_call from release-dryrun.yml (always dry_run=true).
+# Real-mode: pushes multi-arch ravendb/ravendb-operator:{vX.Y.Z,latest}, runs kind
+# smoke test, tags vX.Y.Z, publishes Release with install.yaml attached.
+# Dry-run: single-arch local build + same smoke test; skips push/tag/release.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (must match Makefile VERSION on main)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (no push / tag / Release)'
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      dry_run:
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: |
+      inputs.dry_run
+      || github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'pull_request'
+          && github.event.pull_request.merged == true
+          && contains(github.event.pull_request.labels.*.name, 'release:auto'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Determine version
+        id: ver
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            # Auto-fired from labeled PR merge; branch is release/vX.Y.Z.
+            VERSION="${BRANCH#release/v}"
+          fi
+          if [ -z "${VERSION}" ] || [ "${VERSION}" = "${BRANCH}" ]; then
+            echo "::error::Could not derive version (branch=${BRANCH}, input=${{ inputs.version }})"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "img=ravendb/ravendb-operator:${VERSION}" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "Mode: DRY RUN (no push / tag / Release)"
+          else
+            echo "Releasing v${VERSION}"
+          fi
+
+      - name: Verify Makefile VERSION matches target
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          MAKE_VERSION=$(awk -F'?= ' '/^VERSION \?=/ {print $2}' Makefile)
+          if [ "$MAKE_VERSION" != "$VERSION" ]; then
+            echo "::error::Makefile VERSION ($MAKE_VERSION) != target ($VERSION). Did the prepare-release PR not merge cleanly?"
+            exit 1
+          fi
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to DockerHub
+        if: ${{ !inputs.dry_run }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push manager image (real, multi-arch)
+        if: ${{ !inputs.dry_run }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ravendb/ravendb-operator:${{ steps.ver.outputs.version }}
+            ravendb/ravendb-operator:latest
+
+      - name: Build manager image (dry run, single-arch, local load)
+        if: ${{ inputs.dry_run }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ravendb/ravendb-operator:${{ steps.ver.outputs.version }}
+
+      - name: Verify multi-arch manifests landed
+        if: ${{ !inputs.dry_run }}
+        env:
+          IMG: ${{ steps.ver.outputs.img }}
+        run: |
+          ARCHS=$(docker buildx imagetools inspect "${IMG}" | awk '/Platform:/ {print $2}')
+          echo "Detected platforms:"
+          echo "$ARCHS"
+          echo "$ARCHS" | grep -q '^linux/amd64$' || { echo "::error::amd64 manifest missing"; exit 1; }
+          echo "$ARCHS" | grep -q '^linux/arm64$' || { echo "::error::arm64 manifest missing"; exit 1; }
+
+      - name: Build dist/install.yaml
+        env:
+          IMG: ${{ steps.ver.outputs.img }}
+        run: make build-installer IMG="${IMG}"
+
+      - name: Smoke test on Kind
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: smoke
+
+      - name: Smoke (dry run) — load locally-built image into kind
+        if: ${{ inputs.dry_run }}
+        run: |
+          kind load docker-image ravendb/ravendb-operator:${{ steps.ver.outputs.version }} --name smoke
+
+      - name: Smoke — install cert-manager
+        run: |
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.0/cert-manager.yaml
+          kubectl -n cert-manager rollout status deploy/cert-manager           --timeout=2m
+          kubectl -n cert-manager rollout status deploy/cert-manager-webhook   --timeout=2m
+          kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=2m
+
+      - name: Smoke — apply install.yaml + verify operator pod becomes Ready
+        run: |
+          kubectl apply -f dist/install.yaml
+          NS=$(kubectl get deploy -A -o jsonpath='{range .items[?(@.metadata.name=="ravendb-operator-controller-manager")]}{.metadata.namespace}{"\n"}{end}' | head -1)
+          if [ -z "$NS" ]; then
+            echo "::error::ravendb-operator-controller-manager deployment not found"
+            kubectl get deploy -A
+            exit 1
+          fi
+          echo "Manager deployment lives in namespace: $NS"
+          kubectl -n "$NS" rollout status deploy/ravendb-operator-controller-manager --timeout=3m
+
+      # ─── Real-mode publishing (skipped on dry_run) ───
+
+      - name: Push git tag
+        if: ${{ !inputs.dry_run }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Publish GitHub Release with install.yaml
+        if: ${{ !inputs.dry_run }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --generate-notes \
+            dist/install.yaml
+
+      # ─── Dry-run-only outputs ───
+
+      - name: Dry run — upload install.yaml
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ steps.ver.outputs.version }}
+          path: dist/install.yaml
+
+      - name: Dry run — summary
+        if: ${{ inputs.dry_run }}
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          echo "DRY RUN SUMMARY"
+          echo "==============="
+          echo "Would have:"
+          echo "  - Pushed:   ravendb/ravendb-operator:${VERSION} (multi-arch)"
+          echo "  - Pushed:   ravendb/ravendb-operator:latest"
+          echo "  - Tagged:   v${VERSION}"
+          echo "  - Released: v${VERSION} on GitHub with install.yaml attached"
+          echo ""
+          echo "Smoke test (cert-manager + install.yaml + rollout) passed against the locally-built image."

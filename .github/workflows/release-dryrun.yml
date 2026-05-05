@@ -1,0 +1,46 @@
+name: Release dry-run
+
+# Biweekly dry-run of the full pipeline. Catches deprecated actions, broken URLs,
+# and YAML drift before they bite a real release. Opens a `ci-broken` issue on failure.
+
+on:
+  schedule:
+    - cron: '0 6 1,15 * *'    # 1st and 15th of each month, 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  prepare:
+    uses: ./.github/workflows/prepare-release.yml
+    with:
+      version: '0.0.0-dryrun'
+      dry_run: true
+    secrets: inherit
+
+  publish:
+    needs: prepare
+    uses: ./.github/workflows/release.yml
+    with:
+      version: '0.0.0-dryrun'
+      dry_run: true
+    secrets: inherit
+
+  notify-on-failure:
+    needs: [prepare, publish]
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: 'Biweekly release dry-run failed',
+              body: `The scheduled release dry-run failed.\n\nRun: ${runUrl}\n\nThis usually means the release pipeline has drifted (deprecated action, removed input, broken external URL). Check the run logs and fix before the next real release.`,
+              labels: ['ci-broken']
+            });
