@@ -69,7 +69,7 @@ jobs:
           sed -i "s/^VERSION ?=.*/VERSION ?= ${VERSION}/" Makefile
           sed -i "s/^version:.*/version: ${VERSION}/"   helm/chart/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/chart/Chart.yaml
-          sed -i "/^| [0-9]\+\.[0-9]\+\.[0-9]\+ /c\\| ${VERSION}   | :white_check_mark: |" SECURITY.md
+          # SECURITY.md is bumped manually after the GitHub Release is published.
 
       - name: Regenerate OLM bundle
         env:
@@ -122,29 +122,23 @@ jobs:
 
       - name: Open release PR
         if: ${{ !inputs.dry_run }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          BRANCH="release/v${VERSION}"
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-          git add Makefile helm/ bundle/ SECURITY.md config/
-          git commit -m "release: v${VERSION}"
-          git push origin "$BRANCH"
-          gh pr create \
-            --title "release: v${VERSION}" \
-            --base main \
-            --head "$BRANCH" \
-            --label "release:auto" \
-            --body "Auto-generated bumps for v${VERSION}.
+        # peter-evans/create-pull-request v8.1.1 — pinned to SHA per supply-chain best practice.
+        # Auto-stages modified files, commits as github-actions[bot], pushes, opens (or
+        # updates) the PR. Idempotent: re-running for the same VERSION updates in place.
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1
+        with:
+          branch: release/v${{ env.VERSION }}
+          base: main
+          title: "release: v${{ env.VERSION }}"
+          commit-message: "release: v${{ env.VERSION }}"
+          labels: release:auto
+          body: |
+            Auto-generated bumps for v${{ env.VERSION }}.
 
-          On merge with the **release:auto** label still attached, the Release workflow fires automatically:
-          builds and pushes the multi-arch image, runs a kind-based smoke test, tags v${VERSION}, and
-          publishes a GitHub Release with \`install.yaml\` attached.
-
-          Remove the **release:auto** label before merging to delay publishing. You can fire publishing
-          later by running the Release workflow manually with version \`${VERSION}\`."
+            On merge with the **release:auto** label still attached, the Release workflow fires:
+            multi-arch image push, kind smoke test, tag, GitHub Release with `install.yaml`.
+            Remove the label before merging to delay publishing. SECURITY.md is bumped
+            manually after publishing.
 
       # ─── Dry-run-only outputs ───
 
@@ -165,7 +159,7 @@ jobs:
           echo "==============="
           echo "Would have:"
           echo "  - Created branch:  release/v${VERSION}"
-          echo "  - Committed:       Makefile, helm/, bundle/, SECURITY.md, config/"
+          echo "  - Committed:       Makefile, helm/, bundle/, config/"
           echo "  - Opened PR:       'release: v${VERSION}' with label release:auto"
           echo ""
           echo "Working-tree diff vs HEAD:"
