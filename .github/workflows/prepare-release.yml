@@ -47,6 +47,10 @@ jobs:
           go-version: '1.24.3'
           cache: true
 
+      # Stale samples ship a broken "Try sample CR" form to OperatorHub. Gate first.
+      - name: Verify config/samples are current
+        run: make verify-samples
+
       - name: Read previous version from Makefile
         id: prev
         run: |
