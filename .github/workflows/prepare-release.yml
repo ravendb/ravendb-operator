@@ -42,6 +42,11 @@ jobs:
 
       - uses: azure/setup-helm@v4
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.3'
+          cache: true
+
       - name: Read previous version from Makefile
         id: prev
         run: |
@@ -62,16 +67,26 @@ jobs:
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/chart/Chart.yaml
           sed -i "/^| [0-9]\+\.[0-9]\+\.[0-9]\+ /c\\| ${VERSION}   | :white_check_mark: |" SECURITY.md
 
-      - name: Update OLM bundle
+      - name: Regenerate OLM bundle
         env:
           OLD: ${{ steps.prev.outputs.old }}
         run: |
-          mv "bundle/ravendb-operator/${OLD}" "bundle/ravendb-operator/${VERSION}"
+          make bundle \
+            VERSION="${VERSION}" \
+            IMG="docker.io/ravendb/ravendb-operator:${VERSION}" \
+            CHANNELS=stable \
+            DEFAULT_CHANNEL=stable
+          make bundle-relocate VERSION="${VERSION}"
+          if [ "${OLD}" != "${VERSION}" ]; then
+            rm -rf "bundle/ravendb-operator/${OLD}"
+          fi
           CSV="bundle/ravendb-operator/${VERSION}/manifests/ravendb-operator.clusterserviceversion.yaml"
-          sed -i "s|ravendb-operator:${OLD}|ravendb-operator:${VERSION}|g" "$CSV"
-          sed -i "s|ravendb-operator.v${OLD}|ravendb-operator.v${VERSION}|g" "$CSV"
-          sed -i "s|^  version: ${OLD}\$|  version: ${VERSION}|" "$CSV"
-          sed -i "s|createdAt: \".*\"|createdAt: \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"|" "$CSV"
+          # operator-sdk omits containerImage; OperatorHub uses it for catalog display.
+          sed -i "/^    capabilities:/i\\    containerImage: docker.io/ravendb/ravendb-operator:${VERSION}" "$CSV"
+          # operator-sdk emits nodes[0].field; OLM convention is nodes[]. (descriptor lines only).
+          sed -i -E '/^        path: /s|\[0\]|[]|g' "$CSV"
+          # make bundle rewrites the kustomization image tag — revert to keep :latest tracked.
+          git checkout -- config/manager/kustomization.yaml
 
       - name: Package helm chart
         run: |
@@ -110,7 +125,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add Makefile helm/ bundle/ SECURITY.md
+          git add Makefile helm/ bundle/ SECURITY.md config/
           git commit -m "release: v${VERSION}"
           git push origin "$BRANCH"
           gh pr create \
@@ -146,7 +161,7 @@ jobs:
           echo "==============="
           echo "Would have:"
           echo "  - Created branch:  release/v${VERSION}"
-          echo "  - Committed:       Makefile, helm/, bundle/, SECURITY.md"
+          echo "  - Committed:       Makefile, helm/, bundle/, SECURITY.md, config/"
           echo "  - Opened PR:       'release: v${VERSION}' with label release:auto"
           echo ""
           echo "Working-tree diff vs HEAD:"
