@@ -3,7 +3,7 @@ kind: RavenDBCluster
 metadata:
   labels:
     app.kubernetes.io/name: ravendb-operator
-  name: ravendbcluster-sample
+  name: ravendbcluster-sample-selfsigned
   namespace: ravendb
 spec:
   nodes:

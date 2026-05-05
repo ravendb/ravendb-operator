@@ -302,9 +302,31 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 
+# operator-sdk emits a flat bundle/ + bundle.Dockerfile at repo root; this repo ships
+# bundle/ravendb-operator/$(VERSION)/. Relocate moves the output and fixes COPY paths.
+.PHONY: bundle-relocate
+bundle-relocate: ## Move flat bundle/ output into bundle/ravendb-operator/$(VERSION)/.
+	@if [ ! -d bundle/manifests ] || [ ! -f bundle.Dockerfile ]; then \
+		echo "::error::No flat bundle/ output to relocate. Run 'make bundle' first."; exit 1; \
+	fi
+	@mkdir -p bundle/ravendb-operator/$(VERSION)
+	@rm -rf bundle/ravendb-operator/$(VERSION)/manifests \
+	        bundle/ravendb-operator/$(VERSION)/metadata \
+	        bundle/ravendb-operator/$(VERSION)/tests \
+	        bundle/ravendb-operator/$(VERSION)/bundle.Dockerfile
+	@mv bundle/manifests bundle/ravendb-operator/$(VERSION)/manifests
+	@mv bundle/metadata  bundle/ravendb-operator/$(VERSION)/metadata
+	@mv bundle/tests     bundle/ravendb-operator/$(VERSION)/tests
+	@mv bundle.Dockerfile bundle/ravendb-operator/$(VERSION)/bundle.Dockerfile
+	@sed -i 's|^COPY bundle/|COPY ./|' bundle/ravendb-operator/$(VERSION)/bundle.Dockerfile
+	@echo "Relocated bundle to bundle/ravendb-operator/$(VERSION)/"
+
 .PHONY: bundle-build
-bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+bundle-build: ## Build bundle image (run bundle-relocate first).
+	docker build \
+		-f bundle/ravendb-operator/$(VERSION)/bundle.Dockerfile \
+		-t $(BUNDLE_IMG) \
+		bundle/ravendb-operator/$(VERSION)
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.
