@@ -1,0 +1,14 @@
+ports:
+  websecure:
+    port: 8443
+    exposedPort: 443
+    protocol: TCP
+
+  tcp:
+    port: 38888
+    exposedPort: 38888
+    protocol: TCP
+
+providers:
+  kubernetesCRD:
+    enabled: true

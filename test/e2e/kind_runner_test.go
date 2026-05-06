@@ -21,6 +21,7 @@ var (
 	operatorNS            = "ravendb-operator-system"
 	operatorImage         = testutil.Getenv("RAVEN_OPERATOR_IMAGE", "ravendb/ravendb-operator:latest")
 	installMode           = testutil.Getenv("RAVEN_E2E_INSTALL_MODE", "kustomize")
+	ingressController     = testutil.Getenv("RAVEN_E2E_INGRESS_CONTROLLER", "nginx")
 	helmChartPath         = testutil.Getenv("RAVEN_E2E_HELM_CHART_PATH", "chart")
 	helmRelease           = testutil.Getenv("RAVEN_E2E_HELM_RELEASE", "ravendb-operator")
 	ctlMgrName            = "ravendb-operator-controller-manager"
@@ -77,10 +78,24 @@ func TestMain(m *testing.M) {
 		testutil.WaitForDeployment(controllerNS, metalLBNS, timeout),
 
 		testutil.ApplyManifest(metallbConfigFilePath),
-		testutil.ApplyManifest(nginxIngressFilePath),
+	}
 
-		testutil.WaitForIngressControllerReady(timeout),
-		testutil.WaitForIngressAdmissionReady(timeout),
+	if ingressController == "traefik" {
+		fmt.Println("[e2e] ingress controller: TRAEFIK")
+		setup = append(setup,
+			testutil.InstallTraefik(timeout),
+			testutil.WaitForTraefikReady(timeout),
+		)
+	} else {
+		fmt.Println("[e2e] ingress controller: NGINX")
+		setup = append(setup,
+			testutil.ApplyManifest(nginxIngressFilePath),
+			testutil.WaitForNginxIngressControllerReady(timeout),
+			testutil.WaitForNginxIngressAdmissionReady(timeout),
+		)
+	}
+
+	setup = append(setup,
 		testutil.WaitForDeployment(certManagerNS, certManagerNS, timeout),
 		testutil.WaitForDeployment(cmCaInjectorName, certManagerNS, timeout),
 		testutil.WaitForDeployment(cmWebhookName, certManagerNS, timeout),
@@ -89,13 +104,13 @@ func TestMain(m *testing.M) {
 		testutil.WaitForCRDEstablished(crdName, timeout),
 
 		testutil.BuildAndLoadOperator(operatorImage, dockerfileName, testutil.RepoRoot()),
-	}
+	)
 
 	if installMode == "helm" {
-		fmt.Println("[e2e] install mode: HELM (InstallOperatorHelm)")
+		fmt.Println("[e2e] install mode operator: HELM (InstallOperatorHelm)")
 		setup = append(setup, testutil.InstallOperatorHelm(helmRelease, operatorNS, helmChartPath, timeout))
 	} else {
-		fmt.Println("[e2e] install mode: KUSTOMIZE (ApplyKustomize)")
+		fmt.Println("[e2e] install mode operator: KUSTOMIZE (ApplyKustomize)")
 		setup = append(setup, envfuncs.CreateNamespace(TestNS))
 		setup = append(setup, testutil.ApplyKustomize(crdDefaultPath))
 	}
