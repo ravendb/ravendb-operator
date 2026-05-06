@@ -19,49 +19,62 @@ package v1
 type RavenDBClusterSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RavenDB Image"
 	Image string `json:"image"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=Always;IfNotPresent
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Image Pull Policy"
 	ImagePullPolicy string `json:"imagePullPolicy"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum=LetsEncrypt;None
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Security Mode"
 	Mode ClusterMode `json:"mode"`
 
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Pattern=`^[^@\s]+@[^@\s]+\.[^@\s]+$`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Let's Encrypt Email"
 	Email *string `json:"email,omitempty"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="License Secret"
 	LicenseSecretRef string `json:"licenseSecretRef"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Cluster Certificate Secret"
 	ClusterCertSecretRef *string `json:"clusterCertSecretRef,omitempty"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Cluster Domain"
 	Domain string `json:"domain"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Nodes"
 	Nodes []RavenDBNode `json:"nodes,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Additional Environment Variables"
 	Env map[string]string `json:"env,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="External Access Configuration"
 	ExternalAccessConfiguration *ExternalAccessConfiguration `json:"externalAccessConfiguration,omitempty"`
 
 	// +kubebuilder:validation:Required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Storage"
 	StorageSpec StorageSpec `json:"storage"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Client Certificate Secret"
 	ClientCertSecretRef string `json:"clientCertSecretRef"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="CA Certificate Secret"
 	CACertSecretRef *string `json:"caCertSecretRef,omitempty"`
 
 	// // +kubebuilder:validation:Optional

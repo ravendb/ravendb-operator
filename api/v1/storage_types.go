@@ -29,21 +29,26 @@ type StorageSpec struct {
 	Logs *LogsSpec `json:"logs,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Additional Volumes"
 	AdditionalVolumes *[]AdditionalVolume `json:"additionalVolumes,omitempty"`
 }
 
 type VolumeSpec struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern=`^\d+(Ei|Pi|Ti|Gi|Mi|Ki)$`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Volume Size"
 	Size string `json:"size"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="StorageClass"
 	StorageClassName *string `json:"storageClassName,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Access Modes"
 	AccessModes *[]string `json:"accessModes,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="VolumeAttributesClass"
 	VolumeAttributesClassName *string `json:"volumeAttributesClassName,omitempty"`
 }
 
@@ -59,14 +64,17 @@ type LogSettings struct {
 	VolumeSpec `json:",inline"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Logs Path"
 	Path *string `json:"path,omitempty"`
 }
 
 type AdditionalVolume struct {
 	// +kubebuilder:validation:Required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Additional Volume Name"
 	Name string `json:"name"`
 
 	// +kubebuilder:validation:Required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Additional Volume Mount Path"
 	MountPath string `json:"mountPath"`
 
 	// +kubebuilder:validation:Optional

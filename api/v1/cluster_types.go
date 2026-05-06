@@ -20,6 +20,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +operator-sdk:csv:customresourcedefinitions:displayName="Raven DBCluster",resources={{StatefulSet,v1,ravendb-<nodeTag>},{Service,v1,ravendb-<nodeTag>},{Ingress,v1,ravendb},{ServiceAccount,v1,ravendb-ops-sa},{Job,v1,ravendb-cluster-init},{ConfigMap,v1,ravendb-bootstrapper-hook},{ConfigMap,v1,ravendb-cert-hook}}
 
 type RavenDBCluster struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -39,9 +40,18 @@ type RavenDBClusterList struct {
 
 type RavenDBClusterStatus struct {
 	// +kubebuilder:validation:Enum=Deploying;Running;Error
-	Phase              ClusterPhase        `json:"phase,omitempty"`
-	Message            string              `json:"message,omitempty"`
-	ObservedGeneration int64               `json:"observedGeneration,omitempty"`
-	Nodes              []RavenDBNodeStatus `json:"nodes,omitempty"`
-	Conditions         []metav1.Condition  `json:"conditions,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cluster Phase"
+	Phase ClusterPhase `json:"phase,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Status Message"
+	Message string `json:"message,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Observed Generation"
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Node Statuses"
+	Nodes []RavenDBNodeStatus `json:"nodes,omitempty"`
+
+	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cluster Conditions"
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
