@@ -1,0 +1,54 @@
+{{- $extAccess := .Values.spec.externalAccessConfiguration }}
+{{- if $extAccess }}
+{{- if eq (default "" $extAccess.type) "ingress-controller" }}
+{{- $ic := $extAccess.ingressControllerContext }}
+{{- if $ic }}
+{{- if eq (default "" $ic.ingressClassName) "traefik" }}
+{{- $httpsEntry := required "traefik.entryPoints.https is required" .Values.traefik.entryPoints.https }}
+{{- $tcpEntry := required "traefik.entryPoints.tcp is required" .Values.traefik.entryPoints.tcp }}
+{{- range .Values.spec.nodes }}
+{{- $tagLower := .tag | lower }}
+{{- $svcName := printf "ravendb-%s" $tagLower }}
+{{- $httpsHost := regexReplaceAll ":\\d+$" (urlParse .publicServerUrl).host "" }}
+{{- $tcpHost := regexReplaceAll ":\\d+$" (urlParse .publicServerUrlTcp).host "" }}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: {{ $svcName }}-https
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ravendb-cluster.labels" $ | nindent 4 }}
+spec:
+  entryPoints:
+    - {{ $httpsEntry }}
+  routes:
+    - match: HostSNI(`{{ $httpsHost }}`)
+      services:
+        - name: {{ $svcName }}
+          port: 443
+  tls:
+    passthrough: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: {{ $svcName }}-tcp
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ravendb-cluster.labels" $ | nindent 4 }}
+spec:
+  entryPoints:
+    - {{ $tcpEntry }}
+  routes:
+    - match: HostSNI(`{{ $tcpHost }}`)
+      services:
+        - name: {{ $svcName }}
+          port: 38888
+  tls:
+    passthrough: true
+---
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
