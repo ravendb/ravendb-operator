@@ -1,0 +1,299 @@
+name: Release Artifacts CI
+
+# Validates the bundle, dist/install.yaml, and helm chart on every PR that could
+# affect them. Runs the same OLM round-trip as a real release, against the real
+# Makefile VERSION. The point: catch "the bundle won't build" / "OLM rejects the
+# CSV" / "committed bundle is stale" on the PR that introduces the regression,
+# not 6 hours later in release.yml.
+#
+# This workflow does NOT push, tag, or release anything. It builds and tests
+# everything locally on the runner.
+#
+# Action pinning policy: third-party actions SHOULD be pinned to commit SHA with
+# a trailing comment naming the version. First-party actions/* and github/* may
+# stay on major tag. SHA-pinning of third-party actions (docker/*, helm/*,
+# azure/*) is tracked for a follow-up pass.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'api/v1/**'
+      - 'config/**'
+      - 'helm/chart/**'
+      - 'Makefile'
+      - 'bundle/**'
+      - 'Dockerfile'
+      - '.github/kind-config.yaml'
+      - '.github/workflows/release-artifacts-ci.yml'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/prepare-release.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate release artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history so bundle-verify's git ops have somewhere to land
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.3'
+          cache: true
+
+      - uses: azure/setup-helm@v4
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Read VERSION from Makefile
+        id: ver
+        run: |
+          VERSION=$(awk -F'?= ' '/^VERSION \?=/ {print $2}' Makefile)
+          [ -n "$VERSION" ] || { echo "::error::Makefile VERSION empty"; exit 1; }
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "img=docker.io/ravendb/ravendb-operator:${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Validating release artifacts for v${VERSION}"
+
+      # ─── Static / generation checks (fast; fail-fast before anything cluster-y) ───
+
+      - name: Verify config/samples are current
+        run: make verify-samples
+
+      - name: Helm chart — lint
+        run: helm lint helm/chart
+
+      - name: Build dist/install.yaml
+        env:
+          IMG: ${{ steps.ver.outputs.img }}
+        run: make build-installer IMG="${IMG}"
+
+      # bundle-verify runs operator-sdk's bundle-validate + a stale-version-string
+      # scan. It does NOT regen-and-diff — that idempotency check was high
+      # friction (operator-sdk-on-Linux requirement, plus per-run createdAt
+      # drift) for little signal, since prepare-release.yml regenerates from
+      # scratch on every release.
+      - name: Validate bundle (operator-sdk + stale-version scan)
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          make bundle-verify VERSION="${VERSION}"
+
+      - name: Verify no working-tree drift after artifact generation
+        run: |
+          # Defensive: build-installer's trap-revert should leave
+          # config/manager/kustomization.yaml clean. Anything dirty here means a
+          # Make target leaked a side-effect we didn't intend.
+          if ! git diff --exit-code -- bundle/ config/manager/kustomization.yaml; then
+            echo "::error::Working tree dirty after artifact generation — a Make target left a side-effect."
+            git status --short -- bundle/ config/manager/kustomization.yaml
+            exit 1
+          fi
+
+      # ─── OLM round-trip — install the operator the way OperatorHub users would ───
+
+      # Build the manager image so OLM's deployment can pull it from kind's local cache.
+      # Single-arch is enough; multi-arch is a release.yml concern.
+      - name: Build manager image (single-arch, local load)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ravendb/ravendb-operator:${{ steps.ver.outputs.version }}
+
+      - name: Kind cluster (with containerd registry mirror config)
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: smoke
+          config: ${{ github.workspace }}/.github/kind-config.yaml
+
+      - name: Set up local registry (canonical kind+registry pattern)
+        run: |
+          # Start the registry container if not already running.
+          if [ "$(docker inspect -f '{{.State.Running}}' kind-registry 2>/dev/null || echo false)" != "true" ]; then
+            docker run -d --restart=always -p 127.0.0.1:5000:5000 --name kind-registry registry:2
+          fi
+          # Connect it to the kind network so cluster nodes resolve "kind-registry" by DNS.
+          docker network connect kind kind-registry 2>/dev/null || true
+          # Populate /etc/containerd/certs.d on each kind node — this is what makes
+          # containerd redirect pulls of `localhost:5000/...` to the registry container.
+          for node in $(kind get nodes --name smoke); do
+            docker exec "${node}" mkdir -p /etc/containerd/certs.d/localhost:5000
+            docker exec -i "${node}" sh -c 'cat > /etc/containerd/certs.d/localhost:5000/hosts.toml' <<'EOF'
+          [host."http://kind-registry:5000"]
+          EOF
+          done
+          kubectl apply -f - <<'EOF'
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: local-registry-hosting
+            namespace: kube-public
+          data:
+            localRegistryHosting.v1: |
+              host: "localhost:5000"
+              help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
+          EOF
+
+      - name: Load manager image into kind
+        run: |
+          kind load docker-image ravendb/ravendb-operator:${{ steps.ver.outputs.version }} --name smoke
+
+      - name: Install OLM
+        run: |
+          make operator-sdk
+          bin/operator-sdk olm install --version v0.30.0 --timeout 5m
+
+      - name: Build + push bundle image to local registry
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          BUNDLE_DIR="bundle/ravendb-operator/${VERSION}"
+          BUNDLE_IMG="localhost:5000/ravendb-operator-bundle:${VERSION}"
+          # cd+buildx so the dockerfile resolves unambiguously inside the bundle dir.
+          (
+            cd "${BUNDLE_DIR}"
+            docker buildx build \
+              --platform linux/amd64 \
+              --tag "${BUNDLE_IMG}" \
+              --file bundle.Dockerfile \
+              --load \
+              .
+          )
+          # operator-sdk run bundle requires the bundle image to be pullable from
+          # a real registry (operator-sdk#6699). Push to the local registry, AND
+          # kind load for the bundle-unpack init container to find it locally.
+          docker push "${BUNDLE_IMG}"
+          kind load docker-image "${BUNDLE_IMG}" --name smoke
+
+      - name: Install operator via operator-sdk run bundle
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          kubectl create namespace ravendb-operator-system --dry-run=client -o yaml | kubectl apply -f -
+          bin/operator-sdk run bundle "localhost:5000/ravendb-operator-bundle:${VERSION}" \
+            --install-mode AllNamespaces \
+            --namespace ravendb-operator-system \
+            --skip-tls-verify \
+            --use-http \
+            --timeout 10m
+
+      # On any OLM-stage failure, dump cluster state so the issue is debuggable
+      # from the run page without rerunning. Inline (not a composite) — this is
+      # the only caller.
+      - name: OLM diagnostics (on failure)
+        if: failure()
+        run: |
+          set +e
+          echo "::group::All pods"
+          kubectl get pods -A -o wide
+          echo "::endgroup::"
+          echo "::group::OLM resources"
+          kubectl get csv,sub,installplan,catalogsource,operatorgroup -A
+          echo "::endgroup::"
+          echo "::group::Subscription describe"
+          kubectl describe sub -n ravendb-operator-system
+          echo "::endgroup::"
+          echo "::group::CatalogSource describe"
+          kubectl describe catalogsource -n ravendb-operator-system
+          echo "::endgroup::"
+          echo "::group::Catalog server logs"
+          kubectl -n ravendb-operator-system logs -l olm.catalogSource --tail=100 --all-containers
+          echo "::endgroup::"
+          echo "::group::Bundle unpack pod (often where ImagePullBackOff happens)"
+          UNPACK_POD=$(kubectl -n ravendb-operator-system get pods --no-headers \
+            -o custom-columns=:metadata.name | grep -v "^localhost-5000-" | head -1)
+          if [ -n "$UNPACK_POD" ]; then
+            kubectl -n ravendb-operator-system describe pod "$UNPACK_POD"
+          fi
+          echo "::endgroup::"
+          echo "::group::Recent events (sorted by time)"
+          kubectl get events -A --sort-by=.lastTimestamp | tail -50
+          echo "::endgroup::"
+          echo "::group::OLM operator logs"
+          kubectl -n olm logs deploy/olm-operator --tail=100
+          echo "::endgroup::"
+          echo "::group::OLM catalog-operator logs"
+          kubectl -n olm logs deploy/catalog-operator --tail=100
+          echo "::endgroup::"
+
+      - name: Verify CSV reaches Succeeded
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          kubectl wait --for=jsonpath='{.status.phase}'=Succeeded \
+            -n ravendb-operator-system "csv/ravendb-operator.v${VERSION}" \
+            --timeout=3m
+
+      # alm-examples reference user-supplied resources (license secret, cert
+      # secrets, real RavenDB image tag). The webhook rejects them in an empty
+      # cluster. To prove samples ADMIT correctly when their environment is real,
+      # pre-create stub secrets and rewrite the image tag, then dry-run-apply.
+      # Catches: (a) sample/CRD schema drift, (b) admission webhook regressions,
+      # (c) sample references to fields/secrets the operator doesn't validate.
+      - name: Apply alm-examples (with stub environment)
+        id: alm_examples
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          CSV="bundle/ravendb-operator/${VERSION}/manifests/ravendb-operator.clusterserviceversion.yaml"
+          kubectl create namespace ravendb --dry-run=client -o yaml | kubectl apply -f -
+          stub_secret() {
+            local name="$1" key="$2"
+            kubectl -n ravendb create secret generic "$name" \
+              --from-literal="$key"=stub --dry-run=client -o yaml | kubectl apply -f -
+          }
+          stub_secret ravendb-license      license.json
+          stub_secret ravendb-client-cert  client.pfx
+          stub_secret ravendb-ca-cert      ca.crt
+          stub_secret ravendb-cert         cluster.pfx
+          stub_secret ravendb-certs-a      node.pfx
+          stub_secret ravendb-certs-b      node.pfx
+          stub_secret ravendb-certs-c      node.pfx
+          # Image-validator webhook rejects floating tags (`:latest`). Samples
+          # ship :latest as a copy-and-customize starting point; rewrite to a
+          # pinned tag for the smoke-run only (sample files unchanged).
+          python3 -c "
+          import yaml, json, re
+          with open('${CSV}') as f: csv = yaml.safe_load(f)
+          for ex in json.loads(csv['metadata']['annotations']['alm-examples']):
+              if 'image' in ex.get('spec', {}):
+                  ex['spec']['image'] = re.sub(r':latest$', ':7.1.3-ubuntu.22.04-x64',
+                                                ex['spec']['image'])
+              print('---')
+              print(yaml.dump(ex, default_flow_style=False))
+          " | kubectl apply -f - --dry-run=server --validate=true
+
+      - name: Summary
+        if: always()
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          IMG: ${{ steps.ver.outputs.img }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          # Read final CSV phase if the cluster is still up; the wait step might
+          # have failed before reaching it, so be defensive.
+          CSV_PHASE=$(kubectl get csv -n ravendb-operator-system "ravendb-operator.v${VERSION}" \
+            -o jsonpath='{.status.phase}' 2>/dev/null || echo "(not reached)")
+          {
+            echo "## Release artifacts CI for v${VERSION}"
+            echo ""
+            echo "Overall job status: **${JOB_STATUS}**. Per-step status is on the run page."
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Version under test | \`${VERSION}\` |"
+            echo "| Manager image (built locally) | \`${IMG}\` |"
+            echo "| Bundle image (built locally) | \`localhost:5000/ravendb-operator-bundle:${VERSION}\` |"
+            echo "| OLM CSV phase | \`${CSV_PHASE}\` |"
+            echo ""
+            echo "Steps that ran (in order): verify-samples, helm lint, build-installer, bundle-verify (operator-sdk bundle validate + stale-version scan), OLM round-trip (run bundle → CSV Succeeded → alm-examples server-side dry-run)."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,269 @@
+name: Release
+
+# Phase 2 of the two-phase release flow.
+# Triggers: merge of a `release:auto`-labeled PR, OR manual workflow_dispatch.
+# Order: pre-flight creds → version + tag-existence check → build single-arch
+# local image → install.yaml smoke → multi-arch push → tag → GH Release.
+# Smoke failure leaves nothing on DockerHub (push is gated behind smoke).
+#
+# This workflow does NOT validate the OLM bundle — that's release-artifacts-ci.yml's
+# job, which runs on every PR touching bundle-relevant paths. By the time release.yml
+# fires, the bundle has already been validated against the real Makefile VERSION.
+#
+# Action pinning policy: third-party actions SHOULD be pinned to commit SHA with a
+# trailing comment naming the version. First-party actions/* and github/* may stay
+# on major tag. SHA-pinning of remaining third-party actions (docker/*, helm/*) is
+# tracked for a follow-up pass. Cert-manager URL below is unpinned for now;
+# checksum verification is a future hardening task.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: |
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'pull_request'
+          && github.event.pull_request.merged == true
+          && contains(github.event.pull_request.labels.*.name, 'release:auto'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # github.sha resolves correctly for both triggers:
+          #   - pull_request close+merged: the merge commit on main.
+          #   - workflow_dispatch: the dispatched ref's HEAD.
+          ref: ${{ github.sha }}
+          fetch-depth: 0  # need full history for tag-existence check + tag push
+
+      # Fail fast (~30s) on creds/token rot. DOCKERHUB_TOKEN must be a DockerHub
+      # Personal Access Token with at least Read & Write scope on ravendb/ravendb-operator.
+      # Checks: (a) PAT authenticates (catches expired/revoked), (b) PAT has push scope
+      # (catches read-only PAT created by accident), (c) GH token still has repo perms.
+      - name: Pre-flight — verify publish credentials
+        env:
+          DOCKERHUB_USERNAME: ravendb  # DockerHub org name; PAT authenticates as the org
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # (a) Authenticate. Expired/revoked PAT fails here.
+          echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+          docker logout
+
+          # (b) Verify push scope. Ask the registry auth endpoint for a token
+          # with push,pull on our repo; inspect the granted scopes in the JWT.
+          # A read-only PAT will get a token with only "pull" in its access claims.
+          SCOPE=$(curl -fsS -u "$DOCKERHUB_USERNAME:$DOCKERHUB_TOKEN" \
+            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:ravendb/ravendb-operator:push,pull" \
+            | python3 -c '
+          import sys, json, base64
+          token = json.load(sys.stdin)["token"]
+          payload = token.split(".")[1]
+          payload += "=" * (-len(payload) % 4)
+          claims = json.loads(base64.urlsafe_b64decode(payload))
+          actions = sorted({a for e in claims.get("access", []) for a in e.get("actions", [])})
+          print(",".join(actions))')
+          echo "DockerHub PAT granted scope: ${SCOPE:-<empty>}"
+          if [[ ",$SCOPE," != *,push,* ]]; then
+            echo "::error::DOCKERHUB_TOKEN lacks push scope on ravendb/ravendb-operator. Required: PAT with Read & Write (or higher)."
+            exit 1
+          fi
+
+          # (c) GitHub: confirm token has perms for tag push + release create.
+          gh api "repos/${{ github.repository }}" --jq .permissions >/dev/null
+          gh release list -L 1 >/dev/null
+
+      # Read VERSION from Makefile — the merged prepare-release PR bumped it,
+      # so it's the source of truth. Tag-existence check prevents re-releasing
+      # a version (e.g. accidental manual dispatch when no prepare ran).
+      - name: Determine version
+        id: ver
+        run: |
+          VERSION=$(awk -F'?= ' '/^VERSION \?=/ {print $2}' Makefile)
+          [ -n "$VERSION" ] || { echo "::error::Makefile VERSION empty"; exit 1; }
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$VERSION already exists — was this version already released?"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "img=ravendb/ravendb-operator:${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing v${VERSION}"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      # Build single-arch image into the runner's local Docker daemon for the
+      # smoke test below. Multi-arch push happens AFTER smoke passes — a smoke
+      # failure leaves nothing on DockerHub.
+      - name: Build manager image (single-arch, local load)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ravendb/ravendb-operator:${{ steps.ver.outputs.version }}
+
+      - name: Build dist/install.yaml
+        env:
+          IMG: ${{ steps.ver.outputs.img }}
+        run: make build-installer IMG="${IMG}"
+
+      - name: Smoke test on Kind
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: smoke
+
+      - name: Smoke — load locally-built image into kind
+        run: |
+          kind load docker-image ravendb/ravendb-operator:${{ steps.ver.outputs.version }} --name smoke
+
+      - name: Smoke — install cert-manager
+        run: |
+          kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.16.0/cert-manager.yaml
+          kubectl -n cert-manager rollout status deploy/cert-manager           --timeout=2m
+          kubectl -n cert-manager rollout status deploy/cert-manager-webhook   --timeout=2m
+          kubectl -n cert-manager rollout status deploy/cert-manager-cainjector --timeout=2m
+
+      - name: Smoke — apply install.yaml + verify operator pod becomes Ready
+        run: |
+          kubectl apply -f dist/install.yaml
+          NS=$(kubectl get deploy -A -o jsonpath='{range .items[?(@.metadata.name=="ravendb-operator-controller-manager")]}{.metadata.namespace}{"\n"}{end}' | head -1)
+          if [ -z "$NS" ]; then
+            echo "::error::ravendb-operator-controller-manager deployment not found"
+            kubectl get deploy -A
+            exit 1
+          fi
+          echo "Manager deployment lives in namespace: $NS"
+          kubectl -n "$NS" rollout status deploy/ravendb-operator-controller-manager --timeout=3m
+
+      # On any smoke failure, dump the cluster state we'd want to debug from.
+      # Smaller than the OLM diag block in release-artifacts-ci.yml — different scope.
+      - name: Smoke diagnostics (on failure)
+        if: failure()
+        run: |
+          set +e
+          echo "::group::All pods"
+          kubectl get pods -A -o wide
+          echo "::endgroup::"
+          echo "::group::Cert-manager pods"
+          kubectl -n cert-manager get pods
+          kubectl -n cert-manager logs -l app.kubernetes.io/name=cert-manager --tail=100 --all-containers
+          echo "::endgroup::"
+          echo "::group::Manager describe"
+          kubectl get deploy -A -l app.kubernetes.io/name=ravendb-operator -o wide || true
+          MANAGER_NS=$(kubectl get deploy -A -o jsonpath='{range .items[?(@.metadata.name=="ravendb-operator-controller-manager")]}{.metadata.namespace}{"\n"}{end}' | head -1)
+          if [ -n "$MANAGER_NS" ]; then
+            kubectl -n "$MANAGER_NS" describe deploy/ravendb-operator-controller-manager
+            kubectl -n "$MANAGER_NS" logs deploy/ravendb-operator-controller-manager --tail=100 --all-containers || true
+          fi
+          echo "::endgroup::"
+          echo "::group::Recent events (sorted by time)"
+          kubectl get events -A --sort-by=.lastTimestamp | tail -50
+          echo "::endgroup::"
+
+      # arm64 cross-build sanity: build + run under QEMU; SIGILL = wrong-arch binary.
+      - name: Build manager image (arm64, local load)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: ravendb/ravendb-operator:${{ steps.ver.outputs.version }}-arm64-smoke
+
+      - name: arm64 smoke — verify binary runs under QEMU
+        env:
+          IMG_ARM64: ravendb/ravendb-operator:${{ steps.ver.outputs.version }}-arm64-smoke
+        run: |
+          set +e
+          timeout --preserve-status 5 docker run --rm --platform linux/arm64 "$IMG_ARM64" 2>&1 | head -50
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" = 132 ]; then
+            echo "::error::arm64 binary SIGILL'd — cross-build produced wrong-arch binary"
+            exit 1
+          fi
+          echo "arm64 binary started under QEMU (exit $rc; 0=clean exit, 124=stayed alive)"
+
+      # ─── Publishing — runs only after smoke passes ───
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ravendb
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push manager image (multi-arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ravendb/ravendb-operator:${{ steps.ver.outputs.version }}
+            ravendb/ravendb-operator:latest
+
+      - name: Verify multi-arch manifests landed
+        env:
+          IMG: ${{ steps.ver.outputs.img }}
+        run: |
+          ARCHS=$(docker buildx imagetools inspect "${IMG}" | awk '/Platform:/ {print $2}')
+          echo "Detected platforms:"
+          echo "$ARCHS"
+          echo "$ARCHS" | grep -q '^linux/amd64$' || { echo "::error::amd64 manifest missing"; exit 1; }
+          echo "$ARCHS" | grep -q '^linux/arm64$' || { echo "::error::arm64 manifest missing"; exit 1; }
+
+      - name: Push git tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          git push origin "v${VERSION}"
+
+      - name: Publish GitHub Release with install.yaml
+        id: gh_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
+            --generate-notes \
+            dist/install.yaml
+          URL=$(gh release view "v${VERSION}" --json url --jq .url)
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+          IMG: ${{ steps.ver.outputs.img }}
+          RELEASE_URL: ${{ steps.gh_release.outputs.url }}
+        run: |
+          DIGEST=$(docker buildx imagetools inspect "${IMG}" --format '{{.Manifest.Digest}}' 2>/dev/null || echo "(unknown)")
+          PLATFORMS=$(docker buildx imagetools inspect "${IMG}" 2>/dev/null | awk '/Platform:/ {print $2}' | paste -sd ", " -)
+          {
+            echo "## Released v${VERSION}"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Image (versioned) | \`${IMG}\` |"
+            echo "| Image (latest) | \`ravendb/ravendb-operator:latest\` |"
+            echo "| Manifest digest | \`${DIGEST}\` |"
+            echo "| Platforms | ${PLATFORMS:-(unknown)} |"
+            echo "| Git tag | \`v${VERSION}\` |"
+            echo "| GitHub Release | ${RELEASE_URL:-(unknown)} |"
+            echo ""
+            echo "Next: open the OperatorHub PR using \`bundle/ravendb-operator/${VERSION}/\`. SECURITY.md is bumped manually."
+          } >> "$GITHUB_STEP_SUMMARY"
