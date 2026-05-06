@@ -200,6 +200,13 @@ func (e *evaluator) evalExternalAccessReady(cluster *ravendbv1.RavenDBCluster, r
 		return conditionResult{skip: true}
 	}
 
+	// Traefik routing is expressed via IngressRouteTCP (Traefik CRD the operator
+	// does not own/watch); skip this condition - mirroring the nil case above
+	ic := cluster.Spec.ExternalAccessConfiguration.IngressControllerExternalAccess
+	if ic != nil && ic.IngressClassName == "traefik" {
+		return conditionResult{skip: true}
+	}
+
 	if res == nil {
 		return conditionResult{status: metav1.ConditionFalse, reason: ravendbv1.ReasonLoadBalancerPending, message: "waiting for ingress/load balancer to be observed"}
 	}

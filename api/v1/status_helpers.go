@@ -107,7 +107,13 @@ func (r *RavenDBCluster) ComputeReady(now metav1.Time) {
 	}
 
 	if r.Spec.ExternalAccessConfiguration != nil {
-		required = append(required, ConditionExternalAccessReady)
+		// Traefik routing is managed out-of-band; the operator does not observe
+		// it, so don't require ExternalAccessReady to gate Ready
+		ic := r.Spec.ExternalAccessConfiguration.IngressControllerExternalAccess
+		isTraefik := ic != nil && ic.IngressClassName == "traefik"
+		if !isTraefik {
+			required = append(required, ConditionExternalAccessReady)
+		}
 	}
 
 	for i := 0; i < len(required); i++ {
