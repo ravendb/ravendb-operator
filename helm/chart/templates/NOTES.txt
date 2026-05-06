@@ -1,0 +1,25 @@
+RavenDB Operator {{ .Chart.AppVersion }} installed in namespace "{{ .Release.Namespace }}".
+
+This chart installs only the operator (controller, CRD, RBAC, webhooks).
+To run a RavenDB cluster, install the ravendb-cluster chart in a workload namespace:
+
+  helm install my-cluster ravendb-operator/ravendb-cluster \
+    -n ravendb --create-namespace \
+    -f my-values.yaml
+
+Verify the operator:
+
+  kubectl get pods -n {{ .Release.Namespace }}
+  kubectl get crd ravendbclusters.ravendb.ravendb.io
+
+Documentation:
+
+  - Operator chart:  https://github.com/ravendb/ravendb-operator/blob/main/helm/chart/README.md
+  - Cluster chart:   https://github.com/ravendb/ravendb-operator/blob/main/helm/cluster-chart/README.md
+  - Examples:        https://github.com/ravendb/ravendb-operator/tree/main/examples
+
+{{- if .Release.IsUpgrade }}
+
+Upgrading from a previous version? See the migration guide in the chart README:
+https://github.com/ravendb/ravendb-operator/blob/main/helm/chart/README.md#migrating-from-1x-to-200
+{{- end }}
