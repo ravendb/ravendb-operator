@@ -184,8 +184,8 @@ func TestUpgrade_62_71_degraded_db_placement_on_a_c_E2E(t *testing.T) {
 
 	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
 
-	require.NoError(t, ExtractServerCertToTmp(t.Context(), ns, podA, "", "/ravendb/certs/server.pfx", ""), "extract pem/key")
-	require.NoError(t, CreateDatabaseRF3(t.Context(), ns, podA, "", dbName), "create RF3 DB")
+	require.NoError(t, ExtractServerCertToTmp(t.Context(), ns, podB, "", "/ravendb/certs/server.pfx", ""), "extract pem/key on B")
+	require.NoError(t, CreateDatabaseRF3(t.Context(), ns, podB, "", dbName), "create RF3 DB")
 
 	require.NoError(t, SabotageDatabase(t.Context(), ns, podA, "", dbName), "sabotage A")
 	require.NoError(t, SabotageDatabase(t.Context(), ns, podC, "", dbName), "sabotage C")
