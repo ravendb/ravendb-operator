@@ -1,0 +1,11 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+# Enable per-host containerd registry config via /etc/containerd/certs.d.
+# We populate certs.d/localhost:5000/hosts.toml after cluster startup so pulls of
+# `localhost:5000/...` redirect to http://kind-registry:5000 (the registry container
+# attached to the kind Docker network). Standard kind+local-registry pattern:
+# https://kind.sigs.k8s.io/docs/user/local-registry/
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      config_path = "/etc/containerd/certs.d"

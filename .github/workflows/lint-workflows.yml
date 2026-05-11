@@ -1,0 +1,26 @@
+name: Lint workflows
+
+# Runs on every workflow-touching PR. Catches YAML errors, deprecated action versions,
+# unset secrets, and shellcheck warnings on inline `run:` blocks.
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download actionlint
+        run: |
+          bash <(curl -sSL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -version
+
+      - name: Run actionlint
+        run: ./actionlint -color

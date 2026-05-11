@@ -36,7 +36,7 @@ jobs:
 
       - name: Install gotestsum (if cache miss)
         if: steps.cache-gts.outputs.cache-hit != 'true'
-        run: go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
+        run: go install "gotest.tools/gotestsum@${GOTESTSUM_VERSION}"
       
       - name: Install setup-envtest tool
         run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
@@ -49,7 +49,7 @@ jobs:
           key: ${{ runner.os }}-envtest-${{ env.K8S_VER }}
 
       - name: Select envtest Kubernetes assets
-        run: echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path ${K8S_VER})" >> "$GITHUB_ENV"
+        run: echo "KUBEBUILDER_ASSETS=$(setup-envtest use -p path "${K8S_VER}")" >> "$GITHUB_ENV"
 
       - name: Cache Go build and module download
         uses: actions/cache@v4
@@ -100,8 +100,8 @@ jobs:
           set -euo pipefail
           common_args=(
             --namespace ravendb-operator-system
-            --set controllerManager.image.repository=ravendb/ravendb-operator 
-            --set controllerManager.image.tag=ci-${GITHUB_SHA}
+            --set controllerManager.image.repository=ravendb/ravendb-operator
+            --set controllerManager.image.tag="ci-${GITHUB_SHA}"
             --set targetNamespace=test-namespace
             --set provisioning.mode=LetsEncrypt
             --set "provisioning.nodeTags={a,b,c}"

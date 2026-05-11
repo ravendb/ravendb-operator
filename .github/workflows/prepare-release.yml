@@ -1,0 +1,153 @@
+name: Prepare Release
+
+# Phase 1 of the two-phase release flow.
+# Trigger: Actions tab -> Run workflow with target version.
+# Output: a `release: vX.Y.Z` PR labeled `release:auto`, carrying source bumps + helm chart.
+# Merge fires the Release workflow; remove the label first to delay publishing.
+#
+# Action pinning policy: third-party actions SHOULD be pinned to commit SHA with a
+# trailing comment naming the version (e.g. `uses: foo/bar@<sha>  # v1.2.3`).
+# First-party actions/* and github/* may stay on major tag. peter-evans below is
+# already SHA-pinned; remaining third-party actions (azure/setup-helm) are tracked
+# for a follow-up SHA-pinning pass.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. 1.1.0, no v prefix)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.3'
+          cache: true
+
+      # Stale samples ship a broken "Try sample CR" form to OperatorHub. Gate first.
+      - name: Verify config/samples are current
+        run: make verify-samples
+
+      - name: Read previous version from Makefile
+        id: prev
+        run: |
+          OLD=$(awk -F'?= ' '/^VERSION \?=/ {print $2}' Makefile)
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          echo "Previous version: $OLD"
+          echo "New version:      $VERSION"
+
+      - name: Bump source files
+        run: |
+          sed -i "s/^VERSION ?=.*/VERSION ?= ${VERSION}/" Makefile
+          sed -i "s/^version:.*/version: ${VERSION}/"   helm/chart/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/chart/Chart.yaml
+          # SECURITY.md is bumped manually after the GitHub Release is published.
+
+      # release-bundle = bundle + bundle-relocate + bundle-finalize, with $(OLD)
+      # cleanup. CSV containerImage injection and nodes[0]→nodes[] descriptor
+      # rewrite live in `make bundle-finalize`. The bundle and build-installer
+      # targets trap-revert config/manager/kustomization.yaml on EXIT, so the
+      # working tree is clean after this step.
+      - name: Regenerate OLM bundle
+        env:
+          OLD: ${{ steps.prev.outputs.old }}
+        run: |
+          make release-bundle \
+            VERSION="${VERSION}" \
+            OLD="${OLD}" \
+            IMG="docker.io/ravendb/ravendb-operator:${VERSION}" \
+            CHANNELS=stable \
+            DEFAULT_CHANNEL=stable
+
+      # Bundle generation is the most likely failure point. On failure, dump the
+      # state we'd want to debug: working tree, what got touched, the rewritten
+      # CSV head (sed insertion failures are non-obvious otherwise).
+      - name: Bundle diagnostics (on failure)
+        if: failure()
+        run: |
+          set +e
+          echo "::group::git status"
+          git status --short
+          echo "::endgroup::"
+          echo "::group::git diff --stat"
+          git diff --stat
+          echo "::endgroup::"
+          echo "::group::Bundle dir contents"
+          ls -la "bundle/ravendb-operator/${VERSION}/" 2>/dev/null || echo "(bundle dir missing)"
+          ls -la "bundle/ravendb-operator/${VERSION}/manifests/" 2>/dev/null || true
+          echo "::endgroup::"
+          echo "::group::CSV head (first 100 lines)"
+          head -100 "bundle/ravendb-operator/${VERSION}/manifests/ravendb-operator.clusterserviceversion.yaml" 2>/dev/null || echo "(CSV missing)"
+          echo "::endgroup::"
+
+      - name: Package helm chart
+        run: |
+          helm package helm/chart -d helm/
+          helm repo index helm/ \
+            --url https://ravendb.github.io/ravendb-operator/helm \
+            --merge helm/index.yaml
+
+      - name: Ensure release:auto label exists
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "release:auto" \
+            --description "On merge, fires the Release workflow automatically. Remove before merging to delay publishing." \
+            --color "0e8a16" \
+            || true   # already exists is fine
+
+      - name: Open release PR
+        id: pr
+        # peter-evans/create-pull-request v8.1.1 — pinned to SHA per supply-chain best practice.
+        # Auto-stages modified files, commits as github-actions[bot], pushes, opens (or
+        # updates) the PR. Idempotent: re-running for the same VERSION updates in place.
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1
+        with:
+          branch: release/v${{ env.VERSION }}
+          base: main
+          title: "release: v${{ env.VERSION }}"
+          commit-message: "release: v${{ env.VERSION }}"
+          labels: release:auto
+          body: |
+            Auto-generated bumps for v${{ env.VERSION }}.
+
+            On merge with the **release:auto** label still attached, the Release workflow fires:
+            multi-arch image push, kind smoke test, tag, GitHub Release with `install.yaml`.
+            Remove the label before merging to delay publishing. SECURITY.md is bumped
+            manually after publishing.
+
+      - name: Summary
+        env:
+          OLD: ${{ steps.prev.outputs.old }}
+          PR_URL: ${{ steps.pr.outputs.pull-request-url }}
+          PR_NUM: ${{ steps.pr.outputs.pull-request-number }}
+          PR_OP:  ${{ steps.pr.outputs.pull-request-operation }}
+        run: |
+          {
+            echo "## Prepare Release v${VERSION}"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Previous version | \`${OLD}\` |"
+            echo "| New version | \`${VERSION}\` |"
+            echo "| Bundle dir | \`bundle/ravendb-operator/${VERSION}/\` |"
+            echo "| Helm chart | \`helm/ravendb-operator-${VERSION}.tgz\` |"
+            echo "| Release branch | \`release/v${VERSION}\` |"
+            echo "| Release PR | ${PR_URL:-(not opened)} (#${PR_NUM:--}, ${PR_OP:-unknown}) |"
+            echo ""
+            echo "Merge the PR with the **release:auto** label still attached to fire the Release workflow."
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -120,6 +120,10 @@ vet: ## Run go vet against code.
 test: manifests generate fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test $$(go list ./... | grep -v /e2e) -coverprofile cover.out
 
+.PHONY: verify-samples
+verify-samples: ## Strict-unmarshal config/samples/* against api/v1 (no envtest).
+	go test -count=1 ./test/samples/...
+
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up.
 test-e2e:
@@ -196,8 +200,10 @@ docker-buildx: ## Build and push docker image for the manager for cross-platform
 
 .PHONY: build-installer
 build-installer: manifests generate kustomize ## Generate a consolidated YAML with CRDs and deployment.
-	mkdir -p dist
-	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	@trap 'git checkout -- config/manager/kustomization.yaml 2>/dev/null || true' EXIT; \
+	set -e; \
+	mkdir -p dist; \
+	(cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}); \
 	$(KUSTOMIZE) build config/default > dist/install.yaml
 
 ##@ Deployment
@@ -297,14 +303,86 @@ endif
 
 .PHONY: bundle
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
-	$(OPERATOR_SDK) generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+	@trap 'git checkout -- config/manager/kustomization.yaml 2>/dev/null || true' EXIT; \
+	set -e; \
+	$(OPERATOR_SDK) generate kustomize manifests -q; \
+	(cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)); \
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS); \
 	$(OPERATOR_SDK) bundle validate ./bundle
 
+# operator-sdk emits a flat bundle/ + bundle.Dockerfile at repo root; this repo ships
+# bundle/ravendb-operator/$(VERSION)/. Relocate moves the output and fixes COPY paths.
+.PHONY: bundle-relocate
+bundle-relocate: ## Move flat bundle/ output into bundle/ravendb-operator/$(VERSION)/.
+	@if [ ! -d bundle/manifests ] || [ ! -f bundle.Dockerfile ]; then \
+		echo "::error::No flat bundle/ output to relocate. Run 'make bundle' first."; exit 1; \
+	fi
+	@mkdir -p bundle/ravendb-operator/$(VERSION)
+	@rm -rf bundle/ravendb-operator/$(VERSION)/manifests \
+	        bundle/ravendb-operator/$(VERSION)/metadata \
+	        bundle/ravendb-operator/$(VERSION)/tests \
+	        bundle/ravendb-operator/$(VERSION)/bundle.Dockerfile
+	@mv bundle/manifests bundle/ravendb-operator/$(VERSION)/manifests
+	@mv bundle/metadata  bundle/ravendb-operator/$(VERSION)/metadata
+	@mv bundle/tests     bundle/ravendb-operator/$(VERSION)/tests
+	@mv bundle.Dockerfile bundle/ravendb-operator/$(VERSION)/bundle.Dockerfile
+	@sed -i 's|^COPY bundle/|COPY ./|' bundle/ravendb-operator/$(VERSION)/bundle.Dockerfile
+	@echo "Relocated bundle to bundle/ravendb-operator/$(VERSION)/"
+
+# CSV post-processing operator-sdk doesn't do for us:
+#   - containerImage annotation: OperatorHub catalog display reads it; operator-sdk omits it.
+#   - descriptor path nodes[0].field → nodes[].field: marker emits [0]; OLM convention is [].
+.PHONY: bundle-finalize
+bundle-finalize: ## Inject containerImage annotation and rewrite nodes[0]→nodes[] descriptor paths in CSV.
+	@CSV=bundle/ravendb-operator/$(VERSION)/manifests/ravendb-operator.clusterserviceversion.yaml; \
+	if [ ! -f "$$CSV" ]; then \
+		echo "::error::CSV not found at $$CSV — run 'make bundle bundle-relocate' first."; exit 1; \
+	fi; \
+	sed -i "/^    capabilities:/i\\    containerImage: $(IMG)" "$$CSV"; \
+	sed -i -E '/^        path: /s|\[0\]|[]|g' "$$CSV"; \
+	echo "Finalized CSV at $$CSV"
+
+# One-shot bundle pipeline. Used by prepare-release.yml in place of the inline
+# bundle/relocate/sed/cleanup block. Optionally cleans up $(OLD) version dir.
+.PHONY: release-bundle
+release-bundle: ## Generate + relocate + finalize OLM bundle for $(VERSION). Cleans up $(OLD) dir if set.
+	$(MAKE) --no-print-directory bundle VERSION=$(VERSION) IMG=$(IMG)
+	$(MAKE) --no-print-directory bundle-relocate VERSION=$(VERSION)
+	$(MAKE) --no-print-directory bundle-finalize VERSION=$(VERSION) IMG=$(IMG)
+	@if [ -n "$(OLD)" ] && [ "$(OLD)" != "$(VERSION)" ] && [ -d "bundle/ravendb-operator/$(OLD)" ]; then \
+		rm -rf "bundle/ravendb-operator/$(OLD)"; \
+		echo "Removed previous version dir bundle/ravendb-operator/$(OLD)"; \
+	fi
+
+# Validate the committed bundle for $(VERSION):
+#   1. Stale-OLD scan (regex against the bundle dir).
+#   2. operator-sdk bundle validate.
+# Regen-and-diff (idempotency) was tried and dropped: operator-sdk re-stamps
+# createdAt on every run, and forcing every marker-touching PR to re-commit a
+# fresh bundle locally (operator-sdk is Linux-only) was high friction for
+# little signal — prepare-release.yml regenerates from scratch on every release.
+# Functional bundle correctness is covered by `operator-sdk bundle validate` +
+# the OLM round-trip in release-artifacts-ci.yml.
+.PHONY: bundle-verify
+bundle-verify: operator-sdk ## Stale-$(OLD) scan + operator-sdk bundle validate.
+	@DIR=bundle/ravendb-operator/$(VERSION); \
+	if [ ! -d "$$DIR" ]; then \
+		echo "::error::Bundle dir $$DIR missing — nothing to verify."; exit 1; \
+	fi; \
+	if [ -n "$(OLD)" ] && [ "$(OLD)" != "$(VERSION)" ]; then \
+		if grep -nrE "(^|[^0-9])$(OLD)([^0-9]|$$)" "$$DIR"; then \
+			echo "::error::Stale $(OLD) references found in $$DIR"; exit 1; \
+		fi; \
+	fi; \
+	$(OPERATOR_SDK) bundle validate "$$DIR"; \
+	echo "Bundle verification passed for $(VERSION)."
+
 .PHONY: bundle-build
-bundle-build: ## Build the bundle image.
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+bundle-build: ## Build bundle image (run bundle-relocate first).
+	docker build \
+		-f bundle/ravendb-operator/$(VERSION)/bundle.Dockerfile \
+		-t $(BUNDLE_IMG) \
+		bundle/ravendb-operator/$(VERSION)
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.

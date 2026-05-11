@@ -22,17 +22,21 @@ type RavenDBNode struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=4
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Tag"
 	Tag string `json:"tag"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Public HTTPS URL"
 	PublicServerUrl string `json:"publicServerUrl"`
 
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinLength=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Public TCP URL"
 	PublicServerUrlTcp string `json:"publicServerUrlTcp"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Node Certificate Secret"
 	CertSecretRef *string `json:"certSecretRef,omitempty"`
 }
 
