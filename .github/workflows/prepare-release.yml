@@ -112,11 +112,9 @@ jobs:
 
       - name: Open release PR
         id: pr
-        # peter-evans/create-pull-request v8.1.1 — pinned to SHA per supply-chain best practice.
-        # Auto-stages modified files, commits as github-actions[bot], pushes, opens (or
-        # updates) the PR. Idempotent: re-running for the same VERSION updates in place.
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
         with:
+          token: ${{ secrets.RAVENDB_BOT_PAT }}
           branch: release/v${{ env.VERSION }}
           base: main
           title: "release: v${{ env.VERSION }}"
