@@ -57,7 +57,6 @@ The operator chart exposes a small surface focused on the controller deployment 
 | `controllerManager.image.tag` | `latest` | Controller image tag. Falls back to `appVersion` if empty. |
 | `controllerManager.replicaCount` | `1` | Controller replica count. |
 | `controllerManager.resources` | (unset) | Optional pod resource requests/limits. See `values.yaml` for the shape. |
-| `targetNamespace` | (unset) | Reserved for future use; defaults to the Helm release namespace. |
 
 See [`values.yaml`](values.yaml) for inline documentation.
 

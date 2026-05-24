@@ -4,6 +4,9 @@
 {{- if not .Values.spec.nodes }}
 {{- fail "spec.nodes is required and must not be empty" }}
 {{- end }}
+{{- if and (eq .Values.spec.mode "LetsEncrypt") (not .Values.spec.email) }}
+{{- fail "spec.email is required when spec.mode=LetsEncrypt" }}
+{{- end }}
 {{- $nodeCertPrefix := .Values.secrets.nodeCerts.namePrefix }}
 apiVersion: ravendb.ravendb.io/v1
 kind: RavenDBCluster
@@ -23,9 +26,7 @@ spec:
   clientCertSecretRef: {{ .Values.secrets.clientCert.name | quote }}
   {{- if eq .Values.spec.mode "None" }}
   clusterCertSecretRef: {{ .Values.secrets.clusterCert.name | quote }}
-  {{- if .Values.secrets.caCert.file }}
   caCertSecretRef: {{ .Values.secrets.caCert.name | quote }}
-  {{- end }}
   {{- end }}
   domain: {{ required "spec.domain is required" .Values.spec.domain | quote }}
   nodes:

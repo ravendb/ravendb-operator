@@ -24,6 +24,3 @@ controllerManager:
   #     cpu: 500m
   #     memory: 128Mi
 
-# Namespace where RavenDB cluster resources will be created.
-# Defaults to Helm release namespace if empty.
-targetNamespace: ""

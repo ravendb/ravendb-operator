@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	ravendbv1 "ravendb-operator/api/v1"
+	"ravendb-operator/pkg/common"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,6 +64,7 @@ func (e *evaluator) Evaluate(_ context.Context, cluster *ravendbv1.RavenDBCluste
 func (e *evaluator) apply(cluster *ravendbv1.RavenDBCluster, condType ravendbv1.ClusterConditionType, r conditionResult, now metav1.Time) {
 
 	if r.skip {
+		cluster.RemoveCondition(condType)
 		return
 	}
 
@@ -203,7 +205,7 @@ func (e *evaluator) evalExternalAccessReady(cluster *ravendbv1.RavenDBCluster, r
 	// Traefik routing is expressed via IngressRouteTCP (Traefik CRD the operator
 	// does not own/watch); skip this condition - mirroring the nil case above
 	ic := cluster.Spec.ExternalAccessConfiguration.IngressControllerExternalAccess
-	if ic != nil && ic.IngressClassName == "traefik" {
+	if ic != nil && ic.IngressClassName == common.IngressControllerTypeTraefik {
 		return conditionResult{skip: true}
 	}
 

@@ -64,6 +64,15 @@ func (r *RavenDBCluster) HasConditionTrue(t ClusterConditionType) bool {
 	return false
 }
 
+func (r *RavenDBCluster) RemoveCondition(t ClusterConditionType) {
+	for i := range r.Status.Conditions {
+		if r.Status.Conditions[i].Type == string(t) {
+			r.Status.Conditions = append(r.Status.Conditions[:i], r.Status.Conditions[i+1:]...)
+			return
+		}
+	}
+}
+
 // to ensure we don’t accidentally pass an empty reason
 func reasonsanitize(reason ClusterConditionReason) ClusterConditionReason {
 	if reason == "" {
