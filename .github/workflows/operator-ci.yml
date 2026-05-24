@@ -90,7 +90,7 @@ jobs:
           common_args=(
             --namespace ravendb-operator-system
             --set controllerManager.image.repository=ravendb/ravendb-operator
-            --set controllerManager.image.tag=ci-${GITHUB_SHA}
+            --set controllerManager.image.tag="ci-${GITHUB_SHA}"
           )
 
           helm lint "${CHART}" "${common_args[@]}" --strict
