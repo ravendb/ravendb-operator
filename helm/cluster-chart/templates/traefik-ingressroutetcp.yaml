@@ -8,6 +8,9 @@
 {{- $tcpEntry := required "traefik.entryPoints.tcp is required" .Values.traefik.entryPoints.tcp }}
 {{- range .Values.spec.nodes }}
 {{- $tagLower := .tag | lower }}
+{{- if ne .tag $tagLower }}
+{{- fail (printf "spec.nodes[].tag must be lowercase for Traefik routes; got %q (operator-generated Service names are not lowercased and Kubernetes Service names must be RFC 1123 lowercase)" .tag) }}
+{{- end }}
 {{- $svcName := printf "ravendb-%s" $tagLower }}
 {{- $httpsHost := regexReplaceAll ":\\d+$" (urlParse .publicServerUrl).host "" }}
 {{- $tcpHost := regexReplaceAll ":\\d+$" (urlParse .publicServerUrlTcp).host "" }}

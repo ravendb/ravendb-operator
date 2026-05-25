@@ -3,8 +3,8 @@ RavenDB cluster "{{ .Release.Name }}" installed in namespace "{{ .Release.Namesp
 The chart deployed a RavenDBCluster custom resource. The operator is now reconciling it.
 Watch progress with:
 
-  kubectl get ravendbcluster {{ .Release.Name }} -n {{ .Release.Namespace }} -w
-  kubectl describe ravendbcluster {{ .Release.Name }} -n {{ .Release.Namespace }}
+  kubectl get ravendbcluster {{ include "ravendb-cluster.fullname" . }} -n {{ .Release.Namespace }} -w
+  kubectl describe ravendbcluster {{ include "ravendb-cluster.fullname" . }} -n {{ .Release.Namespace }}
   kubectl get pods -n {{ .Release.Namespace }}
 
 The cluster is ready once .status.phase reports "Running" and the Ready condition is True.

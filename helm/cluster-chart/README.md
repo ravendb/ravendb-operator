@@ -8,7 +8,7 @@ It is the workload-facing companion to the [RavenDB Operator chart](../chart/REA
 
 ## What this chart does
 
-- Creates the release namespace.
+- Deploys resources into the release namespace (the namespace must already exist, or be created at install time with `helm install --create-namespace`).
 - Provisions cert and license Secrets from `--set-file` inputs (or references pre-existing Secrets when no file is provided).
 - Renders a `RavenDBCluster` CR from `values.yaml` (values mirror `RavenDBClusterSpec` 1:1).
 - When `externalAccessConfiguration.type == ingress-controller` and `ingressClassName == traefik`, renders one `IngressRouteTCP` per node for HTTPS (port 443) and TCP (port 38888), with TLS passthrough. Hostnames are extracted from `publicServerUrl` and `publicServerUrlTcp`. Both routes target the per-node Service `ravendb-<tag>` (created by the operator). Traefik entrypoint names are configurable via `traefik.entryPoints.https` and `traefik.entryPoints.tcp`.

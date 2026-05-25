@@ -100,7 +100,7 @@ The operator's reconciliation logic is backwards-compatible across minor version
 helm uninstall ravendb-operator -n ravendb-operator-system
 ```
 
-This removes the controller, CRD, RBAC, webhooks, and namespace. **Existing `RavenDBCluster` resources and their workload Secrets are not deleted by this action** -- you should uninstall any `ravendb-cluster` releases first.
+This removes the controller, CRD, RBAC, and webhooks managed by this chart. It does **not** automatically delete the namespace. **Existing `RavenDBCluster` resources and their workload Secrets are not deleted by this action** -- you should uninstall any `ravendb-cluster` releases first.
 
 ## Further reading
 

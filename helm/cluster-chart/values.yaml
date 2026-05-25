@@ -72,7 +72,7 @@ secrets:
     # --set-file secrets.clusterCert.file=/path/to/server.pfx
     file: ""
 
-  # CA certificate (mode: None, optional)
+  # CA certificate (mode: None only)
   caCert:
     name: ravendb-ca-cert
     # --set-file secrets.caCert.file=/path/to/ca.crt
