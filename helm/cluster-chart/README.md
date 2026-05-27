@@ -45,7 +45,7 @@ The chart auto-wires `licenseSecretRef`, `clientCertSecretRef`, `clusterCertSecr
 |---|---|---|---|
 | License | `secrets.license` | `ravendb-license` | always |
 | Admin client cert | `secrets.clientCert` | `ravendb-client-cert` | always |
-| Per-node server cert | `secrets.nodeCerts.files.<tag>` | `ravendb-certs-<tag>` | always in `mode: LetsEncrypt` (operator auto-issues if absent) |
+| Per-node server cert | `secrets.nodeCerts.files.<tag>` | `ravendb-certs-<tag>` | always in `mode: LetsEncrypt` (the Secret must already exist or be created by this chart for admission to succeed) |
 | Cluster server cert | `secrets.clusterCert` | `ravendb-cert` | always in `mode: None` |
 | CA cert | `secrets.caCert` | `ravendb-ca-cert` | always in `mode: None` |
 

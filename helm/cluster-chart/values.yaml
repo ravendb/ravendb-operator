@@ -56,8 +56,10 @@ secrets:
 
   # Per-node server certificates (mode: LetsEncrypt only).
   # Secret names: <namePrefix>-<tag> (e.g. ravendb-certs-a).
-  # If no file is provided for a node tag, the operator auto-generates the cert
-  # via Let's Encrypt for that node.
+  # If no file is provided for a node tag, the Secret must already exist in the
+  # release namespace (either chart-provisioned via secrets.nodeCerts.files.<tag>
+  # or pre-created in BYO/mixed mode); otherwise Helm install will fail at
+  # admission time when the RavenDBCluster is validated.
   nodeCerts:
     namePrefix: ravendb-certs
     # files:

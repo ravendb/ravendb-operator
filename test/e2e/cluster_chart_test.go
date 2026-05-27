@@ -80,6 +80,10 @@ func TestClusterChart_C2_BYO_E2E(t *testing.T) {
 }
 
 func TestClusterChart_C3_Traefik_E2E(t *testing.T) {
+	if ingressController != "traefik" {
+		t.Skipf("skipping: requires RAVEN_E2E_INGRESS_CONTROLLER=traefik (got %q)", ingressController)
+	}
+
 	const ns = "ravendb-cluster-chart-c3"
 
 	cli, key := testutil.InstallClusterChart(t, testutil.ClusterChartCase{
