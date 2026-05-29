@@ -7,13 +7,17 @@
 {{- $httpsEntry := required "traefik.entryPoints.https is required" .Values.traefik.entryPoints.https }}
 {{- $tcpEntry := required "traefik.entryPoints.tcp is required" .Values.traefik.entryPoints.tcp }}
 {{- range .Values.spec.nodes }}
-{{- $tagLower := .tag | lower }}
-{{- if ne .tag $tagLower }}
-{{- fail (printf "spec.nodes[].tag must be lowercase for Traefik routes; got %q (operator-generated Service names are not lowercased and Kubernetes Service names must be RFC 1123 lowercase)" .tag) }}
-{{- end }}
-{{- $svcName := printf "ravendb-%s" $tagLower }}
+{{- /* k8s object names must be RFC 1035 lowercase; the operator lowercases the tag when building Service names, so we do the same to match. The CR-level .tag stays as-is (RavenDB convention preserves case). */}}
+{{- $svcName := printf "ravendb-%s" (.tag | lower) }}
+{{- /* urlParse(...).host includes :port; strip it - HostSNI needs a bare hostname. */}}
 {{- $httpsHost := regexReplaceAll ":\\d+$" (urlParse .publicServerUrl).host "" }}
 {{- $tcpHost := regexReplaceAll ":\\d+$" (urlParse .publicServerUrlTcp).host "" }}
+{{- if not $httpsHost }}
+{{- fail (printf "spec.nodes[tag=%s].publicServerUrl must include a scheme and host (e.g. https://a.example.com:443); got %q" .tag .publicServerUrl) }}
+{{- end }}
+{{- if not $tcpHost }}
+{{- fail (printf "spec.nodes[tag=%s].publicServerUrlTcp must include a scheme and host (e.g. tcp://a-tcp.example.com:38888); got %q" .tag .publicServerUrlTcp) }}
+{{- end }}
 apiVersion: traefik.io/v1alpha1
 kind: IngressRouteTCP
 metadata:
