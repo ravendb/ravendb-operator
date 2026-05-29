@@ -55,6 +55,11 @@ jobs:
           sed -i "s/^VERSION ?=.*/VERSION ?= ${VERSION}/" Makefile
           sed -i "s/^version:.*/version: ${VERSION}/"   helm/chart/Chart.yaml
           sed -i "s/^appVersion:.*/appVersion: \"${VERSION}\"/" helm/chart/Chart.yaml
+          # Keep artifacthub.io/images in sync with appVersion so AH security
+          # scanning resolves the right image. Tracks operator chart only.
+          sed -i -E "s|(image: ravendb/ravendb-operator):[^[:space:]]*|\\1:${VERSION}|" helm/chart/Chart.yaml
+          # The cluster-chart has its own lifecycle and is version-bumped
+          # manually when it changes; this workflow only repackages it as-is.
           # SECURITY.md is bumped manually after the GitHub Release is published.
 
       # release-bundle = bundle + bundle-relocate + bundle-finalize, with $(OLD)
@@ -94,9 +99,10 @@ jobs:
           head -100 "bundle/ravendb-operator/${VERSION}/manifests/ravendb-operator.clusterserviceversion.yaml" 2>/dev/null || echo "(CSV missing)"
           echo "::endgroup::"
 
-      - name: Package helm chart
+      - name: Package helm charts
         run: |
-          helm package helm/chart -d helm/
+          helm package helm/chart         -d helm/
+          helm package helm/cluster-chart -d helm/
           helm repo index helm/ \
             --url https://ravendb.github.io/ravendb-operator/helm \
             --merge helm/index.yaml
