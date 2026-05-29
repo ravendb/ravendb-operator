@@ -10,7 +10,7 @@ controllerManager:
   # Image for the operator controller.
   image:
     repository: ravendb/ravendb-operator
-    tag: "latest" # If empty, defaults to the chart appVersion (Chart.yaml).
+    tag: "" # Empty -> deployment template falls through to .Chart.AppVersion.
 
   # Number of controller replicas.
   replicaCount: 1
