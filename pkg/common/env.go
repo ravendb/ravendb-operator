@@ -26,7 +26,7 @@ import (
 
 func BuildCommonEnvVars(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) []corev1.EnvVar {
 
-	ravendbNodeTcpEndpoint := fmt.Sprintf("%s%s%s.%s.svc.cluster.local:%d", ProtocolTcp, Prefix, node.Tag, cluster.Namespace, InternalTcpPort)
+	ravendbNodeTcpEndpoint := fmt.Sprintf("%s%s.%s.svc.cluster.local:%d", ProtocolTcp, NodeResourceName(node.Tag), cluster.Namespace, InternalTcpPort)
 	return []corev1.EnvVar{
 		{Name: "RAVEN_Setup_Mode", Value: string(cluster.Spec.Mode)},
 		{Name: "RAVEN_License_Path", Value: LicensePath},

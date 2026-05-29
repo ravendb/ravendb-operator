@@ -124,7 +124,7 @@ func buildHTTPSRule(nodeName, domain string) networkingv1.IngressRule {
 						PathType: pathTypePtr(networkingv1.PathTypePrefix),
 						Backend: networkingv1.IngressBackend{
 							Service: &networkingv1.IngressServiceBackend{
-								Name: fmt.Sprintf("%s%s", common.Prefix, nodeName),
+								Name: common.NodeResourceName(nodeName),
 								Port: networkingv1.ServiceBackendPort{Number: common.InternalHttpsPort},
 							},
 						},
@@ -146,7 +146,7 @@ func buildTCPRule(nodeName, domain string) networkingv1.IngressRule {
 						PathType: pathTypePtr(networkingv1.PathTypePrefix),
 						Backend: networkingv1.IngressBackend{
 							Service: &networkingv1.IngressServiceBackend{
-								Name: fmt.Sprintf("%s%s", common.Prefix, nodeName),
+								Name: common.NodeResourceName(nodeName),
 								Port: networkingv1.ServiceBackendPort{Number: common.InternalTcpPort},
 							},
 						},

@@ -18,7 +18,6 @@ package resource
 
 import (
 	"context"
-	"fmt"
 
 	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
@@ -41,7 +40,7 @@ func (b *ServiceBuilder) Build(ctx context.Context, cluster *ravendbv1.RavenDBCl
 
 func BuildService(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) (*corev1.Service, error) {
 
-	svcName := fmt.Sprintf("%s%s", common.Prefix, node.Tag)
+	svcName := common.NodeResourceName(node.Tag)
 
 	labels := buildServiceLabels(cluster, node)
 	ports := buildServicePorts()
