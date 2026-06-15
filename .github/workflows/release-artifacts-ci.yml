@@ -21,6 +21,7 @@ on:
       - 'api/v1/**'
       - 'config/**'
       - 'helm/chart/**'
+      - 'helm/cluster-chart/**'
       - 'Makefile'
       - 'bundle/**'
       - 'Dockerfile'
@@ -66,8 +67,8 @@ jobs:
       - name: Verify config/samples are current
         run: make verify-samples
 
-      - name: Helm chart — lint
-        run: helm lint helm/chart
+      - name: Helm charts — lint
+        run: helm lint helm/chart helm/cluster-chart
 
       - name: Build dist/install.yaml
         env:
