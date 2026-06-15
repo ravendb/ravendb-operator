@@ -180,7 +180,12 @@ func ValidateNodeUrl(tag, rawUrl, domain, expectedScheme, labelPrefix, expectedH
 		errs = append(errs, fmt.Sprintf("%s: scheme must be '%s'", label, expectedScheme))
 	}
 
-	host := u.Hostname()
+	// DNS hostnames are case-insensitive (RFC 1035), and the RavenDB node tag
+	// stays in its CR-original case (uppercase per convention) while certs and
+	// DNS records are conventionally lowercase. Normalize for comparison.
+	host := strings.ToLower(u.Hostname())
+	expectedHostPrefix = strings.ToLower(expectedHostPrefix)
+	domain = strings.ToLower(domain)
 
 	if !strings.HasPrefix(host, expectedHostPrefix) {
 		errs = append(errs, fmt.Sprintf("%s: hostname must start with '%s'", label, expectedHostPrefix))

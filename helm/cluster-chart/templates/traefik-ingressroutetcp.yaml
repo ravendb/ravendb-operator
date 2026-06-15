@@ -1,0 +1,61 @@
+{{- $extAccess := .Values.spec.externalAccessConfiguration }}
+{{- if $extAccess }}
+{{- if eq (default "" $extAccess.type) "ingress-controller" }}
+{{- $ic := $extAccess.ingressControllerContext }}
+{{- if $ic }}
+{{- if eq (default "" $ic.ingressClassName) "traefik" }}
+{{- $httpsEntry := required "traefik.entryPoints.https is required" .Values.traefik.entryPoints.https }}
+{{- $tcpEntry := required "traefik.entryPoints.tcp is required" .Values.traefik.entryPoints.tcp }}
+{{- range .Values.spec.nodes }}
+{{- /* k8s object names must be RFC 1035 lowercase; the operator lowercases the tag when building Service names, so we do the same to match. The CR-level .tag stays as-is (RavenDB convention preserves case). */}}
+{{- $svcName := printf "ravendb-%s" (.tag | lower) }}
+{{- /* urlParse(...).host includes :port; strip it - HostSNI needs a bare hostname. */}}
+{{- $httpsHost := regexReplaceAll ":\\d+$" (urlParse .publicServerUrl).host "" }}
+{{- $tcpHost := regexReplaceAll ":\\d+$" (urlParse .publicServerUrlTcp).host "" }}
+{{- if not $httpsHost }}
+{{- fail (printf "spec.nodes[tag=%s].publicServerUrl must include a scheme and host (e.g. https://a.example.com:443); got %q" .tag .publicServerUrl) }}
+{{- end }}
+{{- if not $tcpHost }}
+{{- fail (printf "spec.nodes[tag=%s].publicServerUrlTcp must include a scheme and host (e.g. tcp://a-tcp.example.com:38888); got %q" .tag .publicServerUrlTcp) }}
+{{- end }}
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: {{ $svcName }}-https
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ravendb-cluster.labels" $ | nindent 4 }}
+spec:
+  entryPoints:
+    - {{ $httpsEntry }}
+  routes:
+    - match: HostSNI(`{{ $httpsHost }}`)
+      services:
+        - name: {{ $svcName }}
+          port: 443
+  tls:
+    passthrough: true
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: {{ $svcName }}-tcp
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ravendb-cluster.labels" $ | nindent 4 }}
+spec:
+  entryPoints:
+    - {{ $tcpEntry }}
+  routes:
+    - match: HostSNI(`{{ $tcpHost }}`)
+      services:
+        - name: {{ $svcName }}
+          port: 38888
+  tls:
+    passthrough: true
+---
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

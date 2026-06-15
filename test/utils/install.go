@@ -15,6 +15,12 @@ const (
 	metallbFilePath       = "https://raw.githubusercontent.com/metallb/metallb/v0.14.3/config/manifests/metallb-native.yaml"
 	metallbConfigFilePath = "test/e2e/manifests/metallb-config.yaml"
 	nginxIngressFilePath  = "test/e2e/manifests/nginx-ingress-ravendb.yaml"
+	TraefikValuesPath     = "test/e2e/manifests/traefik-values.yaml"
+	TraefikNS             = "traefik"
+	TraefikRelease        = "traefik"
+	TraefikRepoAlias      = "traefik"
+	TraefikRepoURL        = "https://traefik.github.io/charts"
+	TraefikChart          = "traefik/traefik"
 )
 
 func ApplyManifest(path string) env.Func {
@@ -84,7 +90,7 @@ func WaitForDeployment(name, ns string, timeout time.Duration) env.Func {
 	}
 }
 
-func WaitForIngressControllerReady(timeout time.Duration) env.Func {
+func WaitForNginxIngressControllerReady(timeout time.Duration) env.Func {
 	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
 		if _, err := RunKubectl(ctx, "-n", "ingress-nginx", "rollout", "status", "deploy/ingress-nginx-controller", "--timeout="+timeout.String()); err != nil {
 			return ctx, err
@@ -96,7 +102,7 @@ func WaitForIngressControllerReady(timeout time.Duration) env.Func {
 	}
 }
 
-func WaitForIngressAdmissionReady(timeout time.Duration) env.Func {
+func WaitForNginxIngressAdmissionReady(timeout time.Duration) env.Func {
 	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
 		if _, err := RunKubectl(ctx, "-n", "ingress-nginx", "wait", "--for=condition=complete", "--timeout="+timeout.String(), "job/ingress-nginx-admission-create"); err != nil {
 			return ctx, err
@@ -105,6 +111,41 @@ func WaitForIngressAdmissionReady(timeout time.Duration) env.Func {
 			return ctx, err
 		}
 		time.Sleep(2 * time.Second)
+		return ctx, nil
+	}
+}
+
+func InstallTraefik(timeout time.Duration) env.Func {
+	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
+		if err := RunHelm(ctx, "repo", "add", TraefikRepoAlias, TraefikRepoURL, "--force-update"); err != nil {
+			return ctx, fmt.Errorf("helm repo add traefik: %w", err)
+		}
+		if err := RunHelm(ctx, "repo", "update"); err != nil {
+			return ctx, fmt.Errorf("helm repo update: %w", err)
+		}
+		args := []string{
+			"upgrade", "--install", TraefikRelease, TraefikChart,
+			"-n", TraefikNS,
+			"--create-namespace",
+			"--wait",
+			"--timeout", timeout.String(),
+			"-f", PathFromRoot(TraefikValuesPath),
+		}
+		if err := RunHelm(ctx, args...); err != nil {
+			return ctx, fmt.Errorf("helm install traefik: %w", err)
+		}
+		return ctx, nil
+	}
+}
+
+func WaitForTraefikReady(timeout time.Duration) env.Func {
+	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
+		if _, err := RunKubectl(ctx, "-n", TraefikNS, "rollout", "status", "deploy/"+TraefikRelease, "--timeout="+timeout.String()); err != nil {
+			return ctx, err
+		}
+		if _, err := RunKubectl(ctx, "-n", TraefikNS, "wait", "--for=condition=Ready", "--timeout="+timeout.String(), "pods", "-l", "app.kubernetes.io/name=traefik"); err != nil {
+			return ctx, err
+		}
 		return ctx, nil
 	}
 }

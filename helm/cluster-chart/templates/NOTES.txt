@@ -1,0 +1,21 @@
+RavenDB cluster "{{ .Release.Name }}" installed in namespace "{{ .Release.Namespace }}".
+
+The chart deployed a RavenDBCluster custom resource. The operator is now reconciling it.
+Watch progress with:
+
+  kubectl get ravendbcluster {{ include "ravendb-cluster.fullname" . }} -n {{ .Release.Namespace }} -w
+  kubectl describe ravendbcluster {{ include "ravendb-cluster.fullname" . }} -n {{ .Release.Namespace }}
+  kubectl get pods -n {{ .Release.Namespace }}
+
+The cluster is ready once .status.phase reports "Running" and the Ready condition is True.
+
+Documentation:
+
+  - Cluster chart README:  https://github.com/ravendb/ravendb-operator/blob/main/helm/cluster-chart/README.md
+  - Examples:              https://github.com/ravendb/ravendb-operator/tree/main/examples
+
+{{- if .Release.IsUpgrade }}
+
+This was a helm upgrade. The operator's webhook may reject changes to immutable fields;
+helm upgrade --atomic will revert Helm state cleanly if admission fails.
+{{- end }}

@@ -102,6 +102,27 @@ func SeedLESecretsInNamespace(t *testing.T, ns string, timeout time.Duration) {
 	SeedLESecretsForTagsInNamespace(t, ns, timeout, "a", "b", "c")
 }
 
+func SeedNodeCertSecretsForTagsInNamespace(t *testing.T, ns string, timeout time.Duration, tags ...string) {
+	t.Helper()
+
+	run := func(f env.Func) {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		_, err := f(ctx, envconf.New())
+		require.NoError(t, err)
+	}
+
+	for _, tag := range tags {
+		envVar := nodeSecretEnvVar(tag)
+		require.NotEmpty(t, envVar, "unsupported node tag: %s", tag)
+
+		secretName := nodeSecretName(tag)
+
+		run(EnsureSecretFromEnvPath(ns, secretName, "server.pfx", envVar))
+		run(WaitForSecret(secretName, ns, timeout))
+	}
+}
+
 func SeedLESecretsForTagsInNamespace(t *testing.T, ns string, timeout time.Duration, tags ...string) {
 	t.Helper()
 

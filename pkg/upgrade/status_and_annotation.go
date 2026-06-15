@@ -18,7 +18,6 @@ package upgrade
 
 import (
 	"context"
-	"fmt"
 	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
 	"strings"
@@ -78,7 +77,7 @@ func successStatus(tag, desired string) ravendbv1.RavenDBNodeStatus {
 }
 
 func statefulSetName(tag string) string {
-	return fmt.Sprintf("%s%s", common.Prefix, strings.ToLower(tag))
+	return common.NodeResourceName(tag)
 }
 
 // toggles the per-node STS annotation so the actor switches the image

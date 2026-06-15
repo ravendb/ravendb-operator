@@ -17,6 +17,7 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	ravendbv1 "ravendb-operator/api/v1"
 	testutil "ravendb-operator/test/utils"
@@ -183,15 +184,22 @@ func TestUpgrade_62_71_degraded_db_placement_on_a_c_E2E(t *testing.T) {
 
 	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
 
-	require.NoError(t, ExtractServerCertToTmp(t.Context(), ns, podA, "", "/ravendb/certs/server.pfx", ""), "extract pem/key")
-	require.NoError(t, CreateDatabaseRF3(t.Context(), ns, podA, "", dbName), "create RF3 DB")
+	require.NoError(t, ExtractServerCertToTmp(t.Context(), ns, podB, "", "/ravendb/certs/server.pfx", ""), "extract pem/key on B")
+	require.NoError(t, CreateDatabaseRF3(t.Context(), ns, podB, "", dbName), "create RF3 DB")
 
 	require.NoError(t, SabotageDatabase(t.Context(), ns, podA, "", dbName), "sabotage A")
 	require.NoError(t, SabotageDatabase(t.Context(), ns, podC, "", dbName), "sabotage C")
 	_, _ = testutil.RunKubectl(t.Context(), "-n", ns, "delete", "pod", "ravendb-a-0", "--wait=false")
 	_, _ = testutil.RunKubectl(t.Context(), "-n", ns, "delete", "pod", "ravendb-c-0", "--wait=false")
 
-	time.Sleep(15 * time.Second) // let topology stablizie
+	// Wait for RavenDB to actually mark A and C as not-fully-online for the DB
+	// (the signal the operator's pre-upgrade gate uses) before patching the image.
+	// Without this, B's gate races the sabotage-propagation and may emit `passed`
+	// instead of `blocked`/`fail`/`timeout`.
+	require.NoError(t,
+		WaitDBDegradedOnNodes(t.Context(), ns, podB, "b.ravendb-operator-e2e.ravendb.run", dbName, []string{"A", "C"}, 90*time.Second),
+		"db not degraded on A,C in time")
+
 	testutil.PatchSpecImage(t, cli, key, toImage)
 	fetch := func() (string, error) { return testutil.OperatorEventsTSVAll(t.Context()) }
 
@@ -199,13 +207,13 @@ func TestUpgrade_62_71_degraded_db_placement_on_a_c_E2E(t *testing.T) {
 	testutil.WaitForEventSubstring(t, fetch, "node A - pre-step/cluster_connectivity passed", 90*time.Second)
 	testutil.WaitForEventSubstring(t, fetch, "node A - pre-step/db_groups_available_excluding_target passed", 90*time.Second)
 
-	testutil.WaitForEventSubstring(t, fetch, "node B - pre-step/node_alive passed", 270*time.Second)
-	testutil.WaitForEventSubstring(t, fetch, "node B - pre-step/cluster_connectivity passed", 270*time.Second)
+	testutil.WaitForEventSubstring(t, fetch, "node B - pre-step/node_alive passed", 360*time.Second)
+	testutil.WaitForEventSubstring(t, fetch, "node B - pre-step/cluster_connectivity passed", 360*time.Second)
 
 	eventsTSV := testutil.RequireContainsAnyEventually(
 		t,
 		fetch,
-		270*time.Second,
+		360*time.Second,
 		"node B - pre-step/db_groups_available_excluding_target blocked",
 		"node B - pre-step/db_groups_available_excluding_target fail",
 		"node B - pre-step/db_groups_available_excluding_target timeout",
@@ -297,4 +305,71 @@ install -m000 -D /dev/null "$DB"
 	}
 	_, err := testutil.ExecInPodCapture(ctx, ns, pod, container, cmd...)
 	return err
+}
+
+// WaitDBDegradedOnNodes polls RavenDB's database record from a healthy pod and
+// waits until the listed node tags are no longer in the database's Members list
+// (i.e. they have been demoted to Rehabs/Promotables). This is the same signal
+// the operator's pre-upgrade gate uses when computing db_groups_available.
+//
+// healthyPod: a pod still reachable (e.g. one that wasn't sabotaged/deleted).
+// healthyHost: the public hostname for that node, e.g. "b.ravendb-operator-e2e.ravendb.run".
+// demotedTags: node tags expected to be absent from Members (e.g. []string{"A","C"}).
+func WaitDBDegradedOnNodes(ctx context.Context, ns, healthyPod, healthyHost, db string, demotedTags []string, timeout time.Duration) error {
+	type record struct {
+		Topology struct {
+			Members     []string
+			Promotables []string
+			Rehabs      []string
+		}
+	}
+
+	url := fmt.Sprintf("https://%s/admin/databases?name=%s", healthyHost, db)
+	cmd := []string{
+		"sh", "-lc", fmt.Sprintf(`curl --fail -sS \
+  --cert /tmp/cluster.server.certificate.pem \
+  --key  /tmp/cluster.server.certificate.key \
+  %q`, url),
+	}
+
+	inSlice := func(s []string, t string) bool {
+		for _, x := range s {
+			if x == t {
+				return true
+			}
+		}
+		return false
+	}
+
+	deadline := time.Now().Add(timeout)
+	var lastBody string
+	var lastErr error
+	for {
+		out, err := testutil.ExecInPodCapture(ctx, ns, healthyPod, "", cmd...)
+		lastBody, lastErr = out, err
+
+		if err == nil {
+			var rec record
+			if jerr := json.Unmarshal([]byte(out), &rec); jerr == nil {
+				degraded := true
+				for _, tag := range demotedTags {
+					if inSlice(rec.Topology.Members, tag) {
+						degraded = false
+						break
+					}
+				}
+				if degraded {
+					return nil
+				}
+			} else {
+				lastErr = jerr
+			}
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("timeout: db %s did not become degraded on %v after %s: lastErr=%v\nbody:\n%s",
+				db, demotedTags, timeout, lastErr, lastBody)
+		}
+		time.Sleep(2 * time.Second)
+	}
 }

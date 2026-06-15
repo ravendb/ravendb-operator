@@ -18,8 +18,6 @@ package resource
 
 import (
 	"context"
-	"fmt"
-
 
 	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
@@ -43,7 +41,7 @@ func (b *StatefulSetBuilder) Build(ctx context.Context, cluster *ravendbv1.Raven
 
 
 func BuildStatefulSet(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) (*appsv1.StatefulSet, error) {
-	stsName := fmt.Sprintf("%s%s", common.Prefix, node.Tag)
+	stsName := common.NodeResourceName(node.Tag)
 
 	replicas := int32(common.NumOfReplicas)
 	labels := buildStatefulsetLabels(cluster, node)

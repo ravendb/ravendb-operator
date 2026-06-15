@@ -1,0 +1,166 @@
+# ==============================================================================
+# RavenDB Cluster - Helm Chart Values
+#
+# This chart deploys a RavenDBCluster CR into the Helm release namespace.
+# Cert and license Secrets can either be created by the chart (provisioning) or
+# pre-created by the user (referenced by name). See the `secrets` section below.
+#
+# Prerequisites:
+#   - RavenDB Kubernetes Operator installed (ravendb-operator chart)
+#   - For Traefik external access: Traefik installed with Traefik CRDs registered
+# ==============================================================================
+
+# Overrides the RavenDBCluster resource name. Defaults to the Helm release name.
+nameOverride: ""
+
+# ------------------------------------------------------------------------------
+# Traefik - applied only when spec.externalAccessConfiguration is configured for
+# ingress-controller with ingressClassName=traefik. Otherwise ignored.
+#
+# The operator does not create Ingress objects for Traefik (only for nginx/haproxy).
+# This chart fills that gap by rendering one IngressRouteTCP per node for HTTPS
+# and one for TCP, with TLS passthrough.
+#
+# entryPoints map to entrypoint names configured at Traefik install time.
+# ------------------------------------------------------------------------------
+traefik:
+  entryPoints:
+    https: websecure
+    tcp: tcp
+
+# ------------------------------------------------------------------------------
+# Secrets - hybrid model: provision via --set-file, OR reference existing Secrets.
+#
+# For each slot:
+#   - `name`: the Kubernetes Secret name. Used both as the provisioning name AND
+#             as the name the RavenDBCluster CR references.
+#   - `file`: optional file content via --set-file. If set, the chart creates
+#             the Secret with `name`. If empty, the chart assumes a Secret with
+#             `name` already exists in the release namespace.
+#
+# The chart auto-wires the corresponding *SecretRef fields on the CR.
+# Users do not set licenseSecretRef / clientCertSecretRef / etc. directly.
+# ------------------------------------------------------------------------------
+secrets:
+  # License Secret (key: license.json)
+  license:
+    name: ravendb-license
+    # --set-file secrets.license.file=/path/to/license.json
+    file: ""
+
+  # Admin client certificate (key: client.pfx)
+  clientCert:
+    name: ravendb-client-cert
+    # --set-file secrets.clientCert.file=/path/to/admin-client-cert.pfx
+    file: ""
+
+  # Per-node server certificates (mode: LetsEncrypt only).
+  # Secret names: <namePrefix>-<tag> (e.g. ravendb-certs-a).
+  # If no file is provided for a node tag, the Secret must already exist in the
+  # release namespace (either chart-provisioned via secrets.nodeCerts.files.<tag>
+  # or pre-created in BYO/mixed mode); otherwise Helm install will fail at
+  # admission time when the RavenDBCluster is validated.
+  nodeCerts:
+    namePrefix: ravendb-certs
+    # files:
+    #   a: ""  # --set-file secrets.nodeCerts.files.a=/path/to/A/server.pfx
+    #   b: ""
+    #   c: ""
+    files: {}
+
+  # Cluster server certificate (mode: None only)
+  clusterCert:
+    name: ravendb-cert
+    # --set-file secrets.clusterCert.file=/path/to/server.pfx
+    file: ""
+
+  # CA certificate (mode: None only)
+  caCert:
+    name: ravendb-ca-cert
+    # --set-file secrets.caCert.file=/path/to/ca.crt
+    file: ""
+
+# ------------------------------------------------------------------------------
+# RavenDBCluster spec - mirrors RavenDBClusterSpec 1:1.
+#
+# Note: *SecretRef fields are managed by the chart from the `secrets` block
+# above and are not set here.
+# ------------------------------------------------------------------------------
+spec:
+  # Required: RavenDB container image.
+  # Example: ravendb/ravendb:6.2-latest
+  image: ""
+
+  # Required: Always | IfNotPresent
+  imagePullPolicy: IfNotPresent
+
+  # Required: LetsEncrypt | None
+  mode: LetsEncrypt
+
+  # Required for mode=LetsEncrypt: email for certificate registration.
+  # email: ""
+
+  # Required: public domain used to build node hostnames.
+  # Example: mycompany.example.com
+  domain: ""
+
+  # Required: list of RavenDB nodes (minimum 1).
+  # Each node tag must be 1-4 characters.
+  nodes: []
+  # Example:
+  # nodes:
+  #   - tag: a
+  #     publicServerUrl: "https://a.mycompany.example.com"
+  #     publicServerUrlTcp: "tcp://a-tcp.mycompany.example.com:38888"
+  #   - tag: b
+  #     publicServerUrl: "https://b.mycompany.example.com"
+  #     publicServerUrlTcp: "tcp://b-tcp.mycompany.example.com:38888"
+
+  # Optional: extra environment variables injected into RavenDB pods.
+  # env:
+  #   RAVEN_Security_UnsecuredAccessAllowed: PublicNetwork
+
+  # Optional: external access configuration.
+  # externalAccessConfiguration:
+  #   type: ingress-controller  # aws-nlb | azure-lb | ingress-controller
+  #
+  #   ingressControllerContext:
+  #     ingressClassName: nginx  # nginx | traefik | haproxy
+  #     additionalAnnotations: {}
+  #
+  #   awsExternalAccessContext:
+  #     nodeMappings:
+  #       - tag: a
+  #         eipAllocationId: eipalloc-0123456789abcdef0
+  #         subnetId: subnet-0123456789abcdef0
+  #         availabilityZone: us-east-1a
+  #
+  #   azureExternalAccessContext:
+  #     nodeMappings:
+  #       - tag: a
+  #         ip: 10.0.0.1
+
+  # Required: storage configuration.
+  storage:
+    data:
+      # Required: size, e.g. 50Gi
+      size: ""
+      # storageClassName: ""
+      # accessModes:
+      #   - ReadWriteOnce
+      # volumeAttributesClassName: ""
+
+    # logs:
+    #   ravendb:
+    #     size: 10Gi
+    #     # storageClassName: ""
+    #     # path: ""
+    #   audit:
+    #     size: 5Gi
+
+    # additionalVolumes:
+    #   - name: my-config
+    #     mountPath: /ravendb/config
+    #     volumeSource:
+    #       configMap:
+    #         name: my-configmap

@@ -1,0 +1,70 @@
+{{- if eq .Release.Namespace "default" }}
+{{- fail "Installing into the 'default' namespace is not allowed. Use -n <namespace> to specify a dedicated namespace for this RavenDB cluster." }}
+{{- end }}
+{{- if not .Values.spec.nodes }}
+{{- fail "spec.nodes is required and must not be empty" }}
+{{- end }}
+{{- if and (eq .Values.spec.mode "LetsEncrypt") (not .Values.spec.email) }}
+{{- fail "spec.email is required when spec.mode=LetsEncrypt" }}
+{{- end }}
+{{- $nodeCertPrefix := .Values.secrets.nodeCerts.namePrefix }}
+apiVersion: ravendb.ravendb.io/v1
+kind: RavenDBCluster
+metadata:
+  name: {{ include "ravendb-cluster.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ravendb-cluster.labels" . | nindent 4 }}
+spec:
+  image: {{ required "spec.image is required" .Values.spec.image | quote }}
+  imagePullPolicy: {{ .Values.spec.imagePullPolicy | default "IfNotPresent" | quote }}
+  mode: {{ required "spec.mode is required" .Values.spec.mode | quote }}
+  {{- if .Values.spec.email }}
+  email: {{ .Values.spec.email | quote }}
+  {{- end }}
+  licenseSecretRef: {{ .Values.secrets.license.name | quote }}
+  clientCertSecretRef: {{ .Values.secrets.clientCert.name | quote }}
+  {{- if eq .Values.spec.mode "None" }}
+  clusterCertSecretRef: {{ .Values.secrets.clusterCert.name | quote }}
+  caCertSecretRef: {{ .Values.secrets.caCert.name | quote }}
+  {{- end }}
+  domain: {{ required "spec.domain is required" .Values.spec.domain | quote }}
+  nodes:
+  {{- range .Values.spec.nodes }}
+    {{- $tagLower := .tag | lower }}
+    - tag: {{ required "node.tag is required" .tag | quote }}
+      publicServerUrl: {{ required "node.publicServerUrl is required" .publicServerUrl | quote }}
+      publicServerUrlTcp: {{ required "node.publicServerUrlTcp is required" .publicServerUrlTcp | quote }}
+      {{- if eq $.Values.spec.mode "LetsEncrypt" }}
+      certSecretRef: {{ printf "%s-%s" $nodeCertPrefix $tagLower | quote }}
+      {{- end }}
+  {{- end }}
+  {{- if .Values.spec.env }}
+  env:
+    {{- toYaml .Values.spec.env | nindent 4 }}
+  {{- end }}
+  {{- if .Values.spec.externalAccessConfiguration }}
+  externalAccessConfiguration:
+    {{- toYaml .Values.spec.externalAccessConfiguration | nindent 4 }}
+  {{- end }}
+  storage:
+    data:
+      size: {{ required "spec.storage.data.size is required" .Values.spec.storage.data.size | quote }}
+      {{- if .Values.spec.storage.data.storageClassName }}
+      storageClassName: {{ .Values.spec.storage.data.storageClassName | quote }}
+      {{- end }}
+      {{- if .Values.spec.storage.data.accessModes }}
+      accessModes:
+        {{- toYaml .Values.spec.storage.data.accessModes | nindent 8 }}
+      {{- end }}
+      {{- if .Values.spec.storage.data.volumeAttributesClassName }}
+      volumeAttributesClassName: {{ .Values.spec.storage.data.volumeAttributesClassName | quote }}
+      {{- end }}
+    {{- if .Values.spec.storage.logs }}
+    logs:
+      {{- toYaml .Values.spec.storage.logs | nindent 6 }}
+    {{- end }}
+    {{- if .Values.spec.storage.additionalVolumes }}
+    additionalVolumes:
+      {{- toYaml .Values.spec.storage.additionalVolumes | nindent 6 }}
+    {{- end }}

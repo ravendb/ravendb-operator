@@ -1,0 +1,21 @@
+# Values used by CI for `helm lint` and `helm template` checks of the
+# ravendb-cluster chart. Lives outside the chart directory so it never gets
+# packaged into the published .tgz. Do not derive production values from this.
+spec:
+  image: ravendb/ravendb:6.2-latest
+  mode: LetsEncrypt
+  email: user@ravendb.net
+  domain: example.com
+  nodes:
+    - tag: a
+      publicServerUrl: https://a.example.com:443
+      publicServerUrlTcp: tcp://a-tcp.example.com:443
+    - tag: b
+      publicServerUrl: https://b.example.com:443
+      publicServerUrlTcp: tcp://b-tcp.example.com:443
+    - tag: c
+      publicServerUrl: https://c.example.com:443
+      publicServerUrlTcp: tcp://c-tcp.example.com:443
+  storage:
+    data:
+      size: 10Gi

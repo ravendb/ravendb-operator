@@ -395,7 +395,7 @@ func NewGateEventEmitter(kc client.Client, rec record.EventRecorder) GateEmitter
 		rec.Eventf(c, eventType, reason, "%s", msg)
 
 		if tag = strings.TrimSpace(tag); tag != "" {
-			stsName := fmt.Sprintf("%s%s", common.Prefix, strings.ToLower(tag))
+			stsName := common.NodeResourceName(tag)
 			var sts appsv1.StatefulSet
 			//ignore errors (e.g., during initial creation when STS may not exist yet)
 			if err := kc.Get(

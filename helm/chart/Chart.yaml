@@ -1,10 +1,48 @@
 apiVersion: v2
 name: ravendb-operator
-description: RavenDB Kubernetes Operator
+description: RavenDB Kubernetes Operator -- controller, CRDs, RBAC, and webhooks for managing RavenDBCluster resources.
 type: application
-version: 1.1.0
-appVersion: "1.1.0"
+version: 2.0.0
+appVersion: "2.0.0"
+kubeVersion: ">=1.19.0-0"
+home: https://ravendb.net
 icon: "https://raw.githubusercontent.com/ravendb/ravendb-operator/refs/heads/main/assets/logo.png"
+sources:
+  - https://github.com/ravendb/ravendb-operator
+keywords:
+  - ravendb
+  - database
+  - nosql
+  - document-database
+  - operator
+  - kubernetes
 maintainers:
   - name: ravendb
     url: https://ravendb.net
+annotations:
+  artifacthub.io/category: database
+  artifacthub.io/operator: "true"
+  artifacthub.io/operatorCapabilities: Seamless Upgrades
+  artifacthub.io/links: |
+    - name: Documentation
+      url: https://ravendb.net/docs
+    - name: Source
+      url: https://github.com/ravendb/ravendb-operator
+    - name: RavenDB Cluster chart
+      url: https://artifacthub.io/packages/helm/ravendb-operator/ravendb-cluster
+  artifacthub.io/recommendations: |
+    - url: https://artifacthub.io/packages/helm/ravendb-operator/ravendb-cluster
+  artifacthub.io/crds: |
+    - kind: RavenDBCluster
+      version: v1
+      name: ravendbclusters.ravendb.ravendb.io
+      displayName: RavenDB Cluster
+      description: Declarative spec for a multi-node RavenDB cluster (topology, TLS mode, external access, storage, env). The operator reconciles all underlying Kubernetes objects -- StatefulSets, Services, Ingresses, Jobs, PVCs -- from a single RavenDBCluster resource.
+  artifacthub.io/images: |
+    - name: ravendb-operator
+      image: ravendb/ravendb-operator:2.0.0
+  artifacthub.io/changes: |
+    - kind: removed
+      description: "BREAKING: provisioning flow (`--set-file provisioning.*`) -- license/cert/per-node Secrets are now owned by the ravendb-cluster chart. See the chart README migration guide before upgrading from 1.x."
+    - kind: changed
+      description: "Chart scope tightened to operator infrastructure only (controller, CRDs, RBAC, webhooks). Workload resources moved to the ravendb-cluster chart."

@@ -21,6 +21,7 @@ on:
       - 'api/v1/**'
       - 'config/**'
       - 'helm/chart/**'
+      - 'helm/cluster-chart/**'
       - 'Makefile'
       - 'bundle/**'
       - 'Dockerfile'
@@ -66,8 +67,14 @@ jobs:
       - name: Verify config/samples are current
         run: make verify-samples
 
-      - name: Helm chart — lint
-        run: helm lint helm/chart
+      - name: Helm charts — lint
+        run: helm lint helm/chart helm/cluster-chart
+
+      # Catches malformed artifacthub.io/* annotations before charts are published.
+      - name: Helm charts — Artifact Hub metadata lint
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/repo" -w /repo \
+            artifacthub/ah ah lint -p helm
 
       - name: Build dist/install.yaml
         env:

@@ -64,6 +64,15 @@ func (r *RavenDBCluster) HasConditionTrue(t ClusterConditionType) bool {
 	return false
 }
 
+func (r *RavenDBCluster) RemoveCondition(t ClusterConditionType) {
+	for i := range r.Status.Conditions {
+		if r.Status.Conditions[i].Type == string(t) {
+			r.Status.Conditions = append(r.Status.Conditions[:i], r.Status.Conditions[i+1:]...)
+			return
+		}
+	}
+}
+
 // to ensure we don’t accidentally pass an empty reason
 func reasonsanitize(reason ClusterConditionReason) ClusterConditionReason {
 	if reason == "" {
@@ -107,7 +116,13 @@ func (r *RavenDBCluster) ComputeReady(now metav1.Time) {
 	}
 
 	if r.Spec.ExternalAccessConfiguration != nil {
-		required = append(required, ConditionExternalAccessReady)
+		// Traefik routing is managed out-of-band; the operator does not observe
+		// it, so don't require ExternalAccessReady to gate Ready
+		ic := r.Spec.ExternalAccessConfiguration.IngressControllerExternalAccess
+		isTraefik := ic != nil && ic.IngressClassName == "traefik"
+		if !isTraefik {
+			required = append(required, ConditionExternalAccessReady)
+		}
 	}
 
 	for i := 0; i < len(required); i++ {
