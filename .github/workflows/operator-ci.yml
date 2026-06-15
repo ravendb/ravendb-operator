@@ -70,15 +70,11 @@ jobs:
     if: >
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
-    env:
-      PROJECT_ROOT: ${{ github.workspace }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Helm CLI
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      - uses: azure/setup-helm@v4
 
       - name: Helm lint + template (operator chart)
         env:
@@ -98,9 +94,9 @@ jobs:
           helm template "${RELEASE}" "${CHART}" "${common_args[@]}" \
             > /tmp/operator-rendered.yaml
 
-          echo "Asserting operator chart 2.0.0 renders no Secret resources..."
+          echo "Asserting operator chart renders no Secret resources..."
           if grep -E "^kind: Secret$" /tmp/operator-rendered.yaml; then
-            echo "FAIL: operator chart 2.0.0 must not render any Secret resources (provisioning was removed)" >&2
+            echo "FAIL: operator chart owns no cluster-side Secrets (those live in the cluster chart)" >&2
             exit 1
           fi
 
@@ -136,9 +132,7 @@ jobs:
       - name: Secrets setup
         uses: ./.github/actions/secrets-setup
 
-      - name: Install Helm CLI
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      - uses: azure/setup-helm@v4
 
       - name: Helm lint (cluster chart)
         env:
