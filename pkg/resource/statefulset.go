@@ -25,6 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/pointer"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -34,11 +35,9 @@ func NewStatefulSetBuilder() PerNodeBuilder {
 	return &StatefulSetBuilder{}
 }
 
-
 func (b *StatefulSetBuilder) Build(ctx context.Context, cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) (client.Object, error) {
 	return BuildStatefulSet(cluster, node)
 }
-
 
 func BuildStatefulSet(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) (*appsv1.StatefulSet, error) {
 	stsName := common.NodeResourceName(node.Tag)
@@ -60,7 +59,6 @@ func BuildStatefulSet(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBN
 	containers := buildContainers(cluster.Spec.Image, envVars, ports, volumeMounts, ipp, cluster)
 
 	affinity := buildAWSNodeAffinity(cluster, node.Tag)
-
 
 	sts := &appsv1.StatefulSet{
 		TypeMeta: metav1.TypeMeta{
@@ -87,16 +85,7 @@ func BuildStatefulSet(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBN
 					Affinity:           affinity,
 					ServiceAccountName: common.RavenDbNodeServiceAccount,
 
-					// alows us to bind lower ports like 443
-					// considered safe. see: https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/#safe-and-unsafe-sysctls
-					SecurityContext: &corev1.PodSecurityContext{
-						Sysctls: []corev1.Sysctl{
-							{
-								Name:  "net.ipv4.ip_unprivileged_port_start",
-								Value: "0",
-							},
-						},
-					},
+					SecurityContext: buildPodSecurityContext(),
 				},
 			},
 			VolumeClaimTemplates: volumeClaims,
@@ -106,6 +95,23 @@ func BuildStatefulSet(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBN
 	return sts, nil
 }
 
+func buildPodSecurityContext() *corev1.PodSecurityContext {
+	fsGroupChangePolicy := corev1.FSGroupChangeOnRootMismatch
+
+	return &corev1.PodSecurityContext{
+		FSGroup:             pointer.Int64(999),
+		FSGroupChangePolicy: &fsGroupChangePolicy,
+
+		// Allows RavenDB to bind lower ports like 443. This sysctl is considered safe.
+		// See: https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/#safe-and-unsafe-sysctls
+		Sysctls: []corev1.Sysctl{
+			{
+				Name:  "net.ipv4.ip_unprivileged_port_start",
+				Value: "0",
+			},
+		},
+	}
+}
 
 func buildContainers(image string, env []corev1.EnvVar, ports []corev1.ContainerPort, mounts []corev1.VolumeMount, ipp corev1.PullPolicy, cluster *ravendbv1.RavenDBCluster) []corev1.Container {
 	rdbContainer := BuildRavenDBContainer(image, env, ports, mounts, ipp)
@@ -119,13 +125,10 @@ func buildContainers(image string, env []corev1.EnvVar, ports []corev1.Container
 
 }
 
-
-
 func buildStatefulsetSelector(node ravendbv1.RavenDBNode) map[string]string {
 	return map[string]string{
 		common.LabelNodeTag: node.Tag}
 }
-
 
 func buildStatefulsetLabels(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) map[string]string {
 	return map[string]string{
@@ -141,7 +144,6 @@ func buildStatefulsetAnnotations() map[string]string {
 		common.IngressSSLPassthroughAnnotation: "true",
 	}
 }
-
 
 func buildEnvVars(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) ([]corev1.EnvVar, error) {
 	env := common.BuildCommonEnvVars(cluster, node)
@@ -175,7 +177,6 @@ func buildPorts() []corev1.ContainerPort {
 		{Name: common.TcpPortName, ContainerPort: 38888},
 	}
 }
-
 
 func buildVolumes(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode) []corev1.Volume {
 
@@ -225,7 +226,6 @@ func buildVolumes(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBNode)
 
 	return volumes
 }
-
 
 func buildVolumeMounts(cluster *ravendbv1.RavenDBCluster) []corev1.VolumeMount {
 	vMounts := []corev1.VolumeMount{
@@ -278,7 +278,6 @@ func buildVolumeMounts(cluster *ravendbv1.RavenDBCluster) []corev1.VolumeMount {
 	return vMounts
 }
 
-
 func BuildPVCs(cluster *ravendbv1.RavenDBCluster) []corev1.PersistentVolumeClaim {
 	var pvcs []corev1.PersistentVolumeClaim
 
@@ -316,7 +315,6 @@ func BuildPVCs(cluster *ravendbv1.RavenDBCluster) []corev1.PersistentVolumeClaim
 
 	return pvcs
 }
-
 
 func buildAWSNodeAffinity(cluster *ravendbv1.RavenDBCluster, tag string) *corev1.Affinity {
 	if cluster.Spec.ExternalAccessConfiguration == nil ||
