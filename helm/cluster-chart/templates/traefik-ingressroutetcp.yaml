@@ -6,6 +6,7 @@
 {{- if eq (default "" $ic.ingressClassName) "traefik" }}
 {{- $httpsEntry := required "traefik.entryPoints.https is required" .Values.traefik.entryPoints.https }}
 {{- $tcpEntry := required "traefik.entryPoints.tcp is required" .Values.traefik.entryPoints.tcp }}
+{{- $annotations := default dict .Values.traefik.annotations }}
 {{- range .Values.spec.nodes }}
 {{- /* k8s object names must be RFC 1035 lowercase; the operator lowercases the tag when building Service names, so we do the same to match. The CR-level .tag stays as-is (RavenDB convention preserves case). */}}
 {{- $svcName := printf "ravendb-%s" (.tag | lower) }}
@@ -25,6 +26,10 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     {{- include "ravendb-cluster.labels" $ | nindent 4 }}
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   entryPoints:
     - {{ $httpsEntry }}
@@ -43,6 +48,10 @@ metadata:
   namespace: {{ $.Release.Namespace }}
   labels:
     {{- include "ravendb-cluster.labels" $ | nindent 4 }}
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   entryPoints:
     - {{ $tcpEntry }}

@@ -22,11 +22,13 @@ nameOverride: ""
 # and one for TCP, with TLS passthrough.
 #
 # entryPoints map to entrypoint names configured at Traefik install time.
+# annotations are applied to every generated Traefik IngressRouteTCP.
 # ------------------------------------------------------------------------------
 traefik:
   entryPoints:
     https: websecure
     tcp: tcp
+  annotations: {}
 
 # ------------------------------------------------------------------------------
 # Secrets - hybrid model: provision via --set-file, OR reference existing Secrets.
