@@ -51,9 +51,8 @@ func TestClusterChart_C1_Provision_E2E(t *testing.T) {
 
 	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretLicense}, &corev1.Secret{})
 	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretClientPFX}, &corev1.Secret{})
-	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretNodeAPFX}, &corev1.Secret{})
-	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretNodeBPFX}, &corev1.Secret{})
-	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretNodeCPFX}, &corev1.Secret{})
+	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretClusterPFX}, &corev1.Secret{})
+	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretCACert}, &corev1.Secret{})
 }
 
 func TestClusterChart_C2_BYO_E2E(t *testing.T) {
@@ -187,7 +186,6 @@ func TestClusterChart_C6_MixedSecrets_E2E(t *testing.T) {
 
 	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretLicense}, &corev1.Secret{})
 	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretClientPFX}, &corev1.Secret{})
-	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretNodeAPFX}, &corev1.Secret{})
-	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretNodeBPFX}, &corev1.Secret{})
-	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretNodeCPFX}, &corev1.Secret{})
+	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretClusterPFX}, &corev1.Secret{})
+	assertExists(t, cli, ctrlclient.ObjectKey{Namespace: ns, Name: testutil.SecretCACert}, &corev1.Secret{})
 }

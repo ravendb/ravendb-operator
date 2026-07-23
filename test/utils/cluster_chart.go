@@ -29,8 +29,7 @@ import (
 
 const (
 	clusterChartImage               = "ravendb/ravendb:6.2.11-ubuntu.22.04-x64"
-	clusterChartMode                = "LetsEncrypt"
-	clusterChartEmail               = "user@ravendb.net"
+	clusterChartMode                = "None"
 	clusterChartDomain              = "ravendb-operator-e2e.ravendb.run"
 	clusterChartStorageSize         = "10Gi"
 	clusterChartStorageClassName    = "local-path"
@@ -78,9 +77,8 @@ func InstallClusterChart(t *testing.T, tc ClusterChartCase) (ctrlclient.Client, 
 func helmInstallClusterChartProvision(ctx context.Context, release, ns, ingressClassName string, timeout time.Duration) error {
 	licensePath := os.Getenv(EnvLicensePath)
 	clientPFXPath := os.Getenv(EnvClientPFXPath)
-	nodeAPath := os.Getenv(EnvNodeAPFXPath)
-	nodeBPath := os.Getenv(EnvNodeBPFXPath)
-	nodeCPath := os.Getenv(EnvNodeCPFXPath)
+	clusterPFXPath := os.Getenv(EnvClusterPFXPath)
+	caCertPath := os.Getenv(EnvCACertPath)
 
 	missing := []string{}
 	if licensePath == "" {
@@ -89,14 +87,11 @@ func helmInstallClusterChartProvision(ctx context.Context, release, ns, ingressC
 	if clientPFXPath == "" {
 		missing = append(missing, EnvClientPFXPath)
 	}
-	if nodeAPath == "" {
-		missing = append(missing, EnvNodeAPFXPath)
+	if clusterPFXPath == "" {
+		missing = append(missing, EnvClusterPFXPath)
 	}
-	if nodeBPath == "" {
-		missing = append(missing, EnvNodeBPFXPath)
-	}
-	if nodeCPath == "" {
-		missing = append(missing, EnvNodeCPFXPath)
+	if caCertPath == "" {
+		missing = append(missing, EnvCACertPath)
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("InstallClusterChart provisioning mode: missing env vars: %s", strings.Join(missing, ", "))
@@ -111,9 +106,8 @@ func helmInstallClusterChartProvision(ctx context.Context, release, ns, ingressC
 
 		"--set-file", "secrets.license.file=" + licensePath,
 		"--set-file", "secrets.clientCert.file=" + clientPFXPath,
-		"--set-file", "secrets.nodeCerts.files.a=" + nodeAPath,
-		"--set-file", "secrets.nodeCerts.files.b=" + nodeBPath,
-		"--set-file", "secrets.nodeCerts.files.c=" + nodeCPath,
+		"--set-file", "secrets.clusterCert.file=" + clusterPFXPath,
+		"--set-file", "secrets.caCert.file=" + caCertPath,
 	}
 	args = append(args, commonClusterChartArgs(ingressClassName)...)
 
@@ -175,7 +169,6 @@ func commonClusterChartArgs(ingressClassName string) []string {
 	return []string{
 		"--set", "spec.image=" + clusterChartImage,
 		"--set", "spec.mode=" + clusterChartMode,
-		"--set", "spec.email=" + clusterChartEmail,
 		"--set", "spec.domain=" + clusterChartDomain,
 
 		"--set", "spec.nodes[0].tag=a",
