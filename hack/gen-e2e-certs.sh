@@ -40,9 +40,15 @@ gen_pfx() {
   } >"$WORK/ext.cnf"
   openssl x509 -req -in "$WORK/k.csr" -CA "$WORK/ca.crt" -CAkey "$WORK/ca.key" \
     -CAcreateserial -out "$WORK/k.crt" -days "$DAYS" -extfile "$WORK/ext.cnf" 2>/dev/null
-  # Include the CA in the PFX chain so RavenDB sees the issuer.
+  # Include the CA in the PFX chain so RavenDB sees the issuer. Force legacy
+  # PKCS#12 algorithms (3DES + SHA-1 MAC): the operator decodes the client PFX
+  # with golang.org/x/crypto/pkcs12, which only supports legacy encryption and
+  # rejects OpenSSL 3.x defaults (AES/SHA-256) with "unknown digest algorithm".
+  # RavenDB's .NET loader accepts legacy too, so this works for both.
   openssl pkcs12 -export -out "$out" -inkey "$WORK/k.key" -in "$WORK/k.crt" \
-    -certfile "$WORK/ca.crt" -passout pass: 2>/dev/null
+    -certfile "$WORK/ca.crt" \
+    -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES -macalg SHA1 \
+    -passout pass: 2>/dev/null
   chmod 644 "$out"
 }
 
