@@ -11,7 +11,6 @@ import (
 func BaseClusterLE(name string) *ravendbv1.RavenDBCluster {
 	email := "user@ravendb.net"
 	certA, certB, certC := "ravendb-certs-a", "ravendb-certs-b", "ravendb-certs-c"
-	caCert := "ravendb-ca-cert"
 	storageClass := "local-path"
 
 
@@ -25,7 +24,6 @@ func BaseClusterLE(name string) *ravendbv1.RavenDBCluster {
 			Email:               &email,
 			LicenseSecretRef:    "ravendb-license",
 			ClientCertSecretRef: "ravendb-client-cert",
-			CACertSecretRef:     &caCert,
 
 			Domain: "ravendb-operator-e2e.ravendb.run",
 
@@ -58,7 +56,6 @@ func BaseClusterLE(name string) *ravendbv1.RavenDBCluster {
 func BaseClusterLEDEF(name string) *ravendbv1.RavenDBCluster {
 	email := "user@ravendb.net"
 	certD, certE, certF := "ravendb-certs-d", "ravendb-certs-e", "ravendb-certs-f"
-	caCert := "ravendb-ca-cert"
 	storageClass := "local-path"
 
 	return &ravendbv1.RavenDBCluster{
@@ -70,7 +67,6 @@ func BaseClusterLEDEF(name string) *ravendbv1.RavenDBCluster {
 			Email:               &email,
 			LicenseSecretRef:    "ravendb-license",
 			ClientCertSecretRef: "ravendb-client-cert",
-			CACertSecretRef:     &caCert,
 			Domain:              "ravendb-operator-e2e.ravendb.run",
 			Nodes: []ravendbv1.RavenDBNode{
 				{Tag: "d", PublicServerUrl: "https://d.ravendb-operator-e2e.ravendb.run:443", PublicServerUrlTcp: "tcp://d-tcp.ravendb-operator-e2e.ravendb.run:443", CertSecretRef: &certD},
