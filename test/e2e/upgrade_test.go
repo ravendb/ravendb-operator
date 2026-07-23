@@ -125,15 +125,18 @@ func TestUpgrade_62_71_pre_cluster_conn_fail_on_a_bc_b_down_E2E(t *testing.T) {
 
 	testutil.WaitCondition(t, cli, key, ravendbv1.ConditionReady, metav1.ConditionTrue, timeout, 2*time.Second)
 
-	// sabotage node B cert to cause failure
+	// Sabotage the server cert to cause node B to fail on restart. In Mode=None
+	// all nodes share the single cluster cert secret; only ravendb-b-0 is
+	// deleted below, so only B reloads the bogus cert at startup and stays down
+	// (A and C keep the already-loaded good cert in memory).
 	ctx := context.Background()
 	_, err := testutil.RunKubectl(ctx,
 		"-n", testutil.DefaultNS,
-		"patch", "secret", "ravendb-certs-b",
+		"patch", "secret", "ravendb-cert",
 		"--type=json",
 		"-p", `[{"op":"replace","path":"/data/server.pfx","value":"Ym9ndXM="}]`,
 	)
-	require.NoError(t, err, "patch secret ravendb-certs-b failed")
+	require.NoError(t, err, "patch secret ravendb-cert failed")
 
 	_, err = testutil.RunKubectl(ctx, "-n", testutil.DefaultNS, "delete", "pod", "ravendb-b-0", "--wait=false")
 	require.NoError(t, err, "delete pod ravendb-b-0 failed")

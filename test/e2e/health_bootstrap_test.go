@@ -42,8 +42,13 @@ func TestBootstrap_B1_JobSucceeded_E2E(t *testing.T) {
 	cond, ok := testutil.GetCondition(cur, ravendbv1.ConditionBootstrapCompleted)
 	require.True(t, ok)
 	require.Equal(t, string(ravendbv1.ReasonCompleted), cond.Reason)
-	require.Equal(t, ravendbv1.PhaseRunning, cur.Status.Phase)
 
+	// Phase transitions to Running in a reconcile shortly after
+	// BootstrapCompleted flips True, so poll rather than assert instantly.
+	require.Eventually(t, func() bool {
+		c := &ravendbv1.RavenDBCluster{}
+		return cli.Get(context.Background(), key, c) == nil && c.Status.Phase == ravendbv1.PhaseRunning
+	}, 2*time.Minute, 2*time.Second, "cluster phase did not reach Running")
 }
 
 func TestBootstrap_B2_JobRunning_E2E(t *testing.T) {
