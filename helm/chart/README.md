@@ -60,6 +60,28 @@ The operator chart exposes a small surface focused on the controller deployment 
 
 See [`values.yaml`](values.yaml) for inline documentation.
 
+## Pod security
+
+The RavenDB pods the operator generates (StatefulSets and the bootstrapper Job)
+ship a hardened security context, compatible with the PodSecurity `restricted`
+profile out of the box:
+
+- **Non-root, fixed identity.** Containers run as uid/gid `999`, matching the
+  `USER ravendb` baked into the RavenDB image. The value is a single source of
+  truth in the operator (`pkg/common.RavenDBUID`/`RavenDBGID`); a CI guard
+  asserts the upstream image still uses it.
+- **`fsGroup: 999`** on the pod, with `fsGroupChangePolicy: OnRootMismatch`. This
+  lets the non-root process write to freshly provisioned PVCs, which some storage
+  providers (e.g. Longhorn) otherwise mount root-owned, causing RavenDB to fail
+  at startup with a `DataDir ... denied` error.
+- **`runAsNonRoot: true`, `allowPrivilegeEscalation: false`, all capabilities
+  dropped, `seccompProfile: RuntimeDefault`.** Binding port 443 does not need
+  `NET_BIND_SERVICE`: the pod sets the safe sysctl
+  `net.ipv4.ip_unprivileged_port_start=0`.
+
+These values are not configurable: they are dictated by the RavenDB image, not by
+the user.
+
 ## Migrating from 1.x to 2.0.0
 
 **Breaking change.** The optional provisioning flow that allowed the operator chart to create license / client cert / per-node cert / self-signed Secrets via `--set-file provisioning.*` has been removed. Cluster-level Secrets are now owned by the dedicated [`ravendb-cluster`](../cluster-chart/README.md) chart.

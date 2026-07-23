@@ -52,6 +52,7 @@ Never run `docker/release.sh`, `make docker-push-*`, `make bundle-push`, `make c
 - One `RavenDBCluster` per namespace. Enforced in `pkg/webhook/validator/namespace_validator.go`.
 - Secret lookups are namespace-scoped — never fall back to the operator's namespace.
 - Helm chart and `config/` are maintained in parallel. RBAC/env/volume changes must land in both.
+- Pod/container security contexts are built in `pkg/resource/security.go` and shared by the StatefulSet and bootstrapper Job. The RavenDB runtime uid/gid is a single constant (`pkg/common.RavenDBUID`/`RavenDBGID` = 999, mirroring the image's `USER`); never re-hardcode `999`. Pods target PodSecurity `restricted`. `hack/verify-image-uid.sh` (CI: `image-uid-guard.yml`) guards the constant against image drift.
 - CSV descriptors are emitted from `+operator-sdk:csv:customresourcedefinitions:displayName="..."` markers on api/v1 fields. Operator-level metadata (description, icon, keywords, links, maintainers, minKubeVersion) lives in `config/manifests/bases/...csv.yaml` and is preserved across `make bundle` runs.
 
 ## Repo gotchas

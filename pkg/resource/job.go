@@ -69,6 +69,8 @@ func BuildJob(cluster *ravendbv1.RavenDBCluster) (*batchv1.Job, error) {
 					Volumes:            volumes,
 					Containers:         containers,
 					ServiceAccountName: common.RavenDbNodeServiceAccount,
+					// No sysctls: the bootstrapper does not bind low ports.
+					SecurityContext: buildPodSecurityContext(),
 				},
 			},
 		},

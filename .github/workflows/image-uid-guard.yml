@@ -1,0 +1,35 @@
+name: Image UID guard
+
+# The operator hardcodes the RavenDB runtime identity (999) in
+# pkg/common.RavenDBUID / RavenDBGID, because Kubernetes cannot infer it from
+# the image. This job asserts the upstream image still matches, so a UID change
+# fails here instead of on a user's cluster (DataDir permission failures, #37).
+#
+# Runs when the security assumption is touched, plus weekly to catch upstream
+# image drift independent of our code.
+
+on:
+  pull_request:
+    paths:
+      - 'pkg/common/constants.go'
+      - 'pkg/resource/security.go'
+      - 'hack/verify-image-uid.sh'
+      - '.github/workflows/image-uid-guard.yml'
+  schedule:
+    - cron: "0 6 * * 1" # every Monday at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify RavenDB image UID/GID
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify image UID/GID matches operator constants
+        run: bash hack/verify-image-uid.sh ravendb/ravendb:latest
