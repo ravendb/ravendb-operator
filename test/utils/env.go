@@ -148,6 +148,8 @@ func DumpClusterDiagnostics(t *testing.T, ns string) {
 	show("describe pods/"+ns, "-n", ns, "describe", "pods")
 	show("ravendb node logs/"+ns, "-n", ns, "logs", "-l", "app.kubernetes.io/name=ravendb", "--all-containers", "--tail=300", "--prefix")
 	show("ravendb node logs (previous)/"+ns, "-n", ns, "logs", "-l", "app.kubernetes.io/name=ravendb", "--all-containers", "--previous", "--tail=300", "--prefix")
+	show("bootstrap job logs/"+ns, "-n", ns, "logs", "-l", "job-name=ravendb-cluster-init", "--all-containers", "--tail=400", "--prefix")
+	show("bootstrap job logs (previous)/"+ns, "-n", ns, "logs", "-l", "job-name=ravendb-cluster-init", "--all-containers", "--previous", "--tail=400", "--prefix")
 	show("operator logs", "-n", "ravendb-operator-system", "logs", "-l", "control-plane=controller-manager", "--tail=300", "--all-containers", "--prefix")
 }
 

@@ -17,6 +17,7 @@ set -euo pipefail
 
 : "${E2E_BASE:?E2E_BASE must be set}"
 : "${E2E_CLIENT_PFX_PATH:?E2E_CLIENT_PFX_PATH must be set}"
+: "${E2E_CA_CERT_PATH:=$E2E_BASE/ca.crt}"
 
 DOMAIN="ravendb-operator-e2e.ravendb.run"
 DAYS="${E2E_CERT_DAYS:-3650}"
@@ -24,8 +25,13 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 # Cluster CA (shared issuer so nodes trust each other and the admin client).
+# RavenDB trusts cluster peers whose certs are signed by this shared CA, the
+# same model its setup package uses; the bootstrapper's curl trusts it via the
+# ravendb-ca-cert secret (caCertSecretRef -> --cacert).
 openssl req -x509 -newkey rsa:2048 -keyout "$WORK/ca.key" -out "$WORK/ca.crt" \
   -days "$DAYS" -nodes -subj "/CN=RavenDB E2E Cluster CA" 2>/dev/null
+mkdir -p "$(dirname "$E2E_CA_CERT_PATH")"
+install -m 0644 "$WORK/ca.crt" "$E2E_CA_CERT_PATH"
 
 # gen_pfx <common-name> <out-pfx-path> [subjectAltName]
 gen_pfx() {

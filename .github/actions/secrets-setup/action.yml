@@ -31,6 +31,7 @@ runs:
       echo "E2E_NODE_D_PFX_PATH=$E2E_BASE/D/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
       echo "E2E_NODE_E_PFX_PATH=$E2E_BASE/E/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
       echo "E2E_NODE_F_PFX_PATH=$E2E_BASE/F/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
+      echo "E2E_CA_CERT_PATH=$E2E_BASE/ca.crt" >> "$GITHUB_ENV"
     
   - name: Materialize license to file
     shell: bash

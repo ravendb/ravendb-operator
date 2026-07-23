@@ -14,6 +14,7 @@ import (
 
 const (
 	SecretLicense   = "ravendb-license"
+	SecretCACert    = "ravendb-ca-cert"
 	SecretClientPFX = "ravendb-client-cert"
 	SecretNodeAPFX  = "ravendb-certs-a"
 	SecretNodeBPFX  = "ravendb-certs-b"
@@ -25,6 +26,7 @@ const (
 
 const (
 	EnvLicensePath   = "E2E_LICENSE_PATH"
+	EnvCACertPath    = "E2E_CA_CERT_PATH"
 	EnvClientPFXPath = "E2E_CLIENT_PFX_PATH"
 	EnvNodeAPFXPath  = "E2E_NODE_A_PFX_PATH"
 	EnvNodeBPFXPath  = "E2E_NODE_B_PFX_PATH"
@@ -135,9 +137,11 @@ func SeedLESecretsForTagsInNamespace(t *testing.T, ns string, timeout time.Durat
 
 	run(EnsureSecretFromEnvPath(ns, SecretLicense, "license.json", EnvLicensePath))
 	run(EnsureSecretFromEnvPath(ns, SecretClientPFX, "client.pfx", EnvClientPFXPath))
+	run(EnsureSecretFromEnvPath(ns, SecretCACert, "ca.crt", EnvCACertPath))
 
 	run(WaitForSecret(SecretLicense, ns, timeout))
 	run(WaitForSecret(SecretClientPFX, ns, timeout))
+	run(WaitForSecret(SecretCACert, ns, timeout))
 
 	for _, tag := range tags {
 		envVar := nodeSecretEnvVar(tag)
