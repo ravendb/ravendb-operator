@@ -107,14 +107,46 @@ func WaitReadable(t *testing.T, cli ctrlclient.Client, k ctrlclient.ObjectKey, t
 
 func WaitCondition(t *testing.T, cli ctrlclient.Client, k ctrlclient.ObjectKey, condType ravendbv1.ClusterConditionType, want metav1.ConditionStatus, timeout, interval time.Duration) {
 	t.Helper()
-	require.Eventually(t, func() bool {
+
+	deadline := time.Now().Add(timeout)
+	for {
 		cur := &ravendbv1.RavenDBCluster{}
-		if err := cli.Get(context.Background(), k, cur); err != nil {
-			return false
+		if err := cli.Get(context.Background(), k, cur); err == nil {
+			if cond, ok := GetCondition(cur, condType); ok && cond.Status == want {
+				return
+			}
 		}
-		cond, ok := GetCondition(cur, condType)
-		return ok && cond.Status == want
-	}, timeout, interval, fmt.Sprintf("condition %s did not become %s", condType, want))
+		if time.Now().After(deadline) {
+			// Dump cluster state while the kind cluster is still alive, so CI
+			// logs show *why* readiness stalled instead of a bare timeout.
+			DumpClusterDiagnostics(t, k.Namespace)
+			t.Fatalf("condition %s did not become %s within %s", condType, want, timeout)
+			return
+		}
+		time.Sleep(interval)
+	}
+}
+
+// DumpClusterDiagnostics prints best-effort cluster state (the RavenDBCluster
+// status conditions, pods across namespaces, events, and operator logs) to the
+// test log. It is invoked when a wait times out, while the kind cluster is
+// still alive, so a CI failure shows which reconcile stage stalled instead of a
+// bare "condition never satisfied".
+func DumpClusterDiagnostics(t *testing.T, ns string) {
+	t.Helper()
+	ctx := context.Background()
+	show := func(title string, args ...string) {
+		out, err := RunKubectlCapture(ctx, args...)
+		if err != nil {
+			out += fmt.Sprintf("\n(kubectl error: %v)", err)
+		}
+		t.Logf("\n========== DIAGNOSTICS: %s ==========\n%s", title, out)
+	}
+	show("RavenDBCluster/"+ns, "-n", ns, "get", "ravendbcluster", "-o", "yaml")
+	show("pods (all namespaces)", "get", "pods", "-A", "-o", "wide")
+	show("events/"+ns, "-n", ns, "get", "events", "--sort-by=.lastTimestamp")
+	show("describe pods/"+ns, "-n", ns, "describe", "pods")
+	show("operator logs", "-n", "ravendb-operator-system", "logs", "-l", "control-plane=controller-manager", "--tail=300", "--all-containers", "--prefix")
 }
 
 func GetCondition(obj *ravendbv1.RavenDBCluster, t ravendbv1.ClusterConditionType) (metav1.Condition, bool) {
