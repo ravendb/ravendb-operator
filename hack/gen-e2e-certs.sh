@@ -64,4 +64,16 @@ gen_pfx "${DOMAIN}" "$E2E_CLUSTER_PFX_PATH" "$san"
 # Admin client certificate (registered at bootstrap by init-cluster.sh).
 gen_pfx "admin.client.${DOMAIN}" "$E2E_CLIENT_PFX_PATH"
 
-echo "generated e2e certs under ${E2E_BASE} (CA + cluster cert + admin client, valid ${DAYS}d)"
+# Per-node server certificates. Not used by the Mode=None e2e clusters (which
+# share the single cluster cert above), but the cluster-chart CI job still
+# templates the chart in LetsEncrypt mode via --set-file secrets.nodeCerts.*,
+# which needs these files to exist.
+for U in A B C D E F; do
+  var="E2E_NODE_${U}_PFX_PATH"
+  out="${!var:-}"
+  [ -z "$out" ] && continue
+  l="$(printf '%s' "$U" | tr '[:upper:]' '[:lower:]')"
+  gen_pfx "${l}.${DOMAIN}" "$out" "DNS:${l}.${DOMAIN},DNS:${l}-tcp.${DOMAIN}"
+done
+
+echo "generated e2e certs under ${E2E_BASE} (CA + cluster cert + admin client + per-node, valid ${DAYS}d)"

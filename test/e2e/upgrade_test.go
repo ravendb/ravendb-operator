@@ -272,6 +272,7 @@ PFX=%q
 PASS=%q
 openssl pkcs12 -in "$PFX" -clcerts -nokeys -out /tmp/cluster.server.certificate.pem -legacy -passin pass:$PASS
 openssl pkcs12 -in "$PFX" -nocerts -nodes -out /tmp/cluster.server.certificate.key -legacy -passin pass:$PASS
+openssl pkcs12 -in "$PFX" -cacerts -nokeys -out /tmp/cluster.server.ca.pem -legacy -passin pass:$PASS
 `, pfxPath, pfxPass),
 	}
 	_, err := testutil.ExecInPod(ctx, ns, pod, container, cmd...)
@@ -283,6 +284,7 @@ func CreateDatabaseRF3(ctx context.Context, ns, pod, container, dbName string) e
 
 	cmd := []string{
 		"sh", "-lc", fmt.Sprintf(`cat <<'JSON' | curl --fail -sS \
+  --cacert /tmp/cluster.server.ca.pem \
   --cert /tmp/cluster.server.certificate.pem \
   --key  /tmp/cluster.server.certificate.key \
   -X PUT -H 'Content-Type: application/json' --data-binary @- \
@@ -327,6 +329,7 @@ func WaitDBDegradedOnNodes(ctx context.Context, ns, healthyPod, healthyHost, db 
 	url := fmt.Sprintf("https://%s/admin/databases?name=%s", healthyHost, db)
 	cmd := []string{
 		"sh", "-lc", fmt.Sprintf(`curl --fail -sS \
+  --cacert /tmp/cluster.server.ca.pem \
   --cert /tmp/cluster.server.certificate.pem \
   --key  /tmp/cluster.server.certificate.key \
   %q`, url),

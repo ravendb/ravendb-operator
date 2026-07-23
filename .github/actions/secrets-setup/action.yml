@@ -27,6 +27,15 @@ runs:
       echo "E2E_CLIENT_PFX_PATH=$E2E_BASE/admin.client.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
       echo "E2E_CLUSTER_PFX_PATH=$E2E_BASE/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
       echo "E2E_CA_CERT_PATH=$E2E_BASE/ca.crt" >> "$GITHUB_ENV"
+      # Per-node cert files: unused by the Mode=None e2e clusters, but the
+      # cluster-chart CI job templates the chart in LetsEncrypt mode and needs
+      # these files present for --set-file secrets.nodeCerts.*.
+      echo "E2E_NODE_A_PFX_PATH=$E2E_BASE/A/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
+      echo "E2E_NODE_B_PFX_PATH=$E2E_BASE/B/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
+      echo "E2E_NODE_C_PFX_PATH=$E2E_BASE/C/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
+      echo "E2E_NODE_D_PFX_PATH=$E2E_BASE/D/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
+      echo "E2E_NODE_E_PFX_PATH=$E2E_BASE/E/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
+      echo "E2E_NODE_F_PFX_PATH=$E2E_BASE/F/cluster.server.certificate.ravendb-operator-e2e.pfx" >> "$GITHUB_ENV"
 
   - name: Materialize license to file
     shell: bash
