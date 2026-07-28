@@ -12,6 +12,10 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 4 1 * *" # 1st of each month, 04:00 UTC
+  push:
+    # TEMPORARY: one-time run from this branch to refresh the expired certs
+    # without waiting for merge. Remove before this PR is finalized.
+    branches: [e2e-le-cert-rotation]
 
 permissions:
   contents: read
@@ -38,3 +42,15 @@ jobs:
             gh secret set "${s}_PFX_B64" --repo "$GITHUB_REPOSITORY" < "$RUNNER_TEMP/e2e-certs/${s}_PFX_B64.txt"
             echo "updated ${s}_PFX_B64"
           done
+
+      # Fallback: if writing the secrets failed (e.g. the PAT lacks secrets:write),
+      # keep the freshly generated cert blobs so they can be set by hand instead
+      # of wasting the run. Only uploaded on failure, short retention.
+      - name: Upload cert blobs (fallback)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-cert-blobs
+          path: ${{ runner.temp }}/e2e-certs/*_PFX_B64.txt
+          retention-days: 1
+          if-no-files-found: ignore
