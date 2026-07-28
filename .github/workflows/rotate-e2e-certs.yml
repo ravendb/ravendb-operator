@@ -12,10 +12,6 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 4 1 * *" # 1st of each month, 04:00 UTC
-  push:
-    # TEMPORARY: one-time run from this branch to refresh the expired certs
-    # without waiting for merge. Remove before this PR is finalized.
-    branches: [e2e-le-cert-rotation]
 
 permissions:
   contents: read
