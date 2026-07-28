@@ -1,0 +1,40 @@
+name: Rotate e2e certificates
+
+# Regenerate the e2e Let's Encrypt certificates via RavenDB's rvn and refresh the
+# *_PFX_B64 secrets. Real LE certs expire (~90 days), so this runs on a schedule
+# to keep CI green without manual rotation, and can be dispatched on demand.
+#
+# Writing Actions secrets needs a PAT (the default GITHUB_TOKEN cannot). This
+# reuses the existing RAVENDB_BOT_PAT secret, which must have `secrets:write` on
+# this repo. Optionally set the ACME email via the E2E_ACME_EMAIL repo variable.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 1 * *" # 1st of each month, 04:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  rotate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate fresh Let's Encrypt certificates
+        env:
+          RAVEN_LICENSE: ${{ secrets.RAVEN_LICENSE }}
+          E2E_EMAIL: ${{ vars.E2E_ACME_EMAIL || 'ci@ravendb.net' }}
+        run: bash hack/gen-e2e-le-certs.sh "$RUNNER_TEMP/e2e-certs"
+
+      - name: Update *_PFX_B64 secrets
+        env:
+          GH_TOKEN: ${{ secrets.RAVENDB_BOT_PAT }}
+        run: |
+          set -euo pipefail
+          for s in ADMIN A B C D E F; do
+            gh secret set "${s}_PFX_B64" --repo "$GITHUB_REPOSITORY" < "$RUNNER_TEMP/e2e-certs/${s}_PFX_B64.txt"
+            echo "updated ${s}_PFX_B64"
+          done
