@@ -74,25 +74,31 @@ func TestMain(m *testing.M) {
 		testutil.BindKubectlToSuiteEnv(),
 		testutil.ApplyManifest(certManagerFilePath),
 		testutil.ApplyManifest(localPathFilePath),
-		testutil.ApplyManifest(metallbFilePath),
-		testutil.WaitForDeployment(controllerNS, metalLBNS, timeout),
-
-		testutil.ApplyManifest(metallbConfigFilePath),
 	}
 
-	if ingressController == "traefik" {
-		fmt.Println("[e2e] ingress controller: TRAEFIK")
-		setup = append(setup,
-			testutil.InstallTraefik(timeout),
-			testutil.WaitForTraefikReady(timeout),
-		)
+	if os.Getenv("RAVEN_E2E_MINIMAL") == "1" {
+		fmt.Println("[e2e] minimal infrastructure: skipping MetalLB and ingress")
 	} else {
-		fmt.Println("[e2e] ingress controller: NGINX")
 		setup = append(setup,
-			testutil.ApplyManifest(nginxIngressFilePath),
-			testutil.WaitForNginxIngressControllerReady(timeout),
-			testutil.WaitForNginxIngressAdmissionReady(timeout),
+			testutil.ApplyManifest(metallbFilePath),
+			testutil.WaitForDeployment(controllerNS, metalLBNS, timeout),
+			testutil.ApplyManifest(metallbConfigFilePath),
 		)
+
+		if ingressController == "traefik" {
+			fmt.Println("[e2e] ingress controller: TRAEFIK")
+			setup = append(setup,
+				testutil.InstallTraefik(timeout),
+				testutil.WaitForTraefikReady(timeout),
+			)
+		} else {
+			fmt.Println("[e2e] ingress controller: NGINX")
+			setup = append(setup,
+				testutil.ApplyManifest(nginxIngressFilePath),
+				testutil.WaitForNginxIngressControllerReady(timeout),
+				testutil.WaitForNginxIngressAdmissionReady(timeout),
+			)
+		}
 	}
 
 	setup = append(setup,

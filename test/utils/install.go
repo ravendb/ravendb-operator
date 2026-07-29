@@ -80,7 +80,28 @@ func SetDeploymentImage(ns, deploy, container, image string) env.Func {
 
 func WaitForCRDEstablished(crd string, timeout time.Duration) env.Func {
 	return func(ctx context.Context, _ *envconf.Config) (context.Context, error) {
-		return RunKubectl(ctx, "wait", "--for=condition=Established", "--timeout="+timeout.String(), "crd/"+crd)
+		waitCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		var lastErr error
+		for {
+			// Immediately after CRD creation, kubectl wait can fail instead of
+			// waiting when status.conditions is still null. Retry that startup
+			// window with short inner waits while preserving the caller's
+			// overall timeout.
+			_, lastErr = RunKubectlCapture(waitCtx,
+				"wait", "--for=condition=Established", "--timeout=5s", "crd/"+crd,
+			)
+			if lastErr == nil {
+				return ctx, nil
+			}
+
+			select {
+			case <-waitCtx.Done():
+				return ctx, fmt.Errorf("wait for CRD %s to become Established: %w", crd, lastErr)
+			case <-time.After(250 * time.Millisecond):
+			}
+		}
 	}
 }
 

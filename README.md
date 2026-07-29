@@ -268,6 +268,7 @@ spec:
 
 #### Development and Testing Support
 - Local deployment via `make deploy` without requiring Helm or OLM.
+- Runnable [real Kind lab for PodTemplate migration](labs/01-safe-pod-template-migration.md).
 - Validating and mutating admission webhooks for CRD correctness.
 - Server-side apply for consistent updates and ownership.
 - Supports incremental and partial reconciliations based on resource changes.
