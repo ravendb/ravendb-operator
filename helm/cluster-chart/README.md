@@ -11,7 +11,7 @@ It is the workload-facing companion to the [RavenDB Operator chart](../chart/REA
 - Deploys resources into the release namespace (the namespace must already exist, or be created at install time with `helm install --create-namespace`).
 - Provisions cert and license Secrets from `--set-file` inputs (or references pre-existing Secrets when no file is provided).
 - Renders a `RavenDBCluster` CR from `values.yaml` (values mirror `RavenDBClusterSpec` 1:1).
-- When `externalAccessConfiguration.type == ingress-controller` and `ingressClassName == traefik`, renders one `IngressRouteTCP` per node for HTTPS (port 443) and TCP (port 38888), with TLS passthrough. Hostnames are extracted from `publicServerUrl` and `publicServerUrlTcp`. Both routes target the per-node Service `ravendb-<tag>` (created by the operator). Traefik entrypoint names are configurable via `traefik.entryPoints.https` and `traefik.entryPoints.tcp`.
+- When `externalAccessConfiguration.type == ingress-controller` and `ingressClassName == traefik`, renders one `IngressRouteTCP` per node for HTTPS (port 443) and TCP (port 38888), with TLS passthrough. Hostnames are extracted from `publicServerUrl` and `publicServerUrlTcp`. Both routes target the per-node Service `ravendb-<tag>` (created by the operator). Traefik entrypoint names are configurable via `traefik.entryPoints.https` and `traefik.entryPoints.tcp`; annotations for all generated routes are configurable via `traefik.annotations`.
 
 ## What this chart does NOT do
 
@@ -94,6 +94,7 @@ Pass `--create-namespace` if the namespace doesn't already exist. Installing int
 | `spec.*` | Mirrors `RavenDBClusterSpec` 1:1. Required fields fail at template time if missing. |
 | `traefik.entryPoints.https` | Traefik entrypoint name for HTTPS routes. Default: `websecure`. |
 | `traefik.entryPoints.tcp` | Traefik entrypoint name for TCP routes. Default: `tcp`. |
+| `traefik.annotations` | Annotations applied to all generated Traefik `IngressRouteTCP` resources. Default: `{}`. |
 
 See [`values.yaml`](values.yaml) for the full shape and inline documentation, including all `spec.*` fields (nodes, mode, domain, external access types, storage, env, additional volumes, …).
 
