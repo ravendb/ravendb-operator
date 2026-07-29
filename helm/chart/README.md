@@ -23,7 +23,7 @@ It is the **cluster-wide infrastructure half** of the RavenDB Operator distribut
 
 ## Prerequisites
 
-- A Kubernetes cluster, version **1.19 or higher** ([EKS](https://aws.amazon.com/eks/), [AKS](http://azure.microsoft.com/en-us/products/kubernetes-service), [kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/), [kind](https://kind.sigs.k8s.io/), [minikube](https://minikube.sigs.k8s.io/docs/), …).
+- A Kubernetes cluster, version **1.23 or higher** ([EKS](https://aws.amazon.com/eks/), [AKS](http://azure.microsoft.com/en-us/products/kubernetes-service), [kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/), [kind](https://kind.sigs.k8s.io/), [minikube](https://minikube.sigs.k8s.io/docs/), …). RavenDB pods use the stable `fsGroupChangePolicy` API to avoid repeated recursive ownership changes on large data volumes.
 - [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
 - [Helm](https://helm.sh/docs/intro/install/) v3.
 - [cert-manager](https://cert-manager.io/) installed in the cluster.

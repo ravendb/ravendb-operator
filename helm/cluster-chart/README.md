@@ -23,7 +23,7 @@ It is the workload-facing companion to the [RavenDB Operator chart](../chart/REA
 
 ## Prerequisites
 
-- A running Kubernetes cluster.
+- A running Kubernetes cluster, version **1.23 or higher**.
 - [cert-manager](https://cert-manager.io/) installed (operator dependency).
 - The [RavenDB Operator](../chart/README.md) installed.
 - For Traefik external access: Traefik installed in the cluster and Traefik CRDs (`traefik.io/v1alpha1`) registered.
