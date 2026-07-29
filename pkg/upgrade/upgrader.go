@@ -137,6 +137,9 @@ func (u *upgrader) Run(
 
 	// 3) iterate all nodes - only mutate the chosen one, keep the rest unchanged
 	statuses := make([]ravendbv1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
+	finish := func(runErr error) ([]ravendbv1.RavenDBNodeStatus, error) {
+		return orderedNodeStatuses(cluster.Spec.Nodes, statuses, prev), runErr
+	}
 
 	for _, node := range cluster.Spec.Nodes {
 		// untouched nodes
@@ -148,16 +151,18 @@ func (u *upgrader) Run(
 		// we operate on this node
 		sts, stsExists, getErr := u.loadSTSByNodeTag(ctx, kc, cluster, node.Tag)
 		if getErr != nil {
-			// mark upgrade as failed
-			statuses = append(statuses, ravendbv1.RavenDBNodeStatus{Tag: node.Tag, Status: ravendbv1.NodeStatusFailed})
-			return statuses, getErr
+			statuses = append(statuses, failedStatus(node.Tag, getErr.Error(), desiredImg))
+			return finish(getErr)
 		}
 
 		currentImg := ""
 		if sts != nil {
 			currentImg = currentStsImage(sts)
 		}
-		marked, _ := u.hasUpgradeAnnotation(ctx, kc, cluster, node.Tag)
+		marked := stsExists && sts.Annotations != nil
+		if marked {
+			_, marked = sts.Annotations[common.UpgradeImageAnnotation]
+		}
 		upgrading := isUpgrading(stsExists, desiredImg, currentImg, marked)
 
 		// BEFORE: if upgrading and not already marked, run gates + set annotations
@@ -169,36 +174,35 @@ func (u *upgrader) Run(
 
 			// mark upgrade intent with target image
 			if err := u.setUpgradeAnnotation(ctx, kc, cluster, node.Tag, desiredImg); err != nil {
-				statuses = append(statuses, failedStatus(node.Tag, "set upgrade annotation: "+err.Error(), desiredImg))
-				_ = u.setUpgradeAnnotation(ctx, kc, cluster, node.Tag, "")
-				return statuses, err
+				wrapped := fmt.Errorf("set upgrade annotation for %s: %w", node.Tag, err)
+				statuses = append(statuses, failedStatus(node.Tag, wrapped.Error(), desiredImg))
+				return finish(wrapped)
 			}
 		}
 
 		// MUTATE
 		if err := applyNode(node); err != nil {
 			statuses = append(statuses, failedStatus(node.Tag, err.Error(), desiredImg))
-			if upgrading {
-				_ = u.setUpgradeAnnotation(ctx, kc, cluster, node.Tag, "")
-			}
-			return statuses, fmt.Errorf("apply node %s failed: %w", node.Tag, err)
+			return finish(fmt.Errorf("apply node %s failed: %w", node.Tag, err))
 		}
 
 		// AFTER: only for real upgrades (not first creation)
 		if upgrading {
 			if err := u.postNode(ctx, cluster, gates, node.Tag); err != nil {
-				// just mark failed and clear annotation
 				statuses = append(statuses, failedStatus(
 					node.Tag,
 					err.Error(),
 					desiredImg,
 				))
-				_ = u.setUpgradeAnnotation(ctx, kc, cluster, node.Tag, "")
-				return statuses, fmt.Errorf("post-node gates failed for %s: %w", node.Tag, err)
+				return finish(fmt.Errorf("post-node gates failed for %s: %w", node.Tag, err))
 			}
 
-			// success so cleanup annotation
-			_ = u.setUpgradeAnnotation(ctx, kc, cluster, node.Tag, "")
+			// The marker is the durable transaction boundary. Clear it only
+			// after apply and every required post-upgrade gate succeeds.
+			if err := u.setUpgradeAnnotation(ctx, kc, cluster, node.Tag, ""); err != nil {
+				statuses = append(statuses, failedStatus(node.Tag, err.Error(), desiredImg))
+				return finish(fmt.Errorf("clear upgrade annotation for %s: %w", node.Tag, err))
+			}
 			statuses = append(statuses, successStatus(node.Tag, desiredImg))
 			continue
 		}
@@ -206,16 +210,27 @@ func (u *upgrader) Run(
 		statuses = append(statuses, statusOrCreated(prev, node.Tag))
 	}
 
-	// 4) keep order like Spec.Nodes
+	return finish(nil)
+}
+
+func orderedNodeStatuses(
+	nodes []ravendbv1.RavenDBNode,
+	statuses []ravendbv1.RavenDBNodeStatus,
+	prev map[string]ravendbv1.RavenDBNodeStatus,
+) []ravendbv1.RavenDBNodeStatus {
 	byUpper := make(map[string]ravendbv1.RavenDBNodeStatus, len(statuses))
 	for _, s := range statuses {
 		byUpper[normalizeTag(s.Tag)] = s
 	}
-	ordered := make([]ravendbv1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
-	for _, n := range cluster.Spec.Nodes {
-		ordered = append(ordered, byUpper[normalizeTag(n.Tag)])
+	ordered := make([]ravendbv1.RavenDBNodeStatus, 0, len(nodes))
+	for _, n := range nodes {
+		status, ok := byUpper[normalizeTag(n.Tag)]
+		if !ok {
+			status = statusOrCreated(prev, n.Tag)
+		}
+		ordered = append(ordered, status)
 	}
-	return ordered, nil
+	return ordered
 }
 
 // looks for a node which StatefulSet has the "upgrade image" annotation.
@@ -224,11 +239,15 @@ func (u *upgrader) findInFlightTag(ctx context.Context, kc client.Client, c *rav
 	for _, n := range c.Spec.Nodes {
 		var sts appsv1.StatefulSet
 		err := kc.Get(ctx, client.ObjectKey{Namespace: c.Namespace, Name: statefulSetName(n.Tag)}, &sts)
-		if err == nil {
-			if sts.Annotations != nil {
-				if _, ok := sts.Annotations[common.UpgradeImageAnnotation]; ok {
-					return n.Tag, nil
-				}
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				continue
+			}
+			return "", err
+		}
+		if sts.Annotations != nil {
+			if _, ok := sts.Annotations[common.UpgradeImageAnnotation]; ok {
+				return n.Tag, nil
 			}
 		}
 	}
@@ -313,7 +332,11 @@ func statusOrCreated(prev map[string]ravendbv1.RavenDBNodeStatus, nodeTag string
 
 func (u *upgrader) pickSelectedTag(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster, desiredImg string) (string, error) {
 	// first we will try find those in the middle of an upgrade
-	if t, _ := u.findInFlightTag(ctx, kc, c); strings.TrimSpace(t) != "" {
+	t, err := u.findInFlightTag(ctx, kc, c)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(t) != "" {
 		return normalizeTag(t), nil
 	}
 
@@ -321,8 +344,12 @@ func (u *upgrader) pickSelectedTag(ctx context.Context, kc client.Client, c *rav
 	for _, n := range c.Spec.Nodes {
 		name := statefulSetName(n.Tag)
 		var sts appsv1.StatefulSet
-		if err := kc.Get(ctx, client.ObjectKey{Namespace: c.Namespace, Name: name}, &sts); kerrors.IsNotFound(err) {
+		err := kc.Get(ctx, client.ObjectKey{Namespace: c.Namespace, Name: name}, &sts)
+		if kerrors.IsNotFound(err) {
 			return normalizeTag(n.Tag), nil
+		}
+		if err != nil {
+			return "", err
 		}
 	}
 
@@ -330,11 +357,12 @@ func (u *upgrader) pickSelectedTag(ctx context.Context, kc client.Client, c *rav
 	for _, n := range c.Spec.Nodes {
 		name := statefulSetName(n.Tag)
 		var sts appsv1.StatefulSet
-		if err := kc.Get(ctx, client.ObjectKey{Namespace: c.Namespace, Name: name}, &sts); err == nil {
-			cur := currentStsImage(&sts)
-			if cur != "" && desiredImg != "" && cur != desiredImg {
-				return normalizeTag(n.Tag), nil
-			}
+		if err := kc.Get(ctx, client.ObjectKey{Namespace: c.Namespace, Name: name}, &sts); err != nil {
+			return "", err
+		}
+		cur := currentStsImage(&sts)
+		if cur != "" && desiredImg != "" && cur != desiredImg {
+			return normalizeTag(n.Tag), nil
 		}
 	}
 
