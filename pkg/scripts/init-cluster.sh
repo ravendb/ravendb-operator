@@ -69,18 +69,32 @@ function join_node_to_cluster() {
     fi
 
     local response
-    response=$(curl "${curl_args[@]}" -w "\n%{http_code}")
-
     local http_code
-    http_code=$(echo "$response" | tail -n1)
+    local attempt
+    local max_attempts=15
 
-    if [[ "$http_code" =~ ^20[0-9]$ ]]; then
-        log "[$tag] added as $( [[ "$is_watcher" == "true" ]] && echo Watcher || echo Member )"
-    else
-        log "Failed to add [$tag] to cluster. HTTP $http_code"
-        echo "$response" | head -n -1
-        exit 1
-    fi
+    for ((attempt = 1; attempt <= max_attempts; attempt++)); do
+        response=$(curl "${curl_args[@]}" -w "\n%{http_code}")
+        http_code=$(echo "$response" | tail -n1)
+
+        if [[ "$http_code" =~ ^20[0-9]$ ]]; then
+            log "[$tag] added as $( [[ "$is_watcher" == "true" ]] && echo Watcher || echo Member )"
+            return
+        fi
+
+        # RavenDB can briefly redirect admin requests after the bootstrap
+        # endpoint has returned but before the new leader is ready to accept
+        # membership changes. Following the redirect could turn a Studio page
+        # into a false success, so retry only this known transition.
+        if [[ "$http_code" != "307" || "$attempt" == "$max_attempts" ]]; then
+            log "Failed to add [$tag] to cluster. HTTP $http_code"
+            echo "$response" | head -n -1
+            exit 1
+        fi
+
+        log "[$tag] membership endpoint not ready (HTTP 307); retrying in 2s ($attempt/$max_attempts)"
+        sleep 2
+    done
 }
 
 function bootstrap_leader_with_tag() {
