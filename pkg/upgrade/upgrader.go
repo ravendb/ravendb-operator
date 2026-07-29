@@ -159,9 +159,10 @@ func (u *upgrader) Run(
 		if sts != nil {
 			currentImg = currentStsImage(sts)
 		}
+		markerTarget := ""
 		marked := stsExists && sts.Annotations != nil
 		if marked {
-			_, marked = sts.Annotations[common.UpgradeImageAnnotation]
+			markerTarget, marked = sts.Annotations[common.UpgradeImageAnnotation]
 		}
 		upgrading := isUpgrading(stsExists, desiredImg, currentImg, marked)
 
@@ -184,6 +185,16 @@ func (u *upgrader) Run(
 		if err := applyNode(node); err != nil {
 			statuses = append(statuses, failedStatus(node.Tag, err.Error(), desiredImg))
 			return finish(fmt.Errorf("apply node %s failed: %w", node.Tag, err))
+		}
+
+		// StatefulSets can keep a Pod created from a broken template even after
+		// the template is repaired. If an in-flight target changed, recreate
+		// only the selected Pod when it still uses the previous image.
+		if marked && markerTarget != desiredImg {
+			if err := u.deletePodBlockingTargetChange(ctx, kc, cluster, node.Tag, desiredImg); err != nil {
+				statuses = append(statuses, failedStatus(node.Tag, err.Error(), desiredImg))
+				return finish(fmt.Errorf("recreate Pod for changed target %s: %w", node.Tag, err))
+			}
 		}
 
 		// AFTER: only for real upgrades (not first creation)
@@ -302,6 +313,43 @@ func currentStsImage(sts *appsv1.StatefulSet) string {
 		return ""
 	}
 	return sts.Spec.Template.Spec.Containers[0].Image
+}
+
+func (u *upgrader) deletePodBlockingTargetChange(
+	ctx context.Context,
+	kc client.Client,
+	c *ravendbv1.RavenDBCluster,
+	tag, desiredImage string,
+) error {
+	var pod corev1.Pod
+	err := kc.Get(ctx, client.ObjectKey{
+		Namespace: c.Namespace,
+		Name:      statefulSetName(tag) + "-0",
+	}, &pod)
+	if kerrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if pod.DeletionTimestamp != nil {
+		return nil
+	}
+	if len(pod.Spec.Containers) > 0 && pod.Spec.Containers[0].Image == desiredImage {
+		return nil
+	}
+
+	if u.emit != nil {
+		u.emit(c, GateBlock, GatePostStep, GatePodImageApplied, tag,
+			fmt.Sprintf("in-flight target changed; recreating Pod with image %q", desiredImage))
+	}
+
+	uid := pod.UID
+	err = kc.Delete(ctx, &pod, client.Preconditions{UID: &uid})
+	if kerrors.IsNotFound(err) || kerrors.IsConflict(err) {
+		return nil
+	}
+	return err
 }
 
 // builds map "tag":: last known status so we keep untouched nodes as is
