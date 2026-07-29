@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      GOTESTSUM_VERSION: "v1.12.0"
+      GOTESTSUM_VERSION: "v1.12.3"
       K8S_VER: "1.29.5"
       ENVTEST_VERSION: "v0.0.0-20250308055145-5fe7bb3edc86"
     steps:
