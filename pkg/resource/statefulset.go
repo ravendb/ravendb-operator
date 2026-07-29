@@ -85,9 +85,7 @@ func BuildStatefulSet(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBN
 					Affinity:           affinity,
 					ServiceAccountName: common.RavenDbNodeServiceAccount,
 
-					// The sysctl lets RavenDB bind lower ports like 443. It is
-					// considered safe. See:
-					// https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/#safe-and-unsafe-sysctls
+					// Treat port 443 as unprivileged so RavenDB needs no capability.
 					SecurityContext: buildPodSecurityContext(corev1.Sysctl{
 						Name:  "net.ipv4.ip_unprivileged_port_start",
 						Value: "0",

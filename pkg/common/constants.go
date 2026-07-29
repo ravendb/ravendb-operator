@@ -81,10 +81,7 @@ const (
 	UpgradeDBIntervalAnnotation             = "ravendb.io/upgrade-db-interval"
 )
 
-// CurrentPodTemplateRevision is bumped when a PodTemplate change must be
-// applied during the next coordinated rollout or requires replacement of a
-// terminal bootstrap Job. A missing annotation is the legacy revision 0, so
-// "1" is the first explicitly versioned PodTemplate.
+// CurrentPodTemplateRevision identifies the generated PodTemplate; missing means legacy.
 const CurrentPodTemplateRevision = "1"
 
 // internal ports
@@ -93,14 +90,6 @@ const (
 	InternalTcpPort   = 38888
 )
 
-// runtime identity
-//
-// The RavenDB image declares `USER ravendb` (uid 999, gid 999) and ships its
-// data dir group-owned by 999. Kubernetes cannot infer that identity, so we
-// restate it here as a single source of truth feeding both the container
-// security context (runAsUser/runAsGroup) and the pod fsGroup. A CI guard
-// (hack/verify-image-uid.sh) asserts the supported images still match these,
-// so a UID change upstream fails in CI instead of on a user's cluster.
 const (
 	RavenDBUID int64 = 999
 	RavenDBGID int64 = 999

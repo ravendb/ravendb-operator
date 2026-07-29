@@ -47,8 +47,6 @@ func minimalCluster() *ravendbv1.RavenDBCluster {
 	}
 }
 
-// assertHardenedContainer verifies the PodSecurity "restricted" fields that must
-// live on every container.
 func assertHardenedContainer(t *testing.T, sc *corev1.SecurityContext) {
 	t.Helper()
 	require.NotNil(t, sc, "container SecurityContext must be set")
@@ -66,8 +64,6 @@ func assertHardenedContainer(t *testing.T, sc *corev1.SecurityContext) {
 	require.Equal(t, corev1.SeccompProfileTypeRuntimeDefault, sc.SeccompProfile.Type)
 }
 
-// assertHardenedPod verifies the shared pod-level context, including the fsGroup
-// that fixes the DataDir permission failure on root-owned PVC mounts (#37/#39).
 func assertHardenedPod(t *testing.T, sc *corev1.PodSecurityContext) {
 	t.Helper()
 	require.NotNil(t, sc, "pod SecurityContext must be set")
@@ -81,9 +77,6 @@ func assertHardenedPod(t *testing.T, sc *corev1.PodSecurityContext) {
 	require.Equal(t, corev1.SeccompProfileTypeRuntimeDefault, sc.SeccompProfile.Type)
 }
 
-// The StatefulSet pod must carry the hardened pod context AND the low-port
-// sysctl, and its RavenDB container must be hardened. Testing through
-// BuildStatefulSet (not the helper in isolation) guards the wiring.
 func TestStatefulSetHasHardenedSecurityContext(t *testing.T) {
 	sts, err := BuildStatefulSet(minimalCluster(), ravendbv1.RavenDBNode{Tag: "a"})
 	require.NoError(t, err)
@@ -101,8 +94,6 @@ func TestStatefulSetHasHardenedSecurityContext(t *testing.T) {
 	assertHardenedContainer(t, podSpec.Containers[0].SecurityContext)
 }
 
-// The bootstrapper Job pod must be hardened too (else PodSecurity "restricted"
-// admission rejects it), but it does not bind low ports, so no sysctl.
 func TestJobHasHardenedSecurityContext(t *testing.T) {
 	job, err := BuildJob(minimalCluster())
 	require.NoError(t, err)
@@ -116,9 +107,6 @@ func TestJobHasHardenedSecurityContext(t *testing.T) {
 	assertHardenedContainer(t, podSpec.Containers[0].SecurityContext)
 }
 
-// The fsGroup must match the container UID/GID: they are the same identity
-// (the RavenDB image's USER 999), so a drift between them would reintroduce the
-// permission failure.
 func TestPodFsGroupMatchesContainerIdentity(t *testing.T) {
 	pod := buildPodSecurityContext()
 	container := buildContainerSecurityContext()

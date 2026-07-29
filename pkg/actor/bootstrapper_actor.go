@@ -66,10 +66,7 @@ func (actor *BootstrapperActor) ShouldAct(cluster *ravendbv1.RavenDBCluster) boo
 	return !cluster.IsBootstrapped()
 }
 
-// reconcileJob treats a Job as create-once because spec.template is immutable.
-// An old-revision Job that is still running (or already completed) is allowed
-// to finish. A terminally failed old revision is deleted once so the following
-// reconcile can create the hardened revision.
+// Failed legacy Jobs must be recreated because Job pod templates are immutable.
 func (actor *BootstrapperActor) reconcileJob(ctx context.Context, kc client.Client, desired *batchv1.Job) (bool, error) {
 	var existing batchv1.Job
 	key := client.ObjectKeyFromObject(desired)

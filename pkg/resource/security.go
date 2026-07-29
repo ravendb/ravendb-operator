@@ -33,15 +33,6 @@ func buildPodTemplateObjectMeta(labels map[string]string) metav1.ObjectMeta {
 	}
 }
 
-// buildContainerSecurityContext returns the hardened, PodSecurity "restricted"
-// compatible container context shared by every RavenDB container (main node and
-// bootstrapper). Both run the same image, so both carry the same identity.
-//
-// allowPrivilegeEscalation and capabilities are set per-container because the
-// "restricted" profile requires them there (there is no pod-level equivalent).
-// Dropping ALL capabilities is safe even though the node binds port 443: the
-// pod sysctl net.ipv4.ip_unprivileged_port_start=0 makes 443 an unprivileged
-// port, so NET_BIND_SERVICE is not needed.
 func buildContainerSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
 		RunAsNonRoot:             pointer.Bool(true),
@@ -53,14 +44,6 @@ func buildContainerSecurityContext() *corev1.SecurityContext {
 	}
 }
 
-// buildPodSecurityContext returns the shared pod-level context. FSGroup matches
-// the container GID so Kubernetes prepares mounted volumes (PVCs) for the
-// non-root process: a freshly provisioned PVC is often mounted root-owned, and
-// without fsGroup uid/gid 999 cannot write to its own DataDir. OnRootMismatch
-// avoids a recursive chown on every mount of large data volumes.
-//
-// Optional sysctls are appended by the caller (the StatefulSet needs the
-// low-port sysctl to bind 443; the bootstrapper Job does not).
 func buildPodSecurityContext(sysctls ...corev1.Sysctl) *corev1.PodSecurityContext {
 	fsGroupChangePolicy := corev1.FSGroupChangeOnRootMismatch
 

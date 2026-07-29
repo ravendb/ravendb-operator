@@ -1,15 +1,5 @@
 #!/usr/bin/env bash
-#
-# Guards the operator's hardcoded RavenDB runtime identity against upstream drift.
-#
-# The operator sets the pod fsGroup and container runAsUser/runAsGroup to a fixed
-# 999 (pkg/common.RavenDBUID / RavenDBGID). Kubernetes cannot infer that value
-# from the image, so we restate it in code. If a RavenDB image ever ships a
-# different USER, that hardcoded 999 would silently break DataDir permissions on
-# a user's cluster. This check inspects the actual image(s) so the drift fails
-# in CI instead.
-#
-# Usage: hack/verify-image-uid.sh [image ...]
+# Verify supported images still match the runtime identity hardcoded by the operator.
 
 set -euo pipefail
 
