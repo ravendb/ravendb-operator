@@ -188,6 +188,10 @@ func (u *upgrader) Run(
 
 		// AFTER: only for real upgrades (not first creation)
 		if upgrading {
+			if err := u.waitPodImageApplied(ctx, kc, cluster, node.Tag, desiredImg); err != nil {
+				statuses = append(statuses, failedStatus(node.Tag, err.Error(), desiredImg))
+				return finish(fmt.Errorf("observe replacement Pod for %s: %w", node.Tag, err))
+			}
 			if err := u.postNode(ctx, cluster, gates, node.Tag); err != nil {
 				statuses = append(statuses, failedStatus(
 					node.Tag,

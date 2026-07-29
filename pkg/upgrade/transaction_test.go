@@ -68,7 +68,10 @@ func TestRunKeepsMarkerUntilPostGatesRecover(t *testing.T) {
 	cluster := transactionCluster(desiredImage, "A")
 	cluster.Spec.Nodes[0].PublicServerUrl = server.URL
 	cluster.SetBootstrapped(metav1.Now())
-	kc := transactionClient(t, transactionStatefulSet(cluster.Namespace, "A", currentImage, ""))
+	kc := transactionClient(t,
+		transactionStatefulSet(cluster.Namespace, "A", currentImage, ""),
+		transactionPod(cluster.Namespace, "A", currentImage),
+	)
 
 	u := NewUpgrader(Timing{
 		PreMaxWait:      50 * time.Millisecond,
@@ -90,6 +93,13 @@ func TestRunKeepsMarkerUntilPostGatesRecover(t *testing.T) {
 		require.NoError(t, kc.Get(context.Background(), key, &sts))
 		sts.Spec.Template.Spec.Containers[0].Image = desiredImage
 		require.NoError(t, kc.Update(context.Background(), &sts))
+		var pod corev1.Pod
+		require.NoError(t, kc.Get(context.Background(), client.ObjectKey{
+			Namespace: cluster.Namespace,
+			Name:      common.NodeResourceName(node.Tag) + "-0",
+		}, &pod))
+		pod.Spec.Containers[0].Image = desiredImage
+		require.NoError(t, kc.Update(context.Background(), &pod))
 		if sabotageAfterFirstApply {
 			sabotageAfterFirstApply = false
 			healthy.Store(false)
@@ -216,6 +226,18 @@ func transactionStatefulSet(namespace, tag, image, marker string) *appsv1.Statef
 					Containers: []corev1.Container{{Name: "ravendb", Image: image}},
 				},
 			},
+		},
+	}
+}
+
+func transactionPod(namespace, tag, image string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.NodeResourceName(tag) + "-0",
+			Namespace: namespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "ravendb", Image: image}},
 		},
 	}
 }

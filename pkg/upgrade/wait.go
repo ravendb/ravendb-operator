@@ -22,7 +22,10 @@ import (
 	ravendbv1 "ravendb-operator/api/v1"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Timing struct {
@@ -39,6 +42,37 @@ func timestampNow() metav1.Time        { return metav1.Now() }
 func (u *upgrader) waitNodeAlive(ctx context.Context, c *ravendbv1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, tag string) error {
 	return u.wait(ctx, c, phase, GateNodeAlive, tag, u.timing.PingInterval, func() (bool, string, error) {
 		return hcc.NodeAlive(ctx, tag)
+	})
+}
+
+// waitPodImageApplied prevents HTTP post-gates from succeeding against the old
+// process between patching the StatefulSet and Kubernetes replacing its Pod.
+func (u *upgrader) waitPodImageApplied(
+	ctx context.Context,
+	kc client.Client,
+	c *ravendbv1.RavenDBCluster,
+	tag, desiredImage string,
+) error {
+	return u.wait(ctx, c, GatePostStep, GatePodImageApplied, tag, u.timing.PingInterval, func() (bool, string, error) {
+		var pod corev1.Pod
+		err := kc.Get(ctx, client.ObjectKey{
+			Namespace: c.Namespace,
+			Name:      statefulSetName(tag) + "-0",
+		}, &pod)
+		if kerrors.IsNotFound(err) {
+			return false, "replacement Pod has not been created", nil
+		}
+		if err != nil {
+			return false, "", err
+		}
+		if len(pod.Spec.Containers) == 0 {
+			return false, "replacement Pod has no containers", nil
+		}
+		image := pod.Spec.Containers[0].Image
+		if image != desiredImage {
+			return false, fmt.Sprintf("observed image=%q, want image=%q", image, desiredImage), nil
+		}
+		return true, "", nil
 	})
 }
 

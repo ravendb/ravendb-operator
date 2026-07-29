@@ -34,6 +34,7 @@ type GateKind string
 
 const (
 	GateNodeAlive           GateKind = "node_alive"
+	GatePodImageApplied     GateKind = "pod_image_applied"
 	GateClusterConnectivity GateKind = "cluster_connectivity"
 	GateDatabasesOnline     GateKind = "db_groups_available_excluding_target"
 )
