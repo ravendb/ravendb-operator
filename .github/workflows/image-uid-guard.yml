@@ -5,8 +5,8 @@ name: Image UID guard
 # the image. This job asserts the upstream image still matches, so a UID change
 # fails here instead of on a user's cluster (DataDir permission failures, #37).
 #
-# Runs when the security assumption is touched, plus weekly to catch upstream
-# image drift independent of our code.
+# Runs when the security assumption or the guard itself is touched, plus weekly
+# to catch a republished version tag independently of repository changes.
 
 on:
   pull_request:
@@ -24,12 +24,18 @@ permissions:
 
 jobs:
   verify:
-    name: Verify RavenDB image UID/GID
+    name: Verify UID/GID (${{ matrix.image }})
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - ravendb/ravendb:6.2.11-ubuntu.22.04-x64
+          - ravendb/ravendb:7.1.3-ubuntu.22.04-x64
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Verify image UID/GID matches operator constants
-        run: bash hack/verify-image-uid.sh ravendb/ravendb:latest
+        run: bash hack/verify-image-uid.sh "${{ matrix.image }}"

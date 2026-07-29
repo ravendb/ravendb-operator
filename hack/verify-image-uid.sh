@@ -9,7 +9,7 @@
 # a user's cluster. This check inspects the actual image(s) so the drift fails
 # in CI instead.
 #
-# Usage: hack/verify-image-uid.sh [image ...]   (defaults to ravendb/ravendb:latest)
+# Usage: hack/verify-image-uid.sh [image ...]
 
 set -euo pipefail
 
@@ -18,7 +18,10 @@ EXPECTED_GID=999
 
 images=("$@")
 if [ ${#images[@]} -eq 0 ]; then
-  images=("ravendb/ravendb:latest")
+  images=(
+    "ravendb/ravendb:6.2.11-ubuntu.22.04-x64"
+    "ravendb/ravendb:7.1.3-ubuntu.22.04-x64"
+  )
 fi
 
 fail=0
@@ -27,7 +30,13 @@ for img in "${images[@]}"; do
   docker pull -q "${img}" >/dev/null
 
   user=$(docker image inspect --format '{{.Config.User}}' "${img}")
-  id_out=$(docker run --rm --entrypoint id "${img}")
+  id_out=$(docker run --rm \
+    --network=none \
+    --read-only \
+    --cap-drop=ALL \
+    --security-opt=no-new-privileges \
+    --entrypoint id \
+    "${img}")
   echo "   Config.User=${user:-<empty>}  ${id_out}"
 
   if ! echo "${id_out}" | grep -q "uid=${EXPECTED_UID}("; then
