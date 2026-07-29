@@ -92,30 +92,22 @@ func buildGatesDefault(ctx context.Context, kc client.Client, c *ravendbv1.Raven
 
 // Run() performs exactly one "upgrade tick".
 // High-level steps:
-//  1. build gates + http client.
-//  2. figure out which single node we should work on now.
-//  3. if a node was chosen:
+//  1. figure out which single node we should work on now.
+//  2. if a node was chosen:
 //     a) if upgrading, run pre-checks and mark it as upgrading with an annotation.
 //     b) call applyNode(node) to mutate its image.
 //     c) if upgraded, run post-checks. On failure, mark node status as Failed.
-//  4. Return statuses for all nodes.
+//  3. Return statuses for all nodes.
 func (u *upgrader) Run(
 	ctx context.Context,
 	cluster *ravendbv1.RavenDBCluster,
 	kc client.Client,
 	applyNode ApplyNodeFn,
 ) ([]ravendbv1.RavenDBNodeStatus, error) {
-
-	// 1) build gates (HTTP client to cluster for checks)
-	gates, err := u.buildGates(ctx, kc, cluster)
-	if err != nil {
-		return nil, err
-	}
-
 	desiredImg := desiredNodeImage(cluster)
 	prev := buildPrevStatusMap(cluster.Status)
 
-	// 2) decide which node to work on in this tick
+	// 1) decide which node to work on in this tick
 	selectedTag, err := u.pickSelectedTag(ctx, kc, cluster, desiredImg)
 	if err != nil {
 		// on error, fall back to returning current statuses
@@ -135,7 +127,7 @@ func (u *upgrader) Run(
 		return out, nil
 	}
 
-	// 3) iterate all nodes - only mutate the chosen one, keep the rest unchanged
+	// 2) iterate all nodes - only mutate the chosen one, keep the rest unchanged
 	statuses := make([]ravendbv1.RavenDBNodeStatus, 0, len(cluster.Spec.Nodes))
 
 	for _, node := range cluster.Spec.Nodes {
@@ -159,6 +151,15 @@ func (u *upgrader) Run(
 		}
 		marked, _ := u.hasUpgradeAnnotation(ctx, kc, cluster, node.Tag)
 		upgrading := isUpgrading(stsExists, desiredImg, currentImg, marked)
+
+		var gates *HealthCheckContext
+		if upgrading {
+			gates, err = u.buildGates(ctx, kc, cluster)
+			if err != nil {
+				statuses = append(statuses, failedStatus(node.Tag, err.Error(), desiredImg))
+				return statuses, err
+			}
+		}
 
 		// BEFORE: if upgrading and not already marked, run gates + set annotations
 		if upgrading && !marked {
@@ -206,7 +207,7 @@ func (u *upgrader) Run(
 		statuses = append(statuses, statusOrCreated(prev, node.Tag))
 	}
 
-	// 4) keep order like Spec.Nodes
+	// 3) keep order like Spec.Nodes
 	byUpper := make(map[string]ravendbv1.RavenDBNodeStatus, len(statuses))
 	for _, s := range statuses {
 		byUpper[normalizeTag(s.Tag)] = s
@@ -281,6 +282,13 @@ func currentStsImage(sts *appsv1.StatefulSet) string {
 	return sts.Spec.Template.Spec.Containers[0].Image
 }
 
+func podTemplateRevision(sts *appsv1.StatefulSet) string {
+	if sts == nil || sts.Spec.Template.Annotations == nil {
+		return ""
+	}
+	return sts.Spec.Template.Annotations[common.PodTemplateRevisionAnnotation]
+}
+
 // builds map "tag":: last known status so we keep untouched nodes as is
 func buildPrevStatusMap(st ravendbv1.RavenDBClusterStatus) map[string]ravendbv1.RavenDBNodeStatus {
 	out := make(map[string]ravendbv1.RavenDBNodeStatus, len(st.Nodes))
@@ -326,7 +334,10 @@ func (u *upgrader) pickSelectedTag(ctx context.Context, kc client.Client, c *rav
 		}
 	}
 
-	// lastly the first one with image mismatch
+	// Image changes are intentional and always win. A revision-only mismatch is
+	// selected only while the cluster is not bootstrapped; upgrading the
+	// operator alone must not restart a healthy RavenDB cluster.
+	revisionOnlyTag := ""
 	for _, n := range c.Spec.Nodes {
 		name := statefulSetName(n.Tag)
 		var sts appsv1.StatefulSet
@@ -335,10 +346,15 @@ func (u *upgrader) pickSelectedTag(ctx context.Context, kc client.Client, c *rav
 			if cur != "" && desiredImg != "" && cur != desiredImg {
 				return normalizeTag(n.Tag), nil
 			}
+			if !c.IsBootstrapped() &&
+				revisionOnlyTag == "" &&
+				podTemplateRevision(&sts) != common.CurrentPodTemplateRevision {
+				revisionOnlyTag = normalizeTag(n.Tag)
+			}
 		}
 	}
 
-	return "", nil
+	return revisionOnlyTag, nil
 }
 
 func (u *upgrader) loadSTSByNodeTag(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster, tag string) (*appsv1.StatefulSet, bool, error) {

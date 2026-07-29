@@ -20,8 +20,18 @@ import (
 	"ravendb-operator/pkg/common"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/pointer"
 )
+
+func buildPodTemplateObjectMeta(labels map[string]string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Labels: labels,
+		Annotations: map[string]string{
+			common.PodTemplateRevisionAnnotation: common.CurrentPodTemplateRevision,
+		},
+	}
+}
 
 // buildContainerSecurityContext returns the hardened, PodSecurity "restricted"
 // compatible container context shared by every RavenDB container (main node and

@@ -78,9 +78,7 @@ func BuildStatefulSet(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBN
 			Replicas:    &replicas,
 			Selector:    selector,
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
+				ObjectMeta: buildPodTemplateObjectMeta(labels),
 				Spec: corev1.PodSpec{
 					Containers:         containers,
 					Volumes:            volumes,

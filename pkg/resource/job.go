@@ -61,9 +61,7 @@ func BuildJob(cluster *ravendbv1.RavenDBCluster) (*batchv1.Job, error) {
 		Spec: batchv1.JobSpec{
 			BackoffLimit: &backoff,
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
+				ObjectMeta: buildPodTemplateObjectMeta(labels),
 				Spec: corev1.PodSpec{
 					RestartPolicy:      corev1.RestartPolicyOnFailure,
 					Volumes:            volumes,

@@ -90,6 +90,7 @@ func TestStatefulSetHasHardenedSecurityContext(t *testing.T) {
 
 	podSpec := sts.Spec.Template.Spec
 	assertHardenedPod(t, podSpec.SecurityContext)
+	require.Equal(t, common.CurrentPodTemplateRevision, sts.Spec.Template.Annotations[common.PodTemplateRevisionAnnotation])
 
 	require.Contains(t, podSpec.SecurityContext.Sysctls, corev1.Sysctl{
 		Name:  "net.ipv4.ip_unprivileged_port_start",
@@ -108,6 +109,7 @@ func TestJobHasHardenedSecurityContext(t *testing.T) {
 
 	podSpec := job.Spec.Template.Spec
 	assertHardenedPod(t, podSpec.SecurityContext)
+	require.Equal(t, common.CurrentPodTemplateRevision, job.Spec.Template.Annotations[common.PodTemplateRevisionAnnotation])
 	require.Empty(t, podSpec.SecurityContext.Sysctls, "bootstrapper pod needs no sysctls")
 
 	require.Len(t, podSpec.Containers, 1)
