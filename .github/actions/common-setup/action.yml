@@ -1,18 +1,13 @@
 name: common-setup
 description: Common setup
 
-inputs:
-  go-version:
-    required: true
-    description: Go version
-
 runs:
   using: "composite"
   steps:
   - name: Setup Go
     uses: actions/setup-go@v5
     with:
-      go-version: ${{ inputs.go-version }}
+      go-version-file: go.mod
       cache: false
 
   - name: Export Go cache dirs
@@ -27,9 +22,9 @@ runs:
       path: |
         ${{ env.GOMODCACHE }}
         ${{ env.GOCACHE }}
-      key: ${{ runner.os }}-go-${{ inputs.go-version }}-${{ hashFiles('**/go.sum') }}
+      key: ${{ runner.os }}-go-${{ hashFiles('go.mod') }}-${{ hashFiles('**/go.sum') }}
       restore-keys: |
-        ${{ runner.os }}-go-${{ inputs.go-version }}-
+        ${{ runner.os }}-go-${{ hashFiles('go.mod') }}-
 
   - name: Install CLI tooling (kind, kubectl)
     shell: bash
