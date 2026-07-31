@@ -27,6 +27,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -85,7 +86,8 @@ func (actor *BootstrapperActor) reconcileJob(ctx context.Context, kc client.Clie
 		return false, nil
 	}
 
-	if err := kc.Delete(ctx, &existing); err != nil && !kerrors.IsNotFound(err) {
+	// Jobs default to orphan propagation, which would leave the failed pod running.
+	if err := kc.Delete(ctx, &existing, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !kerrors.IsNotFound(err) {
 		return false, fmt.Errorf("delete failed old-revision bootstrapper Job %s/%s: %w", key.Namespace, key.Name, err)
 	}
 	return false, nil

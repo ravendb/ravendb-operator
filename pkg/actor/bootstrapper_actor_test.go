@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func TestBootstrapperJobReplacesOnlyTerminalFailedOldRevision(t *testing.T) {
@@ -86,7 +87,14 @@ func TestBootstrapperJobReplacesOnlyTerminalFailedOldRevision(t *testing.T) {
 				existing.Spec.Template.Annotations[common.PodTemplateRevisionAnnotation] = common.CurrentPodTemplateRevision
 			}
 
-			kc := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+			var deleteOpts []client.DeleteOption
+			kc := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+						deleteOpts = opts
+						return c.Delete(ctx, obj, opts...)
+					},
+				}).Build()
 			actor := NewBootstrapperActor(staticClusterBuilder{job: desired})
 			_, err := actor.Act(context.Background(), cluster, kc, scheme)
 			require.NoError(t, err)
@@ -95,6 +103,11 @@ func TestBootstrapperJobReplacesOnlyTerminalFailedOldRevision(t *testing.T) {
 			err = kc.Get(context.Background(), client.ObjectKeyFromObject(existing), &got)
 			if tt.wantDeleted {
 				require.True(t, kerrors.IsNotFound(err))
+
+				var gotOpts client.DeleteOptions
+				gotOpts.ApplyOptions(deleteOpts)
+				require.NotNil(t, gotOpts.PropagationPolicy, "delete must cascade to the failed pod")
+				require.Equal(t, metav1.DeletePropagationBackground, *gotOpts.PropagationPolicy)
 			} else {
 				require.NoError(t, err)
 			}

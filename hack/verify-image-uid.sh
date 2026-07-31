@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
-# Verify supported images still match the runtime identity hardcoded by the operator.
+# Verify supported images still match the runtime identity the operator sets,
+# read straight from pkg/common/constants.go so both sides cannot drift apart.
 
 set -euo pipefail
 
-EXPECTED_UID=999
-EXPECTED_GID=999
+CONSTANTS_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/pkg/common/constants.go"
+
+read_id_constant() {
+  sed -n "s/^[[:space:]]*$1[[:space:]][[:space:]]*int64[[:space:]]*=[[:space:]]*\([0-9][0-9]*\).*/\1/p" "${CONSTANTS_FILE}"
+}
+
+EXPECTED_UID=$(read_id_constant RavenDBUID)
+EXPECTED_GID=$(read_id_constant RavenDBGID)
+if [ -z "${EXPECTED_UID}" ] || [ -z "${EXPECTED_GID}" ]; then
+  echo "ERROR: cannot read RavenDBUID/RavenDBGID from ${CONSTANTS_FILE}" >&2
+  exit 1
+fi
 
 images=("$@")
 if [ ${#images[@]} -eq 0 ]; then
