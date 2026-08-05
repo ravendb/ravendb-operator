@@ -20,7 +20,6 @@ import (
 	"ravendb-operator/pkg/common"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/utils/pointer"
 )
 
 type ContainerBuilder struct{}
@@ -37,7 +36,7 @@ func BuildRavenDBContainer(image string, env []corev1.EnvVar, ports []corev1.Con
 		Ports:           ports,
 		VolumeMounts:    mounts,
 		ImagePullPolicy: ipp,
-		SecurityContext: &corev1.SecurityContext{RunAsUser: pointer.Int64(999), RunAsGroup: pointer.Int64(999)},
+		SecurityContext: buildContainerSecurityContext(),
 	}
 }
 
@@ -51,8 +50,9 @@ func BuildClusterBootstrapperContainer(image string, vMounts []corev1.VolumeMoun
 			/ravendb/scripts/check-nodes-discoverability.sh &&
 			/ravendb/scripts/init-cluster.sh
 		`},
-		VolumeMounts: vMounts,
-		Env:          env,
+		VolumeMounts:    vMounts,
+		Env:             env,
+		SecurityContext: buildContainerSecurityContext(),
 	}
 }
 

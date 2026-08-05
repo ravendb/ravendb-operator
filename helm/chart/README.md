@@ -23,7 +23,7 @@ It is the **cluster-wide infrastructure half** of the RavenDB Operator distribut
 
 ## Prerequisites
 
-- A Kubernetes cluster, version **1.19 or higher** ([EKS](https://aws.amazon.com/eks/), [AKS](http://azure.microsoft.com/en-us/products/kubernetes-service), [kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/), [kind](https://kind.sigs.k8s.io/), [minikube](https://minikube.sigs.k8s.io/docs/), …).
+- A Kubernetes cluster, version **1.23 or higher** ([EKS](https://aws.amazon.com/eks/), [AKS](http://azure.microsoft.com/en-us/products/kubernetes-service), [kubeadm](https://kubernetes.io/docs/reference/setup-tools/kubeadm/), [kind](https://kind.sigs.k8s.io/), [minikube](https://minikube.sigs.k8s.io/docs/), …). RavenDB pods use the stable `fsGroupChangePolicy` API to avoid repeated recursive ownership changes on large data volumes.
 - [`kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl/).
 - [Helm](https://helm.sh/docs/intro/install/) v3.
 - [cert-manager](https://cert-manager.io/) installed in the cluster.
@@ -59,6 +59,28 @@ The operator chart exposes a small surface focused on the controller deployment 
 | `controllerManager.resources` | (unset) | Optional pod resource requests/limits. See `values.yaml` for the shape. |
 
 See [`values.yaml`](values.yaml) for inline documentation.
+
+## Pod security
+
+The RavenDB pods the operator generates (StatefulSets and the bootstrapper Job)
+ship a hardened security context, compatible with the PodSecurity `restricted`
+profile out of the box:
+
+- **Non-root, fixed identity.** Containers run as uid/gid `999`, matching the
+  `USER ravendb` baked into the RavenDB image. The value is a single source of
+  truth in the operator (`pkg/common.RavenDBUID`/`RavenDBGID`); a CI guard
+  asserts the upstream image still uses it.
+- **`fsGroup: 999`** on the pod, with `fsGroupChangePolicy: OnRootMismatch`. This
+  lets the non-root process write to freshly provisioned PVCs, which some storage
+  providers (e.g. Longhorn) otherwise mount root-owned, causing RavenDB to fail
+  at startup with a `DataDir ... denied` error.
+- **`runAsNonRoot: true`, `allowPrivilegeEscalation: false`, all capabilities
+  dropped, `seccompProfile: RuntimeDefault`.** Binding port 443 does not need
+  `NET_BIND_SERVICE`: the pod sets the safe sysctl
+  `net.ipv4.ip_unprivileged_port_start=0`.
+
+These values are not configurable: they are dictated by the RavenDB image, not by
+the user.
 
 ## Migrating from 1.x to 2.0.0
 

@@ -60,8 +60,8 @@ jobs:
           key: ${{ runner.os }}-gobuild-${{ hashFiles('**/go.sum') }}
           restore-keys: ${{ runner.os }}-gobuild-
 
-      - name: Run API tests (gotestsum)
-        run: ~/go/bin/gotestsum --format=short-verbose ./api/v1
+      - name: Run API & resource unit tests (gotestsum)
+        run: ~/go/bin/gotestsum --format=short-verbose ./api/v1 ./pkg/...
 
   helm-operator:
     name: Helm (operator chart)

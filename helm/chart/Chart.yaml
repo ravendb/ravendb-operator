@@ -4,7 +4,7 @@ description: RavenDB Kubernetes Operator -- controller, CRDs, RBAC, and webhooks
 type: application
 version: 2.0.0
 appVersion: "2.0.0"
-kubeVersion: ">=1.19.0-0"
+kubeVersion: ">=1.23.0-0"
 home: https://ravendb.net
 icon: "https://raw.githubusercontent.com/ravendb/ravendb-operator/refs/heads/main/assets/logo.png"
 sources:

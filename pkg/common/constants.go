@@ -74,16 +74,25 @@ const (
 	AWSLoadBalancerEIPAllocationsAnnotation = "service.beta.kubernetes.io/aws-load-balancer-eip-allocations"
 	AWSLoadBalancerSubnetsAnnotation        = "service.beta.kubernetes.io/aws-load-balancer-subnets"
 	UpgradeImageAnnotation                  = "ravendb.ravendb.io/upgrade-image"
+	PodTemplateRevisionAnnotation           = "ravendb.ravendb.io/pod-template-revision"
 	UpgradePreWaitAnnotation                = "ravendb.io/upgrade-pre-wait"
 	UpgradePostWaitAnnotation               = "ravendb.io/upgrade-post-wait"
 	UpgradePingIntervalAnnotation           = "ravendb.io/upgrade-ping-interval"
 	UpgradeDBIntervalAnnotation             = "ravendb.io/upgrade-db-interval"
 )
 
+// CurrentPodTemplateRevision identifies the generated PodTemplate; missing means legacy.
+const CurrentPodTemplateRevision = "1"
+
 // internal ports
 const (
 	InternalHttpsPort = 443
 	InternalTcpPort   = 38888
+)
+
+const (
+	RavenDBUID int64 = 999
+	RavenDBGID int64 = 999
 )
 
 // ingress controller types

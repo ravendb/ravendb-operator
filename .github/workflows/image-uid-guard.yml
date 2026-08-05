@@ -1,0 +1,35 @@
+name: Image UID guard
+
+# Detect upstream RavenDB UID/GID drift before it breaks user PVC permissions.
+
+on:
+  pull_request:
+    paths:
+      - 'pkg/common/constants.go'
+      - 'pkg/resource/security.go'
+      - 'hack/verify-image-uid.sh'
+      - '.github/workflows/image-uid-guard.yml'
+  schedule:
+    - cron: "0 6 * * 1" # Monday 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify UID/GID (${{ matrix.image }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - ravendb/ravendb:6.2.11-ubuntu.22.04-x64
+          - ravendb/ravendb:7.1.3-ubuntu.22.04-x64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify image UID/GID matches operator constants
+        run: bash hack/verify-image-uid.sh "${{ matrix.image }}"

@@ -29,7 +29,7 @@ The operator ensures that every component stays aligned with the declared spec, 
 ---
 ## Prerequisites
 Before installing the RavenDB Kubernetes Operator, ensure your environment meets the following requirements:
-- A running 1.19 or higher **Kubernetes cluster** (such as: [EKS](https://aws.amazon.com/eks/), [AKS](http://azure.microsoft.com/en-us/products/kubernetes-service), [Kubeadm-based-clusters](https://kubernetes.io/docs/reference/setup-tools/kubeadm/), [Kind](https://kind.sigs.k8s.io/), [Minikube (1.25 or higher)](https://minikube.sigs.k8s.io/docs/))
+- A running 1.23 or higher **Kubernetes cluster** (such as: [EKS](https://aws.amazon.com/eks/), [AKS](http://azure.microsoft.com/en-us/products/kubernetes-service), [Kubeadm-based-clusters](https://kubernetes.io/docs/reference/setup-tools/kubeadm/), [Kind](https://kind.sigs.k8s.io/), [Minikube (1.25 or higher)](https://minikube.sigs.k8s.io/docs/))
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 - [Helm](https://helm.sh/docs/intro/install/)
 - [cert-manager](https://cert-manager.io/) - The RavenDB Operator uses admission webhooks, which require TLS certificates.
