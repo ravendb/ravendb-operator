@@ -2,8 +2,8 @@ apiVersion: v2
 name: ravendb-operator
 description: RavenDB Kubernetes Operator -- controller, CRDs, RBAC, and webhooks for managing RavenDBCluster resources.
 type: application
-version: 2.0.0
-appVersion: "2.0.0"
+version: 2.1.0
+appVersion: "2.1.0"
 kubeVersion: ">=1.23.0-0"
 home: https://ravendb.net
 icon: "https://raw.githubusercontent.com/ravendb/ravendb-operator/refs/heads/main/assets/logo.png"
@@ -40,7 +40,7 @@ annotations:
       description: Declarative spec for a multi-node RavenDB cluster (topology, TLS mode, external access, storage, env). The operator reconciles all underlying Kubernetes objects -- StatefulSets, Services, Ingresses, Jobs, PVCs -- from a single RavenDBCluster resource.
   artifacthub.io/images: |
     - name: ravendb-operator
-      image: ravendb/ravendb-operator:2.0.0
+      image: ravendb/ravendb-operator:2.1.0
   artifacthub.io/changes: |
     - kind: removed
       description: "BREAKING: provisioning flow (`--set-file provisioning.*`) -- license/cert/per-node Secrets are now owned by the ravendb-cluster chart. See the chart README migration guide before upgrading from 1.x."
