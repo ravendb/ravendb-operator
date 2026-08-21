@@ -53,7 +53,7 @@ function join_node_to_cluster() {
     tag=${tag^^}
 
     local curl_args=(
-        -s -S -o /dev/null -w "%{http_code}"
+        -s -S -w "\n%{http_code}"
         --cert "$CLIENT_CERT_PEM"
         --key "$CLIENT_KEY_PEM"
         "${CURL_CA_ARGS[@]}"
@@ -69,30 +69,59 @@ function join_node_to_cluster() {
     fi
 
     local response
+    local curl_rc
     local http_code
+    local failure
+    local retryable
     local attempt
     local max_attempts=15
 
     for ((attempt = 1; attempt <= max_attempts; attempt++)); do
-        response=$(curl "${curl_args[@]}" -w "\n%{http_code}")
-        http_code=$(echo "$response" | tail -n1)
-
-        if [[ "$http_code" =~ ^20[0-9]$ ]]; then
-            log "[$tag] added as $( [[ "$is_watcher" == "true" ]] && echo Watcher || echo Member )"
-            return
+        # curl reports transport errors through its exit code and HTTP errors
+        # through the status code, so both have to be inspected. Capture the
+        # exit code here so `set -e` cannot abort before the retry decision.
+        if response=$(curl "${curl_args[@]}"); then
+            curl_rc=0
+        else
+            curl_rc=$?
         fi
 
-        # RavenDB can briefly redirect admin requests after the bootstrap
-        # endpoint has returned but before the new leader is ready to accept
-        # membership changes. Following the redirect could turn a Studio page
-        # into a false success, so retry only this known transition.
-        if [[ "$http_code" != "307" || "$attempt" == "$max_attempts" ]]; then
-            log "Failed to add [$tag] to cluster. HTTP $http_code"
-            echo "$response" | head -n -1
+        retryable=false
+
+        if [[ "$curl_rc" -eq 0 ]]; then
+            http_code=$(echo "$response" | tail -n1)
+
+            if [[ "$http_code" =~ ^20[0-9]$ ]]; then
+                log "[$tag] added as $( [[ "$is_watcher" == "true" ]] && echo Watcher || echo Member )"
+                return
+            fi
+
+            failure="HTTP $http_code"
+            # RavenDB briefly answers 307 while the freshly elected leader is
+            # not accepting membership changes yet. Following the redirect
+            # could turn a Studio page into a false success, so retry instead.
+            if [[ "$http_code" == "307" ]]; then
+                retryable=true
+            fi
+        else
+            failure="curl exit $curl_rc"
+            # The same leader transition can drop the connection before any
+            # status code comes back. Retry those transport errors and keep
+            # failing fast on setup problems such as a rejected client cert.
+            case "$curl_rc" in
+                6 | 7 | 28 | 35 | 52 | 55 | 56) retryable=true ;;
+            esac
+        fi
+
+        if [[ "$retryable" != "true" || "$attempt" -eq "$max_attempts" ]]; then
+            log "Failed to add [$tag] to cluster. $failure"
+            if [[ "$curl_rc" -eq 0 ]]; then
+                echo "$response" | head -n -1
+            fi
             exit 1
         fi
 
-        log "[$tag] membership endpoint not ready (HTTP 307); retrying in 2s ($attempt/$max_attempts)"
+        log "[$tag] membership endpoint not ready ($failure); retrying in 2s ($attempt/$max_attempts)"
         sleep 2
     done
 }
