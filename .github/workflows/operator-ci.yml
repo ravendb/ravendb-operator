@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      GO_VERSION: "1.24.3"
-      GOTESTSUM_VERSION: "v1.12.0"
+      GOTESTSUM_VERSION: "v1.12.3"
       K8S_VER: "1.29.5"
+      ENVTEST_VERSION: "v0.0.0-20250308055145-5fe7bb3edc86"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -24,7 +24,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: go.mod
           cache: true
 
       - name: Cache gotestsum binary
@@ -32,14 +32,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/go/bin/gotestsum
-          key: ${{ runner.os }}-gotestsum-${{ env.GO_VERSION }}-${{ env.GOTESTSUM_VERSION }}
+          key: ${{ runner.os }}-gotestsum-${{ hashFiles('go.mod') }}-${{ env.GOTESTSUM_VERSION }}
 
       - name: Install gotestsum (if cache miss)
         if: steps.cache-gts.outputs.cache-hit != 'true'
         run: go install "gotest.tools/gotestsum@${GOTESTSUM_VERSION}"
       
       - name: Install setup-envtest tool
-        run: go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+        run: go install "sigs.k8s.io/controller-runtime/tools/setup-envtest@${ENVTEST_VERSION}"
 
       - name: Cache envtest assets
         id: cache-envtest
@@ -243,7 +243,6 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
     env:
-      GO_VERSION: "1.24.3"
       PROJECT_ROOT: ${{ github.workspace }}
       RAVEN_LICENSE: ${{ secrets.RAVEN_LICENSE }}
       ADMIN_PFX_B64: ${{ secrets.ADMIN_PFX_B64 }}
@@ -259,8 +258,6 @@ jobs:
 
       - name: Common E2E setup
         uses: ./.github/actions/common-setup
-        with:
-          go-version: ${{ env.GO_VERSION }}
 
       - name: Secrets setup
         uses: ./.github/actions/secrets-setup
@@ -296,7 +293,6 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
     env:
-      GO_VERSION: "1.24.3"
       PROJECT_ROOT: ${{ github.workspace }}
       RAVEN_LICENSE: ${{ secrets.RAVEN_LICENSE }}
       ADMIN_PFX_B64: ${{ secrets.ADMIN_PFX_B64 }}
@@ -312,8 +308,6 @@ jobs:
 
       - name: Common E2E setup
         uses: ./.github/actions/common-setup
-        with:
-          go-version: ${{ env.GO_VERSION }}
 
       - name: Secrets setup
         uses: ./.github/actions/secrets-setup
@@ -335,7 +329,6 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
     env:
-      GO_VERSION: "1.24.3"
       PROJECT_ROOT: ${{ github.workspace }}
       RAVEN_LICENSE: ${{ secrets.RAVEN_LICENSE }}
       ADMIN_PFX_B64: ${{ secrets.ADMIN_PFX_B64 }}
@@ -351,8 +344,6 @@ jobs:
 
       - name: Common E2E setup
         uses: ./.github/actions/common-setup
-        with:
-          go-version: ${{ env.GO_VERSION }}
 
       - name: Secrets setup
         uses: ./.github/actions/secrets-setup
@@ -384,7 +375,6 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
     env:
-      GO_VERSION: "1.24.3"
       PROJECT_ROOT: ${{ github.workspace }}
       RAVEN_LICENSE: ${{ secrets.RAVEN_LICENSE }}
       ADMIN_PFX_B64: ${{ secrets.ADMIN_PFX_B64 }}
@@ -400,8 +390,6 @@ jobs:
 
       - name: Common E2E setup
         uses: ./.github/actions/common-setup
-        with:
-          go-version: ${{ env.GO_VERSION }}
 
       - name: Secrets setup
         uses: ./.github/actions/secrets-setup
