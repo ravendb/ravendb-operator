@@ -3,7 +3,7 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 2.0.0
+VERSION ?= 2.1.0
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -123,6 +123,10 @@ test: manifests generate fmt vet envtest ## Run tests.
 .PHONY: verify-samples
 verify-samples: ## Strict-unmarshal config/samples/* against api/v1 (no envtest).
 	go test -count=1 ./test/samples/...
+
+.PHONY: verify-image-uid
+verify-image-uid: ## Check supported RavenDB images still run as pkg/common.RavenDBUID/GID (needs Docker). Pass IMAGES="a b" to override.
+	bash hack/verify-image-uid.sh $(IMAGES)
 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  # Run the e2e tests against a Kind k8s instance that is spun up.
@@ -246,7 +250,7 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.4.2
 CONTROLLER_TOOLS_VERSION ?= v0.18.0
-ENVTEST_VERSION ?= release-0.18
+ENVTEST_VERSION ?= v0.0.0-20250308055145-5fe7bb3edc86
 GOLANGCI_LINT_VERSION ?= v1.59.1
 
 .PHONY: kustomize

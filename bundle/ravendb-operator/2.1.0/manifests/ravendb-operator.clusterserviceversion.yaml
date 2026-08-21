@@ -107,13 +107,13 @@ metadata:
           }
         }
       ]
-    containerImage: docker.io/ravendb/ravendb-operator:2.0.0
+    containerImage: docker.io/ravendb/ravendb-operator:2.1.0
     capabilities: Basic Install
     categories: Database
-    createdAt: "2026-06-15T18:12:55Z"
+    createdAt: "2026-08-05T16:43:44Z"
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
-  name: ravendb-operator.v2.0.0
+  name: ravendb-operator.v2.1.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -446,7 +446,7 @@ spec:
                 - --health-probe-bind-address=:8081
                 command:
                 - /manager
-                image: docker.io/ravendb/ravendb-operator:2.0.0
+                image: docker.io/ravendb/ravendb-operator:2.1.0
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -552,7 +552,7 @@ spec:
   minKubeVersion: 1.27.0
   provider:
     name: ravendb-operator
-  version: 2.0.0
+  version: 2.1.0
   webhookdefinitions:
   - admissionReviewVersions:
     - v1

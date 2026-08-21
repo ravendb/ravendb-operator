@@ -78,25 +78,18 @@ func BuildStatefulSet(cluster *ravendbv1.RavenDBCluster, node ravendbv1.RavenDBN
 			Replicas:    &replicas,
 			Selector:    selector,
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
+				ObjectMeta: buildPodTemplateObjectMeta(labels),
 				Spec: corev1.PodSpec{
 					Containers:         containers,
 					Volumes:            volumes,
 					Affinity:           affinity,
 					ServiceAccountName: common.RavenDbNodeServiceAccount,
 
-					// alows us to bind lower ports like 443
-					// considered safe. see: https://kubernetes.io/docs/tasks/administer-cluster/sysctl-cluster/#safe-and-unsafe-sysctls
-					SecurityContext: &corev1.PodSecurityContext{
-						Sysctls: []corev1.Sysctl{
-							{
-								Name:  "net.ipv4.ip_unprivileged_port_start",
-								Value: "0",
-							},
-						},
-					},
+					// Treat port 443 as unprivileged so RavenDB needs no capability.
+					SecurityContext: buildPodSecurityContext(corev1.Sysctl{
+						Name:  "net.ipv4.ip_unprivileged_port_start",
+						Value: "0",
+					}),
 				},
 			},
 			VolumeClaimTemplates: volumeClaims,
