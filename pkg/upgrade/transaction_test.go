@@ -112,15 +112,29 @@ func TestRunKeepsMarkerAndAllStatusesWhenApplyFails(t *testing.T) {
 	t.Parallel()
 
 	const desiredImage = "image:v2"
+	// The marker is set but the image never landed, so the pre-gates run again
+	// on this tick. Let them pass, so the failure under test is the apply.
+	server := healthyGateServer(t)
+
 	cluster := transactionCluster(desiredImage, "A", "B")
+	for i := range cluster.Spec.Nodes {
+		cluster.Spec.Nodes[i].PublicServerUrl = server.URL
+	}
+	cluster.SetBootstrapped(metav1.Now())
 	kc := transactionClient(t,
 		transactionStatefulSet(cluster.Namespace, "A", "image:v1", desiredImage),
 		transactionStatefulSet(cluster.Namespace, "B", "image:v1", ""),
 	)
 
-	u := NewUpgrader(Timing{}).(*upgrader)
+	u := NewUpgrader(Timing{
+		PreMaxWait:      50 * time.Millisecond,
+		PostMaxWait:     time.Millisecond,
+		PingInterval:    time.Millisecond,
+		DBInterval:      time.Millisecond,
+		GraceAfterReady: time.Nanosecond,
+	}).(*upgrader)
 	u.buildGates = func(context.Context, client.Client, *ravendbv1.RavenDBCluster) (*HealthCheckContext, error) {
-		return &HealthCheckContext{}, nil
+		return NewChecks(server.Client(), cluster), nil
 	}
 
 	statuses, err := u.Run(context.Background(), cluster, kc, func(ravendbv1.RavenDBNode) error {
@@ -134,6 +148,57 @@ func TestRunKeepsMarkerAndAllStatusesWhenApplyFails(t *testing.T) {
 	require.Equal(t, ravendbv1.NodeStatusFailed, statuses[0].Status)
 	require.Equal(t, "B", statuses[1].Tag)
 	require.Equal(t, ravendbv1.NodeStatusCreated, statuses[1].Status)
+}
+
+func TestRunRerunsPreGatesWhenMarkerSetButImageNotApplied(t *testing.T) {
+	t.Parallel()
+
+	const desiredImage = "image:v2"
+	// Marker set, image never applied: the previous tick died before or during
+	// applyNode, so the mutation still lies ahead and the gates must guard it.
+	cluster := transactionCluster(desiredImage, "A")
+	kc := transactionClient(t, transactionStatefulSet(cluster.Namespace, "A", "image:v1", desiredImage))
+
+	u := NewUpgrader(Timing{}).(*upgrader)
+	u.buildGates = func(context.Context, client.Client, *ravendbv1.RavenDBCluster) (*HealthCheckContext, error) {
+		return &HealthCheckContext{}, nil
+	}
+
+	applies := 0
+	_, err := u.Run(context.Background(), cluster, kc, func(ravendbv1.RavenDBNode) error {
+		applies++
+		return nil
+	})
+
+	require.ErrorContains(t, err, "pre-node gates failed for A")
+	require.Zero(t, applies, "must not re-roll the node before the pre-gates pass")
+	require.Equal(t, desiredImage, rolloutMarker(t, kc, cluster.Namespace, "A"))
+}
+
+func TestRunSkipsPreGatesWhenImageAlreadyApplied(t *testing.T) {
+	t.Parallel()
+
+	const desiredImage = "image:v2"
+	// Marker set and the image already on the StatefulSet: the node is mid-roll,
+	// so re-running the pre-gates would protect nothing. Only the post-gates
+	// still have to pass.
+	cluster := transactionCluster(desiredImage, "A")
+	kc := transactionClient(t, transactionStatefulSet(cluster.Namespace, "A", desiredImage, desiredImage))
+
+	u := NewUpgrader(Timing{}).(*upgrader)
+	u.buildGates = func(context.Context, client.Client, *ravendbv1.RavenDBCluster) (*HealthCheckContext, error) {
+		return &HealthCheckContext{}, nil
+	}
+
+	applies := 0
+	_, err := u.Run(context.Background(), cluster, kc, func(ravendbv1.RavenDBNode) error {
+		applies++
+		return nil
+	})
+
+	require.ErrorContains(t, err, "post-node gates failed for A")
+	require.Equal(t, 1, applies, "pre-gates must not block a node that is already rolling")
+	require.Equal(t, desiredImage, rolloutMarker(t, kc, cluster.Namespace, "A"))
 }
 
 func TestMarkerPatchDoesNotReadThroughCache(t *testing.T) {
@@ -175,6 +240,24 @@ type failOnGetClient struct {
 func (c *failOnGetClient) Get(context.Context, client.ObjectKey, client.Object, ...client.GetOption) error {
 	c.gets++
 	return fmt.Errorf("unexpected cached read")
+}
+
+func healthyGateServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/setup/alive":
+			w.WriteHeader(http.StatusOK)
+		case "/admin/debug/node/ping":
+			_, _ = w.Write([]byte(`{"Result":[{"Url":"http://node-a","SetupAlive":{"Error":""},"TcpInfo":{"Error":""}}]}`))
+		case "/databases":
+			_, _ = w.Write([]byte(`{"Databases":[]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(server.Close)
+	return server
 }
 
 func transactionCluster(image string, tags ...string) *ravendbv1.RavenDBCluster {

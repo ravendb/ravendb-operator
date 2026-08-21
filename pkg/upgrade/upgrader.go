@@ -148,14 +148,14 @@ func (u *upgrader) Run(
 			gates, err = u.buildGates(ctx, kc, cluster)
 			if err != nil {
 				statuses = append(statuses, failedStatus(node.Tag, err.Error(), desiredImg))
-				return statuses, err
+				return finish(err)
 			}
 		}
 
-		if upgrading && !marked {
+		if upgrading && (!marked || currentImg != desiredImg) {
 			if err := u.preNode(ctx, cluster, gates, node.Tag); err != nil {
 				statuses = append(statuses, failedStatus(node.Tag, err.Error(), desiredImg))
-				return statuses, fmt.Errorf("pre-node gates failed for %s: %w", node.Tag, err)
+				return finish(fmt.Errorf("pre-node gates failed for %s: %w", node.Tag, err))
 			}
 
 			if err := u.setUpgradeAnnotation(ctx, kc, cluster, node.Tag, desiredImg); err != nil {
