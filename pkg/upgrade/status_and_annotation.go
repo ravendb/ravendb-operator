@@ -18,13 +18,16 @@ package upgrade
 
 import (
 	"context"
-	ravendbv1 "ravendb-operator/api/v1"
-	"ravendb-operator/pkg/common"
+	"encoding/json"
 	"strings"
 	"time"
 
+	ravendbv1 "ravendb-operator/api/v1"
+	"ravendb-operator/pkg/common"
+
 	appsv1 "k8s.io/api/apps/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -80,42 +83,34 @@ func statefulSetName(tag string) string {
 	return common.NodeResourceName(tag)
 }
 
-// toggles the per-node STS annotation so the actor switches the image
+// setUpgradeAnnotation toggles the durable per-node rollout marker with a
+// direct merge patch. It deliberately performs no cached read: both setting
+// the marker before apply and clearing it after a no-gate recovery rollout are
+// transaction boundaries, so neither may depend on cache convergence.
 func (u *upgrader) setUpgradeAnnotation(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster, tag, value string) error {
-	stsName := statefulSetName(tag)
-	var sts appsv1.StatefulSet
+	var annotationValue any = value
+	if value == "" {
+		annotationValue = nil
+	}
 
-	err := kc.Get(ctx, client.ObjectKey{Namespace: c.Namespace, Name: stsName}, &sts)
+	data, err := json.Marshal(map[string]any{
+		"metadata": map[string]any{
+			"annotations": map[string]any{
+				common.UpgradeImageAnnotation: annotationValue,
+			},
+		},
+	})
 	if err != nil {
-		if kerrors.IsNotFound(err) {
-			// nothing to do - sts is gone
-			return nil
-		}
 		return err
 	}
 
-	old := sts.DeepCopy()
-	if sts.Annotations == nil {
-		sts.Annotations = map[string]string{}
+	sts := &appsv1.StatefulSet{}
+	sts.Namespace = c.Namespace
+	sts.Name = statefulSetName(tag)
+	err = kc.Patch(ctx, sts, client.RawPatch(types.MergePatchType, data))
+	if kerrors.IsNotFound(err) {
+		// A missing StatefulSet is handled by node selection/creation.
+		return nil
 	}
-
-	if value == "" {
-		delete(sts.Annotations, common.UpgradeImageAnnotation)
-	} else {
-		sts.Annotations[common.UpgradeImageAnnotation] = value
-	}
-
-	return kc.Patch(ctx, &sts, client.MergeFrom(old))
-}
-
-func (u *upgrader) hasUpgradeAnnotation(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster, tag string) (bool, error) {
-	var sts appsv1.StatefulSet
-	if err := kc.Get(ctx, client.ObjectKey{Namespace: c.Namespace, Name: statefulSetName(tag)}, &sts); err != nil {
-		return false, err
-	}
-	if sts.Annotations == nil {
-		return false, nil
-	}
-	_, ok := sts.Annotations[common.UpgradeImageAnnotation]
-	return ok, nil
+	return err
 }

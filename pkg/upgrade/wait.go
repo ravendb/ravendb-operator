@@ -130,8 +130,15 @@ func (u *upgrader) wait(
 			return &GateError{Phase: phase, Kind: kind, Tag: tag, Info: msg}
 		}
 
-		// sleep a bit and try again
-		time.Sleep(sleep)
+		// Sleep interruptibly so deleting/restarting the operator does not
+		// leave a reconciliation blocked for the rest of a backoff interval.
+		timer := time.NewTimer(sleep)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			continue
+		case <-timer.C:
+		}
 		sleep = sleep * 2
 		if sleep > maxSleep {
 			sleep = maxSleep
