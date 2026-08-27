@@ -68,7 +68,10 @@ func TestRunKeepsMarkerUntilPostGatesRecover(t *testing.T) {
 	cluster := transactionCluster(desiredImage, "A")
 	cluster.Spec.Nodes[0].PublicServerUrl = server.URL
 	cluster.SetBootstrapped(metav1.Now())
-	kc := transactionClient(t, transactionStatefulSet(cluster.Namespace, "A", currentImage, ""))
+	kc := transactionClient(t,
+		transactionStatefulSet(cluster.Namespace, "A", currentImage, ""),
+		transactionPod(cluster.Namespace, "A", currentImage),
+	)
 
 	u := NewUpgrader(Timing{
 		PreMaxWait:      50 * time.Millisecond,
@@ -85,11 +88,8 @@ func TestRunKeepsMarkerUntilPostGatesRecover(t *testing.T) {
 	applies := 0
 	applyNode := func(node ravendbv1.RavenDBNode) error {
 		applies++
-		var sts appsv1.StatefulSet
-		key := client.ObjectKey{Namespace: cluster.Namespace, Name: common.NodeResourceName(node.Tag)}
-		require.NoError(t, kc.Get(context.Background(), key, &sts))
-		sts.Spec.Template.Spec.Containers[0].Image = desiredImage
-		require.NoError(t, kc.Update(context.Background(), &sts))
+		setStatefulSetImage(t, kc, cluster.Namespace, node.Tag, desiredImage)
+		setPodImage(t, kc, cluster.Namespace, node.Tag, desiredImage)
 		if sabotageAfterFirstApply {
 			sabotageAfterFirstApply = false
 			healthy.Store(false)
@@ -106,6 +106,62 @@ func TestRunKeepsMarkerUntilPostGatesRecover(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, rolloutMarker(t, kc, cluster.Namespace, "A"))
 	require.Equal(t, 2, applies)
+}
+
+func TestRunWaitsForReplacementPodBeforePostHTTPGates(t *testing.T) {
+	t.Parallel()
+
+	const (
+		currentImage = "image:v1"
+		desiredImage = "image:v2"
+	)
+
+	var applied atomic.Bool
+	var postApplyCalls atomic.Int32
+	var firstPostApplyPath atomic.Value
+	gateHandler := healthyGateHandler()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if applied.Load() {
+			postApplyCalls.Add(1)
+			firstPostApplyPath.CompareAndSwap(nil, r.URL.Path)
+		}
+		gateHandler(w, r)
+	}))
+	t.Cleanup(server.Close)
+
+	cluster := transactionCluster(desiredImage, "A")
+	cluster.Spec.Nodes[0].PublicServerUrl = server.URL
+	cluster.SetBootstrapped(metav1.Now())
+	kc := transactionClient(t,
+		transactionStatefulSet(cluster.Namespace, "A", currentImage, ""),
+		transactionPod(cluster.Namespace, "A", currentImage),
+	)
+
+	u := NewUpgrader(Timing{
+		PreMaxWait:      50 * time.Millisecond,
+		PostMaxWait:     2 * time.Millisecond,
+		PingInterval:    time.Millisecond,
+		DBInterval:      time.Millisecond,
+		GraceAfterReady: time.Nanosecond,
+	}).(*upgrader)
+	u.buildGates = func(context.Context, client.Client, *ravendbv1.RavenDBCluster) (*HealthCheckContext, error) {
+		return NewChecks(server.Client(), cluster), nil
+	}
+
+	// Roll the StatefulSet and leave the Pod on the old image, which is what
+	// Kubernetes reports until it gets round to replacing the Pod.
+	_, err := u.Run(context.Background(), cluster, kc, func(node ravendbv1.RavenDBNode) error {
+		setStatefulSetImage(t, kc, cluster.Namespace, node.Tag, desiredImage)
+		applied.Store(true)
+		return nil
+	})
+
+	firstPath, _ := firstPostApplyPath.Load().(string)
+	require.ErrorContains(t, err, "pod image gate failed for A")
+	require.ErrorContains(t, err, string(GatePodImageApplied))
+	require.Zero(t, postApplyCalls.Load(),
+		"post-step HTTP gates ran against the old process, first hit %q", firstPath)
+	require.Equal(t, desiredImage, rolloutMarker(t, kc, cluster.Namespace, "A"))
 }
 
 func TestRunKeepsMarkerAndAllStatusesWhenApplyFails(t *testing.T) {
@@ -179,13 +235,22 @@ func TestRunSkipsPreGatesWhenImageAlreadyApplied(t *testing.T) {
 	t.Parallel()
 
 	const desiredImage = "image:v2"
-	// Marker set and the image already on the StatefulSet: the node is mid-roll,
-	// so re-running the pre-gates would protect nothing. Only the post-gates
-	// still have to pass.
+	// Marker set and the image already on the StatefulSet and on the Pod: the
+	// node is rolled, so re-running the pre-gates would protect nothing. Only
+	// the post-gates still have to pass.
 	cluster := transactionCluster(desiredImage, "A")
-	kc := transactionClient(t, transactionStatefulSet(cluster.Namespace, "A", desiredImage, desiredImage))
+	kc := transactionClient(t,
+		transactionStatefulSet(cluster.Namespace, "A", desiredImage, desiredImage),
+		transactionPod(cluster.Namespace, "A", desiredImage),
+	)
 
-	u := NewUpgrader(Timing{}).(*upgrader)
+	u := NewUpgrader(Timing{
+		PreMaxWait:      50 * time.Millisecond,
+		PostMaxWait:     time.Millisecond,
+		PingInterval:    time.Millisecond,
+		DBInterval:      time.Millisecond,
+		GraceAfterReady: time.Nanosecond,
+	}).(*upgrader)
 	u.buildGates = func(context.Context, client.Client, *ravendbv1.RavenDBCluster) (*HealthCheckContext, error) {
 		return &HealthCheckContext{}, nil
 	}
@@ -242,9 +307,8 @@ func (c *failOnGetClient) Get(context.Context, client.ObjectKey, client.Object, 
 	return fmt.Errorf("unexpected cached read")
 }
 
-func healthyGateServer(t *testing.T) *httptest.Server {
-	t.Helper()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func healthyGateHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/setup/alive":
 			w.WriteHeader(http.StatusOK)
@@ -255,7 +319,12 @@ func healthyGateServer(t *testing.T) *httptest.Server {
 		default:
 			http.NotFound(w, r)
 		}
-	}))
+	}
+}
+
+func healthyGateServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(healthyGateHandler())
 	t.Cleanup(server.Close)
 	return server
 }
@@ -301,6 +370,39 @@ func transactionStatefulSet(namespace, tag, image, marker string) *appsv1.Statef
 			},
 		},
 	}
+}
+
+func transactionPod(namespace, tag, image string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.NodePodName(tag),
+			Namespace: namespace,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "ravendb", Image: image}},
+		},
+	}
+}
+
+// The fake client runs no StatefulSet controller, so tests roll the two objects
+// themselves: setStatefulSetImage is the operator's half, setPodImage is what
+// Kubernetes would do next.
+func setStatefulSetImage(t *testing.T, kc client.Client, namespace, tag, image string) {
+	t.Helper()
+	var sts appsv1.StatefulSet
+	key := client.ObjectKey{Namespace: namespace, Name: common.NodeResourceName(tag)}
+	require.NoError(t, kc.Get(context.Background(), key, &sts))
+	sts.Spec.Template.Spec.Containers[0].Image = image
+	require.NoError(t, kc.Update(context.Background(), &sts))
+}
+
+func setPodImage(t *testing.T, kc client.Client, namespace, tag, image string) {
+	t.Helper()
+	var pod corev1.Pod
+	key := client.ObjectKey{Namespace: namespace, Name: common.NodePodName(tag)}
+	require.NoError(t, kc.Get(context.Background(), key, &pod))
+	pod.Spec.Containers[0].Image = image
+	require.NoError(t, kc.Update(context.Background(), &pod))
 }
 
 func rolloutMarker(t *testing.T, kc client.Client, namespace, tag string) string {

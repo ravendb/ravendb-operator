@@ -22,3 +22,10 @@ import "strings"
 func NodeResourceName(tag string) string {
 	return Prefix + strings.ToLower(tag)
 }
+
+// NodePodName returns the name of the single Pod backing a node. Each node runs
+// its own StatefulSet at NumOfReplicas (1), and a StatefulSet names its Pods
+// "<set>-<ordinal>", so ordinal 0 is the entire node.
+func NodePodName(tag string) string {
+	return NodeResourceName(tag) + "-0"
+}

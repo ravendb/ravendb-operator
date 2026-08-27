@@ -171,12 +171,14 @@ func (u *upgrader) Run(
 		}
 
 		if upgrading {
+			// The old process keeps answering the HTTP gates until Kubernetes
+			// swaps the Pod, so those gates have to wait for the swap.
+			if err := u.waitPodImageApplied(ctx, kc, cluster, node.Tag, desiredImg); err != nil {
+				statuses = append(statuses, failedStatus(node.Tag, err.Error(), desiredImg))
+				return finish(fmt.Errorf("pod image gate failed for %s: %w", node.Tag, err))
+			}
 			if err := u.postNode(ctx, cluster, gates, node.Tag); err != nil {
-				statuses = append(statuses, failedStatus(
-					node.Tag,
-					err.Error(),
-					desiredImg,
-				))
+				statuses = append(statuses, failedStatus(node.Tag, err.Error(), desiredImg))
 				return finish(fmt.Errorf("post-node gates failed for %s: %w", node.Tag, err))
 			}
 
@@ -277,10 +279,15 @@ func desiredNodeImage(c *ravendbv1.RavenDBCluster) string {
 }
 
 func currentStsImage(sts *appsv1.StatefulSet) string {
-	if len(sts.Spec.Template.Spec.Containers) == 0 {
+	return firstContainerImage(sts.Spec.Template.Spec.Containers)
+}
+
+// A RavenDB node runs a single container, so container 0 carries the node image.
+func firstContainerImage(containers []corev1.Container) string {
+	if len(containers) == 0 {
 		return ""
 	}
-	return sts.Spec.Template.Spec.Containers[0].Image
+	return containers[0].Image
 }
 
 func podTemplateRevision(sts *appsv1.StatefulSet) string {

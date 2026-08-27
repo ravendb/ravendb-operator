@@ -23,6 +23,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Timing struct {
@@ -39,6 +40,17 @@ func timestampNow() metav1.Time        { return metav1.Now() }
 func (u *upgrader) waitNodeAlive(ctx context.Context, c *ravendbv1.RavenDBCluster, hcc *HealthCheckContext, phase GatePhase, tag string) error {
 	return u.wait(ctx, c, phase, GateNodeAlive, tag, u.timing.PingInterval, func() (bool, string, error) {
 		return hcc.NodeAlive(ctx, tag)
+	})
+}
+
+func (u *upgrader) waitPodImageApplied(
+	ctx context.Context,
+	kc client.Client,
+	c *ravendbv1.RavenDBCluster,
+	tag, desiredImage string,
+) error {
+	return u.wait(ctx, c, GatePostStep, GatePodImageApplied, tag, u.timing.PingInterval, func() (bool, string, error) {
+		return podImageApplied(ctx, kc, c, tag, desiredImage)
 	})
 }
 
