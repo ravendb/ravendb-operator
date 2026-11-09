@@ -153,6 +153,19 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "RavenDBCluster")
 		os.Exit(1)
 	}
+	if err = (&controller.RavenDBDatabaseReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RavenDBDatabase")
+		os.Exit(1)
+	}
+	if err = (&controller.RavenDBClientCertificateReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RavenDBClientCertificate")
+		os.Exit(1)
+	}
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
 		if err = (&ravendbv1.RavenDBCluster{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "RavenDBCluster")

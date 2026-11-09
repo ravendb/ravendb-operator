@@ -1,0 +1,24 @@
+{{- range .Values.clientCertificates }}
+---
+apiVersion: ravendb.ravendb.io/v1
+kind: RavenDBClientCertificate
+metadata:
+  name: {{ required "clientCertificates[].name is required" .name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ravendb-cluster.labels" $ | nindent 4 }}
+spec:
+  clusterRef:
+    name: {{ include "ravendb-cluster.fullname" $ }}
+  secretName: {{ .secretName | default .name }}
+  {{- with .clearance }}
+  clearance: {{ . }}
+  {{- end }}
+  {{- with .permissions }}
+  permissions:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .validity }}
+  validity: {{ . | quote }}
+  {{- end }}
+{{- end }}

@@ -44,6 +44,8 @@ type ClusterChartCase struct {
 	Provision        bool
 	ProvisionMixed   bool
 	InstallTimeout   time.Duration
+	// Values are extra `helm --set` assignments on top of the cluster spec every case shares.
+	Values []string
 }
 
 func InstallClusterChart(t *testing.T, tc ClusterChartCase) (ctrlclient.Client, ctrlclient.ObjectKey) {
@@ -59,14 +61,19 @@ func InstallClusterChart(t *testing.T, tc ClusterChartCase) (ctrlclient.Client, 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	values := make([]string, 0, 2*len(tc.Values))
+	for _, v := range tc.Values {
+		values = append(values, "--set", v)
+	}
+
 	var err error
 	switch {
 	case tc.ProvisionMixed:
-		err = helmInstallClusterChartMixed(ctx, release, tc.Namespace, tc.IngressClassName, timeout)
+		err = helmInstallClusterChartMixed(ctx, release, tc.Namespace, tc.IngressClassName, timeout, values)
 	case tc.Provision:
-		err = helmInstallClusterChartProvision(ctx, release, tc.Namespace, tc.IngressClassName, timeout)
+		err = helmInstallClusterChartProvision(ctx, release, tc.Namespace, tc.IngressClassName, timeout, values)
 	default:
-		err = helmInstallClusterChartBYO(ctx, release, tc.Namespace, tc.IngressClassName, timeout)
+		err = helmInstallClusterChartBYO(ctx, release, tc.Namespace, tc.IngressClassName, timeout, values)
 	}
 	require.NoError(t, err)
 
@@ -75,7 +82,9 @@ func InstallClusterChart(t *testing.T, tc ClusterChartCase) (ctrlclient.Client, 
 	return cli, k
 }
 
-func helmInstallClusterChartProvision(ctx context.Context, release, ns, ingressClassName string, timeout time.Duration) error {
+func helmInstallClusterChartProvision(
+	ctx context.Context, release, ns, ingressClassName string, timeout time.Duration, values []string,
+) error {
 	licensePath := os.Getenv(EnvLicensePath)
 	clientPFXPath := os.Getenv(EnvClientPFXPath)
 	nodeAPath := os.Getenv(EnvNodeAPFXPath)
@@ -116,6 +125,7 @@ func helmInstallClusterChartProvision(ctx context.Context, release, ns, ingressC
 		"--set-file", "secrets.nodeCerts.files.c=" + nodeCPath,
 	}
 	args = append(args, commonClusterChartArgs(ingressClassName)...)
+	args = append(args, values...)
 
 	if err := RunHelm(ctx, args...); err != nil {
 		return fmt.Errorf("helm install cluster chart (provision): %w", err)
@@ -123,7 +133,9 @@ func helmInstallClusterChartProvision(ctx context.Context, release, ns, ingressC
 	return nil
 }
 
-func helmInstallClusterChartMixed(ctx context.Context, release, ns, ingressClassName string, timeout time.Duration) error {
+func helmInstallClusterChartMixed(
+	ctx context.Context, release, ns, ingressClassName string, timeout time.Duration, values []string,
+) error {
 	licensePath := os.Getenv(EnvLicensePath)
 	clientPFXPath := os.Getenv(EnvClientPFXPath)
 
@@ -149,6 +161,7 @@ func helmInstallClusterChartMixed(ctx context.Context, release, ns, ingressClass
 		"--set-file", "secrets.clientCert.file=" + clientPFXPath,
 	}
 	args = append(args, commonClusterChartArgs(ingressClassName)...)
+	args = append(args, values...)
 
 	if err := RunHelm(ctx, args...); err != nil {
 		return fmt.Errorf("helm install cluster chart (mixed): %w", err)
@@ -156,7 +169,9 @@ func helmInstallClusterChartMixed(ctx context.Context, release, ns, ingressClass
 	return nil
 }
 
-func helmInstallClusterChartBYO(ctx context.Context, release, ns, ingressClassName string, timeout time.Duration) error {
+func helmInstallClusterChartBYO(
+	ctx context.Context, release, ns, ingressClassName string, timeout time.Duration, values []string,
+) error {
 	args := []string{
 		"upgrade", "--install", release, ClusterChartPath(),
 		"-n", ns,
@@ -164,6 +179,7 @@ func helmInstallClusterChartBYO(ctx context.Context, release, ns, ingressClassNa
 		"--timeout", timeout.String(),
 	}
 	args = append(args, commonClusterChartArgs(ingressClassName)...)
+	args = append(args, values...)
 
 	if err := RunHelm(ctx, args...); err != nil {
 		return fmt.Errorf("helm install cluster chart (BYO): %w", err)

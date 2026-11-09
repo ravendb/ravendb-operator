@@ -1,14 +1,16 @@
 # RavenDB Operator — Claude context
 
-Go controller (kubebuilder, `go.kubebuilder.io/v4`) that reconciles `RavenDBCluster` CRs into running RavenDB clusters. Shipped as both an OLM bundle and a Helm chart.
+Go controller (kubebuilder, `go.kubebuilder.io/v4`) that reconciles `RavenDBCluster` CRs into running RavenDB clusters, plus `RavenDBDatabase` and `RavenDBClientCertificate` CRs into databases and application certificates inside them. Shipped as both an OLM bundle and a Helm chart.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
-| `api/v1/` | `RavenDBCluster` CRD types + admission webhook glue. Field-level `+operator-sdk:csv:customresourcedefinitions:` markers drive CSV descriptors. |
+| `api/v1/` | CRD types (`RavenDBCluster`, `RavenDBDatabase`, `RavenDBClientCertificate`) + admission webhook glue. Field-level `+operator-sdk:csv:customresourcedefinitions:` markers drive CSV descriptors. |
 | `cmd/main.go` | Manager entrypoint |
-| `internal/controller/` | Reconciliation loop |
+| `internal/controller/` | Reconcilers. `cluster_resources.go` holds what the database and client-certificate controllers share (kstatus conditions, finalizer, cluster lookup). |
+| `pkg/ravendb/` | RavenDB admin REST client authenticated with the cluster's admin certificate (also used by `pkg/upgrade`) |
+| `pkg/clientcert/` | Issues self-signed application client certificates as passwordless PFX |
 | `pkg/actor/` | Actor-style sub-reconcilers (RBAC, secrets, certs) |
 | `pkg/director/` | Coordinates actors |
 | `pkg/resource/` | Builders for k8s resources (StatefulSet, Service, RBAC, …) |
@@ -50,6 +52,9 @@ Never run `docker/release.sh`, `make docker-push-*`, `make bundle-push`, `make c
 
 - Webhook validators live in `pkg/webhook/validator/`. The adapter in `pkg/webhook/adapter/` wires them to controller-runtime. New validators go through the adapter, not directly on CRD types.
 - One `RavenDBCluster` per namespace. Enforced in `pkg/webhook/validator/namespace_validator.go`.
+- `RavenDBDatabase` / `RavenDBClientCertificate` reference a cluster in their own namespace only. Their status follows kstatus (`observedGeneration` defaults to 0 in the CRD, plus `Ready`, `Reconciling`, `Stalled`) so `helm --wait` works; keep that contract when adding fields. Immutable fields use CEL `self == oldSelf`, not the webhook.
+- A client certificate's Secret is the source of truth for the current certificate. Registrations in RavenDB are named `<namespace>/<name>`; every one that is neither the current certificate nor the one it renewed (`ravendb.ravendb.io/previous-thumbprint` on the Secret) gets revoked. The Secret is read through the API reader, not the cache, and only ever created, never adopted.
+- Several `RavenDBDatabase` resources may declare the same database (case-insensitive name); `deletionPolicy: Delete` drops it only when no other resource still declares it. Cleanup on deletion is skipped only when the referenced cluster no longer exists.
 - Secret lookups are namespace-scoped — never fall back to the operator's namespace.
 - Helm chart and `config/` are maintained in parallel. RBAC/env/volume changes must land in both.
 - Pod/container security contexts are built in `pkg/resource/security.go` and shared by the StatefulSet and bootstrapper Job. The RavenDB runtime uid/gid is a single constant (`pkg/common.RavenDBUID`/`RavenDBGID` = 999, mirroring the image's `USER`); never re-hardcode `999`. Pods target PodSecurity `restricted`. `hack/verify-image-uid.sh` (CI: `image-uid-guard.yml`) guards the constant against image drift.

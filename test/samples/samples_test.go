@@ -17,7 +17,7 @@ import (
 func TestConfigSamplesValid(t *testing.T) {
 	_, thisFile, _, _ := runtime.Caller(0)
 	repoRoot := filepath.Join(filepath.Dir(thisFile), "..", "..")
-	pattern := filepath.Join(repoRoot, "config/samples/ravendb_v1_ravendbcluster*.yaml")
+	pattern := filepath.Join(repoRoot, "config/samples/ravendb_v1_*.yaml")
 
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
@@ -32,8 +32,19 @@ func TestConfigSamplesValid(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			var c v1.RavenDBCluster
-			if err := yaml.UnmarshalStrict(data, &c); err != nil {
+			var typeMeta struct{ Kind string }
+			if err := yaml.Unmarshal(data, &typeMeta); err != nil {
+				t.Fatal(err)
+			}
+			target, ok := map[string]any{
+				"RavenDBCluster":           &v1.RavenDBCluster{},
+				"RavenDBDatabase":          &v1.RavenDBDatabase{},
+				"RavenDBClientCertificate": &v1.RavenDBClientCertificate{},
+			}[typeMeta.Kind]
+			if !ok {
+				t.Fatalf("sample has unknown kind %q", typeMeta.Kind)
+			}
+			if err := yaml.UnmarshalStrict(data, target); err != nil {
 				t.Errorf("strict unmarshal failed: %v", err)
 			}
 		})

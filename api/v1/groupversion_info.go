@@ -36,5 +36,9 @@ var (
 )
 
 func init() {
-	SchemeBuilder.Register(&RavenDBCluster{}, &RavenDBClusterList{})
+	SchemeBuilder.Register(
+		&RavenDBCluster{}, &RavenDBClusterList{},
+		&RavenDBDatabase{}, &RavenDBDatabaseList{},
+		&RavenDBClientCertificate{}, &RavenDBClientCertificateList{},
+	)
 }

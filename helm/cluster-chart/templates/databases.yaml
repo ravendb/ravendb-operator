@@ -1,0 +1,20 @@
+{{- range .Values.databases }}
+---
+apiVersion: ravendb.ravendb.io/v1
+kind: RavenDBDatabase
+metadata:
+  name: {{ required "databases[].name is required" .name | lower | replace "_" "-" }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "ravendb-cluster.labels" $ | nindent 4 }}
+spec:
+  clusterRef:
+    name: {{ include "ravendb-cluster.fullname" $ }}
+  databaseName: {{ .name | quote }}
+  {{- with .replicationFactor }}
+  replicationFactor: {{ . }}
+  {{- end }}
+  {{- with .deletionPolicy }}
+  deletionPolicy: {{ . }}
+  {{- end }}
+{{- end }}

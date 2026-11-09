@@ -1,0 +1,13 @@
+apiVersion: ravendb.ravendb.io/v1
+kind: RavenDBDatabase
+metadata:
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+  name: orders
+  namespace: ravendb
+spec:
+  clusterRef:
+    name: ravendbcluster-sample
+  databaseName: Orders
+  replicationFactor: 3
+  deletionPolicy: Retain

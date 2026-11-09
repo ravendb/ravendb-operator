@@ -1,0 +1,15 @@
+apiVersion: ravendb.ravendb.io/v1
+kind: RavenDBClientCertificate
+metadata:
+  labels:
+    app.kubernetes.io/name: ravendb-operator
+  name: orders-api
+  namespace: ravendb
+spec:
+  clusterRef:
+    name: ravendbcluster-sample
+  secretName: orders-api-cert
+  clearance: ValidUser
+  permissions:
+    Orders: ReadWrite
+  validity: 8760h
