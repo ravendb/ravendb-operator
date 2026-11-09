@@ -11,6 +11,7 @@ It is the workload-facing companion to the [RavenDB Operator chart](../chart/REA
 - Deploys resources into the release namespace (the namespace must already exist, or be created at install time with `helm install --create-namespace`).
 - Provisions cert and license Secrets from `--set-file` inputs (or references pre-existing Secrets when no file is provided).
 - Renders a `RavenDBCluster` CR from `values.yaml` (values mirror `RavenDBClusterSpec` 1:1).
+- Renders one `RavenDBDatabase` per `databases[]` entry and one `RavenDBClientCertificate` per `clientCertificates[]` entry, so applications get their databases and least-privilege certificates from the same release. See [Databases and application certificates](#databases-and-application-certificates).
 - When `externalAccessConfiguration.type == ingress-controller` and `ingressClassName == traefik`, renders one `IngressRouteTCP` per node for HTTPS (port 443) and TCP (port 38888), with TLS passthrough. Hostnames are extracted from `publicServerUrl` and `publicServerUrlTcp`. Both routes target the per-node Service `ravendb-<tag>` (created by the operator). Traefik entrypoint names are configurable via `traefik.entryPoints.https` and `traefik.entryPoints.tcp`; annotations for all generated routes are configurable via `traefik.annotations`.
 
 ## What this chart does NOT do
@@ -92,11 +93,48 @@ Pass `--create-namespace` if the namespace doesn't already exist. Installing int
 | `nameOverride` | Override the `RavenDBCluster` resource name. Defaults to the Helm release name. |
 | `secrets.*` | Secret slot definitions (name + optional file). See [Secrets — hybrid provisioning model](#secrets--hybrid-provisioning-model). |
 | `spec.*` | Mirrors `RavenDBClusterSpec` 1:1. Required fields fail at template time if missing. |
+| `databases[]` | Databases the operator creates in the cluster. See [Databases and application certificates](#databases-and-application-certificates). |
+| `clientCertificates[]` | Client certificates the operator issues for applications. See [Databases and application certificates](#databases-and-application-certificates). |
 | `traefik.entryPoints.https` | Traefik entrypoint name for HTTPS routes. Default: `websecure`. |
 | `traefik.entryPoints.tcp` | Traefik entrypoint name for TCP routes. Default: `tcp`. |
 | `traefik.annotations` | Annotations applied to all generated Traefik `IngressRouteTCP` resources. Default: `{}`. |
 
 See [`values.yaml`](values.yaml) for the full shape and inline documentation, including all `spec.*` fields (nodes, mode, domain, external access types, storage, env, additional volumes, …).
+
+## Databases and application certificates
+
+Applications declare the databases they need and the certificate they connect with; the operator does the rest with the admin certificate, which stays in the operator.
+
+```yaml
+databases:
+  - name: Orders
+    replicationFactor: 3
+  - name: Catalog
+    deletionPolicy: Delete   # default Retain keeps the database when the entry is removed
+
+clientCertificates:
+  - name: orders-api           # Secret orders-api holds client.pfx (+ ca.crt in mode None)
+    permissions:
+      Orders: ReadWrite
+  - name: catalog-api
+    secretName: catalog-api-cert
+    permissions:
+      Catalog: ReadWrite
+      Orders: Read
+```
+
+- The operator creates each database once the cluster has bootstrapped. `replicationFactor` is fixed once the database exists. With `deletionPolicy: Delete`, removing the entry drops the database even if it existed before the chart, unless another `RavenDBDatabase` still declares it.
+- For each certificate it generates the key itself, registers only the public certificate in RavenDB with the given clearance (default `ValidUser`) and permissions, and writes `client.pfx` (no password) to the Secret. The Secret is owned by the resource and deleted with it.
+- Changing `permissions` updates the registered certificate in place; applications keep their certificate.
+- `Read` access needs a RavenDB license that includes read-only certificates. Without it RavenDB refuses the registration and the resource reports `Stalled` with RavenDB's message.
+- A deleted Secret gets a new certificate and the old one is revoked. Removing an entry revokes its certificates.
+- Certificates are renewed after two thirds of `validity` (default `8760h`). Applications read the certificate when they start, and the old one stays trusted for a third of `validity` after a renewal: restart them within that window, or let [Reloader](https://github.com/stakater/Reloader) do it. See [Picking up a new certificate](../../README.md#picking-up-a-new-certificate) for an example.
+
+Both kinds report a `Ready` condition plus the kstatus `Reconciling`/`Stalled` conditions, so `helm install --wait` (Helm 4) waits until the databases exist and the certificates are issued:
+
+```bash
+kubectl get ravendbdatabases,ravendbclientcertificates -n <release-namespace>
+```
 
 ## Verifying the cluster
 
@@ -136,6 +174,8 @@ helm uninstall <release-name> -n <release-namespace>
 This removes the `RavenDBCluster` CR, the Secrets the chart created (provisioning mode), and any Traefik `IngressRouteTCP`s rendered by the chart. The operator then deletes the underlying StatefulSets, Services, and Jobs as the CR is finalized. Persistent volumes follow your `PersistentVolumeClaim` reclaim policy (the chart does not force-delete them).
 
 If you used **BYO mode** (Secrets created with `kubectl`, referenced by name), those Secrets are not owned by the chart and will not be removed -- delete them manually if you no longer need them.
+
+Certificates and databases are cleaned up in RavenDB only while the cluster runs, and uninstalling removes the cluster together with them. To revoke the `clientCertificates` or drop the `Delete` databases, remove those entries with `helm upgrade` before uninstalling.
 
 ## Limitations and known constraints
 

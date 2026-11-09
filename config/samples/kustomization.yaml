@@ -2,4 +2,6 @@
 resources:
 - ravendb_v1_ravendbcluster_letsencrypt.yaml
 - ravendb_v1_ravendbcluster_selfsigned.yaml
+- ravendb_v1_ravendbdatabase.yaml
+- ravendb_v1_ravendbclientcertificate.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

@@ -30,6 +30,7 @@ import (
 
 	ravendbv1 "ravendb-operator/api/v1"
 	"ravendb-operator/pkg/common"
+	"ravendb-operator/pkg/ravendb"
 )
 
 type Upgrader interface {
@@ -83,7 +84,7 @@ func NewUpgrader(t Timing) Upgrader {
 }
 
 func buildGatesDefault(ctx context.Context, kc client.Client, c *ravendbv1.RavenDBCluster) (*HealthCheckContext, error) {
-	httpc, err := BuildHTTPSClientFromCluster(ctx, kc, c)
+	httpc, err := ravendb.NewHTTPClient(ctx, kc, c)
 	if err != nil {
 		return nil, err
 	}

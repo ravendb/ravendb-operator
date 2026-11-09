@@ -166,3 +166,42 @@ spec:
     #     volumeSource:
     #       configMap:
     #         name: my-configmap
+
+# ------------------------------------------------------------------------------
+# Databases - one RavenDBDatabase per entry. The operator creates each database
+# in this cluster once the cluster has bootstrapped.
+#
+#   name:              RavenDB database name. The resource is named after it,
+#                      lowercased.
+#   replicationFactor: number of nodes holding the database (default 1). Fixed
+#                      once the database exists.
+#   deletionPolicy:    Retain (default) keeps the database when the entry is
+#                      removed; Delete drops it together with its data.
+# ------------------------------------------------------------------------------
+databases: []
+# - name: Orders
+#   replicationFactor: 3
+# - name: Catalog
+#   deletionPolicy: Delete
+
+# ------------------------------------------------------------------------------
+# Client certificates - one RavenDBClientCertificate per application. The
+# operator issues each certificate, registers it in RavenDB, and writes
+# client.pfx (no password) to the Secret, plus ca.crt when mode=None.
+# Applications never need the admin certificate.
+#
+#   name:        resource name.
+#   secretName:  Secret for the application to mount (default: name).
+#   clearance:   ValidUser (default) | Operator | ClusterAdmin.
+#   permissions: database name -> Read | ReadWrite | Admin (ValidUser only).
+#   validity:    certificate lifetime (default 8760h). Renewed after two thirds.
+# ------------------------------------------------------------------------------
+clientCertificates: []
+# - name: orders-api
+#   permissions:
+#     Orders: ReadWrite
+# - name: catalog-api
+#   secretName: catalog-api-cert
+#   permissions:
+#     Catalog: ReadWrite
+#     Orders: Read
