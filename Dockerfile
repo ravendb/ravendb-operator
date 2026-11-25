@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM golang:1.25@sha256:9006890ecba0a168034d99516084099ae3114d9f2b7d6572c77f2dde57ebc980 AS builder
+FROM golang:1.27@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf AS builder
 ENV CGO_ENABLED=0 \
     GOTOOLCHAIN=auto
 ARG TARGETOS
