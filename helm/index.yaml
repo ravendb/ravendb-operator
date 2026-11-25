@@ -17,11 +17,11 @@ entries:
       artifacthub.io/recommendations: |
         - url: https://artifacthub.io/packages/helm/ravendb-operator/ravendb-operator
     apiVersion: v2
-    created: "2026-08-05T16:43:44.597826456Z"
+    created: "2026-11-25T10:54:06.652110446Z"
     description: Deploys a RavenDB cluster (RavenDBCluster CR + license/cert Secrets)
       managed by the RavenDB Kubernetes Operator. Workload-side companion to the ravendb-operator
       chart.
-    digest: 2d3f32c6f2cc0b91c7f5d413c77cc453150c4c38f2d7e23a41cbdbf952354bfa
+    digest: d07c96a1a6da102562d0e0ca904fc66d16274bbde59c1539ef793c65df5fafd6
     home: https://ravendb.net
     icon: https://s3.us-west-2.amazonaws.com/static.ravendb.net/ravendb-mp-black.png
     keywords:
@@ -57,7 +57,7 @@ entries:
       artifacthub.io/recommendations: |
         - url: https://artifacthub.io/packages/helm/ravendb-operator/ravendb-operator
     apiVersion: v2
-    created: "2026-08-05T16:43:44.59727591Z"
+    created: "2026-11-25T10:54:06.651720941Z"
     description: Deploys a RavenDB cluster (RavenDBCluster CR + license/cert Secrets)
       managed by the RavenDB Kubernetes Operator. Workload-side companion to the ravendb-operator
       chart.
@@ -97,6 +97,59 @@ entries:
           description: Declarative spec for a multi-node RavenDB cluster (topology, TLS mode, external access, storage, env). The operator reconciles all underlying Kubernetes objects -- StatefulSets, Services, Ingresses, Jobs, PVCs -- from a single RavenDBCluster resource.
       artifacthub.io/images: |
         - name: ravendb-operator
+          image: ravendb/ravendb-operator:2.1.1
+      artifacthub.io/links: |
+        - name: Documentation
+          url: https://ravendb.net/docs
+        - name: Source
+          url: https://github.com/ravendb/ravendb-operator
+        - name: RavenDB Cluster chart
+          url: https://artifacthub.io/packages/helm/ravendb-operator/ravendb-cluster
+      artifacthub.io/operator: "true"
+      artifacthub.io/operatorCapabilities: Seamless Upgrades
+      artifacthub.io/recommendations: |
+        - url: https://artifacthub.io/packages/helm/ravendb-operator/ravendb-cluster
+    apiVersion: v2
+    appVersion: 2.1.1
+    created: "2026-11-25T10:54:06.653953368Z"
+    description: RavenDB Kubernetes Operator -- controller, CRDs, RBAC, and webhooks
+      for managing RavenDBCluster resources.
+    digest: f0fb7b3203796f2d314f1ed5efa90958b3b580abd5d9d7226ed1f9f66924fc74
+    home: https://ravendb.net
+    icon: https://raw.githubusercontent.com/ravendb/ravendb-operator/refs/heads/main/assets/logo.png
+    keywords:
+    - ravendb
+    - database
+    - nosql
+    - document-database
+    - operator
+    - kubernetes
+    kubeVersion: '>=1.23.0-0'
+    maintainers:
+    - name: ravendb
+      url: https://ravendb.net
+    name: ravendb-operator
+    sources:
+    - https://github.com/ravendb/ravendb-operator
+    type: application
+    urls:
+    - https://ravendb.github.io/ravendb-operator/helm/ravendb-operator-2.1.1.tgz
+    version: 2.1.1
+  - annotations:
+      artifacthub.io/category: database
+      artifacthub.io/changes: |
+        - kind: removed
+          description: "BREAKING: provisioning flow (`--set-file provisioning.*`) -- license/cert/per-node Secrets are now owned by the ravendb-cluster chart. See the chart README migration guide before upgrading from 1.x."
+        - kind: changed
+          description: "Chart scope tightened to operator infrastructure only (controller, CRDs, RBAC, webhooks). Workload resources moved to the ravendb-cluster chart."
+      artifacthub.io/crds: |
+        - kind: RavenDBCluster
+          version: v1
+          name: ravendbclusters.ravendb.ravendb.io
+          displayName: RavenDB Cluster
+          description: Declarative spec for a multi-node RavenDB cluster (topology, TLS mode, external access, storage, env). The operator reconciles all underlying Kubernetes objects -- StatefulSets, Services, Ingresses, Jobs, PVCs -- from a single RavenDBCluster resource.
+      artifacthub.io/images: |
+        - name: ravendb-operator
           image: ravendb/ravendb-operator:2.1.0
       artifacthub.io/links: |
         - name: Documentation
@@ -111,7 +164,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/ravendb-operator/ravendb-cluster
     apiVersion: v2
     appVersion: 2.1.0
-    created: "2026-08-05T16:43:44.600941039Z"
+    created: "2026-11-25T10:54:06.653595966Z"
     description: RavenDB Kubernetes Operator -- controller, CRDs, RBAC, and webhooks
       for managing RavenDBCluster resources.
     digest: ab9414ce105d242a4f39a963078d2663e58bbce7cf8b7427e055c86096d755b2
@@ -164,7 +217,7 @@ entries:
         - url: https://artifacthub.io/packages/helm/ravendb-operator/ravendb-cluster
     apiVersion: v2
     appVersion: 2.0.0
-    created: "2026-08-05T16:43:44.600457127Z"
+    created: "2026-11-25T10:54:06.653238748Z"
     description: RavenDB Kubernetes Operator -- controller, CRDs, RBAC, and webhooks
       for managing RavenDBCluster resources.
     digest: af10f3378533539f5f1a3a4275e3743a0f215ed7beed9a06c2dbcc0f7892bebe
@@ -190,7 +243,7 @@ entries:
     version: 2.0.0
   - apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-08-05T16:43:44.599892996Z"
+    created: "2026-11-25T10:54:06.652862575Z"
     description: RavenDB Kubernetes Operator
     digest: 9ea6f82a5235d758947321d90725ce43a187910146eee5c99391ed8c46532aeb
     icon: https://raw.githubusercontent.com/ravendb/ravendb-operator/refs/heads/main/assets/logo.png
@@ -204,7 +257,7 @@ entries:
     version: 1.1.0
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-08-05T16:43:44.598790822Z"
+    created: "2026-11-25T10:54:06.65248821Z"
     description: RavenDB Kubernetes Operator
     digest: 3a12259c659bc5db7514fcfea7abb821a6a8faf9747c73ca4be7d04732fce58d
     icon: https://s3.us-west-2.amazonaws.com/static.ravendb.net/ravendb-mp-black.png
@@ -216,4 +269,4 @@ entries:
     urls:
     - https://ravendb.github.io/ravendb-operator/helm/ravendb-operator-1.0.0.tgz
     version: 1.0.0
-generated: "2026-08-05T16:43:44.596628043Z"
+generated: "2026-11-25T10:54:06.651136153Z"
